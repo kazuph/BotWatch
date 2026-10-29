@@ -128,6 +128,7 @@ bool say(const char *caption) {
         }
     }
     int seq = 0, underruns = 0, first_samples = 0;
+    tts_level::Loudness loudness(SAAN_SR);
     while (status == SAAN_OK) {
         int32_t n = 0;
         const float *pcm = nullptr;
@@ -140,7 +141,7 @@ bool say(const char *caption) {
         for (int i = 0; i < n; ++i) {
             raw_energy+=double(pcm[i])*pcm[i];
             raw_absolute_peak=std::max(raw_absolute_peak,std::abs(pcm[i]));
-            const float scaled=pcm[i]*gain,limited=tts_level::limit(scaled);
+            const float scaled=pcm[i]*gain,limited=loudness.process(scaled);
             limited_samples+=limited!=scaled;
             chunk[i]=saan_f32_to_i16(limited);
         }
