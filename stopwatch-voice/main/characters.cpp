@@ -40,7 +40,6 @@ Pose last_pose[6]{};
 bool last_group=false;
 struct Bounds { int left,top,right,bottom; };
 Bounds previous_bounds[6]{};
-float star_phase[60];
 
 uint16_t rgb(unsigned c) { return ((c>>19)&31)<<11 | ((c>>10)&63)<<5 | ((c>>3)&31); }
 uint16_t read16(const uint8_t *p) { return p[0] | (p[1]<<8); }
@@ -55,10 +54,6 @@ void scene(M5Canvas &g, int kind, double now,bool reset)
         if(reset) std::memset(pixels,0,width*height*sizeof(uint16_t));
         else for(const auto &b:previous_bounds) for(int y=b.top;y<b.bottom;++y)
             std::memset(pixels+y*width+b.left,0,(b.right-b.left)*sizeof(uint16_t));
-        for (int i=0;i<60;++i) {
-            const int b=std::lround(255*(.25f+.75f*std::abs(std::sin(float(now*1.3)+star_phase[i]))));
-            g.fillRect(i*97%466,i*211%466,2,2,rgb((b<<16)|(b<<8)|b));
-        }
     } else if (kind == 1) {
         for(int y=0;y<280;++y) {
             const double a=y/300.0;
@@ -179,6 +174,8 @@ void grok(CorporatePainter &paint,double x, double y, double back, double open, 
 void felipe(CorporatePainter &paint,double x, double y, double back, double open, int mood)
 {
     paint.ellipse(68+x*3,38,26,9,0x1b1b1b); paint.rect(66+x*3,26,4,6,rgb(0x1b1b1b));
+    // A glossy sheen keeps the black beret visible on the black background.
+    paint.ellipse(62+x*3,35,15,4,0x5c5c5c); paint.ellipse(57+x*3,34,6,2,0xe8e8e8);
     if(back>=.5) return;
     for(int side : {-1,1}) {
         const double ex=72+side*10+x*8,ey=74+y*6+(mood==2?6:0);
@@ -271,7 +268,6 @@ int count() { return 3+kPetCount; }
 
 bool begin()
 {
-    for(int i=0;i<60;++i) star_phase[i]=std::fmod(i*.37,1)*9;
     if(kPetCount) {
         const esp_partition_t *p=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_ANY,"sprites");
         if(!p || p->address!=0xe00000 || p->size!=0x200000) { printf("ERROR sprites_partition\n"); return false; }
