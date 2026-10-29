@@ -1,0 +1,11 @@
+Ralomi
+Copyright 2026 ayousanz
+
+This product includes software developed by the Ralomi contributors.
+
+KoeAct-JP
+Copyright 2026 ayutaz
+
+The action mode includes the KoeAct-JP v0.1.1 decoder (main/koeact/, from cores3/firmware/a2 of
+https://huggingface.co/ayousanz/KoeAct-JP, Apache License 2.0) and uses its CoreS3 model files
+(licenses/KoeAct-JP-NOTICE.txt).

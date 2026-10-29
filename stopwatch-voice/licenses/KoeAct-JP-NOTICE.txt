@@ -1,0 +1,53 @@
+KoeAct-JP (model release)
+Copyright 2026 ayutaz
+
+This release is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This release includes software from JapaneseTinyAgentLM
+(https://github.com/ayutaz/JapaneseTinyAgentLM, Apache License 2.0,
+Copyright 2026 ayutaz): the Action schema v1 table and JSON schema
+(code/koeact/action/, ported from jtalm.action.schema at commit e32b6c1) and the
+Action JSON pieces and grammar (code/koeact/model/pieces.py, from jtalm.model.format
+and jtalm.model.grammar).
+
+This release includes software from Ralomi (https://huggingface.co/ayousanz/ralomi,
+Apache License 2.0, Copyright 2026 ayousanz): the log-Mel front-end
+(code/koeact/features/logmel.py, ported from features.py and inference.py at revision
+2f9f750b), the encoder (code/koeact/model/ralomi_torch.py, ported from StreamingDFSMNCTC
+and DFSMNBlock in Ralomi's src/ralomi/model.py at commit 94ff2a94), and the CoreS3
+firmware in cores3/firmware/e05 (Ralomi's esp32s3/firmware at revision 2f9f750b, with the
+KoeAct decoder in cores3/firmware/a2 added). Building that firmware pulls ESP-DL, ESP-DSP,
+M5Unified and M5GFX through the ESP-IDF component manager; their licenses are listed in
+Ralomi's esp32s3/THIRD_PARTY_NOTICES.md. No firmware binary is included.
+
+The weights in model.safetensors (KoeAct-JP, seed 14) and the CoreS3 artefacts in cores3/
+(the same model: Ralomi quantized to W16A16 in 0.4 s chunks, and the decoder with int16
+matrices) were built with the following materials. None of their audio or extracted
+features is included in this release.
+
+- Ralomi weights (https://huggingface.co/ayousanz/ralomi, revision 2f9f750b),
+  Apache License 2.0, Copyright 2026 ayousanz: the starting point of the encoder.
+  The release includes Ralomi's input layer and blocks 1-4 unchanged, and blocks 5-8 and
+  the CTC classifier fine-tuned from Ralomi's weights.
+- JapaneseTinyAgentLM-Action-Synth (revision 6ac72256), Apache License 2.0:
+  training texts and Action labels.
+- Amazon MASSIVE 1.1 (ja-JP), CC BY 4.0, Copyright Amazon.com Inc. or its affiliates
+  (MASSIVE includes text derived from SLURP, CC BY 4.0): training texts.
+- Irodori-TTS VoiceDesign (MIT): synthesized training speech from caption-designed
+  voices (no real person's voice was cloned). Kokoro-82M (Apache License 2.0):
+  synthesized validation speech.
+- ReazonSpeech (Reazon Holdings), CDLA-Sharing-1.0, used under Article 30-4 of the
+  Japanese Copyright Act: speech clips used as training negatives. ReazonSpeech audio,
+  transcripts and features are not redistributed.
+- OpenSLR SLR28 RIR and noise database, Apache License 2.0 (simulated RIRs and the
+  point-source noises, which are the public-domain Freesound portion of MUSAN):
+  augmentation and noise training negatives.
+
+baseline/jtalm-kana-b1n/ is the comparison model: JapaneseTinyAgentLM's 3M text model
+(code at commit e32b6c15, Apache License 2.0) retrained without JESC on the kana that
+Ralomi read from the same synthesized training speech, with its SentencePiece tokenizer.
+It is not a re-release of JapaneseTinyAgentLM-Action-3M.
+
+Evaluation only (not used for training, and no audio from them is in this release):
+MUSAN (Snyder et al.), CC BY 4.0; FSD50K (Fonseca et al., Freesound), CC BY 4.0, the CC0
+and CC BY clips only.

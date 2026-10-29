@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "66a36c8c94b1a5d992ee4e7f392fccfe4945767c",
+  "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+  "pixels": 64,
+  "weight": 400,
+  "license_url": "https://raw.githubusercontent.com/google/fonts/66a36c8c94b1a5d992ee4e7f392fccfe4945767c/ofl/notosansjp/OFL.txt",
+  "glyphs": 144,
+  "vocabulary_characters": 82,
+  "ascent": 56,
+  "descent": 13,
+  "vlw_bytes": 454697,
+  "vlw_sha256": "fdab4f79dd98b37f76fb8c19e70ba7c152bc7ea56222695a49ebb80bd41c4df0",
+  "charset": " %()-.0123456789BFSdfms…ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろわをんゔイクタップマー一中備入初化大失度後敗最期果源準無直示秒結表試話認識録長間電音験"
+}

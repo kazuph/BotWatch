@@ -1,0 +1,30 @@
+{
+  "model": {
+    "family": "streaming_dfsmn_ctc",
+    "preset": "ralomi-m4-2m",
+    "target_parameters": 2049181,
+    "input_features": 40,
+    "hidden_size": 320,
+    "projection_size": 216,
+    "num_layers": 8,
+    "memory_order": 8,
+    "dropout": 0.1
+  },
+  "features": {
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "sample_format": "signed-pcm16",
+    "window_ms": 25.0,
+    "hop_ms": 10.0,
+    "fft_size": 512,
+    "mel_bins": 40,
+    "subsampling_factor": 4
+  },
+  "tokenizer": {
+    "vocabulary": "vocabulary.json",
+    "version": "ja-mora-v0",
+    "normalizer_version": "ja-reading-v0"
+  },
+  "decoder": "greedy-ctc",
+  "maximum_utterance_seconds": 15
+}

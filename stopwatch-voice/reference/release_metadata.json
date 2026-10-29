@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "model_id": "ayousanz/ralomi",
+  "release_version": "1.0.0",
+  "status": "released",
+  "selected_step": 990000,
+  "source_checkpoint_SHA256": "f61371c555240cb32d9c449065ca7df1bd8efae53b572d2da8261625a5242cdc",
+  "source_config_SHA256": "e4dedf72e36e275e7e76cf8e14079e96f2ea863690080b918acec1df19198560",
+  "training_hours": 10000.00044532986,
+  "validation_kana_CER": 0.21034146341463414,
+  "development_clean_kana_CER": 0.25275862068965516,
+  "clean_is_independent_test": false,
+  "ESP32_S3_qualified": true,
+  "INT8_qualified": false,
+  "training_data_included": false,
+  "optimizer_RNG_sampler_included": false,
+  "files": {
+    "LICENSE": {
+      "SHA256": "0da54326bee33b17a754edeabfe936e36fb547935096e2edf5d2171d5bbd701b",
+      "bytes": 11339
+    },
+    "NOTICE": {
+      "SHA256": "b4cd04aad985e388f4b5be2d0654d552fd97d47ffa15c2ccb76f7322436072b8",
+      "bytes": 101
+    },
+    "README.md": {
+      "SHA256": "469c8abe9ddcab42575710dc5f7a84885d76656c101c6728fc1951abdca71061",
+      "bytes": 3562
+    },
+    "esp32s3/README.md": {
+      "SHA256": "b64da39b64617ec8234152c5c2681b6665a2f2e8a1408a4b87c1004adb0ef94c",
+      "bytes": 7508
+    },
+    "esp32s3/SHA256SUMS": {
+      "SHA256": "21a7d639d05c42354b4bef428e45a3a5ca5f24039e403ad820afb074a3f8b2d6",
+      "bytes": 2428
+    },
+    "esp32s3/THIRD_PARTY_NOTICES.md": {
+      "SHA256": "2c540197ffba998d747f05fa582d175298bb6a421d852ca94edabc61ad0e53ca",
+      "bytes": 3014
+    },
+    "esp32s3/firmware/CMakeLists.txt": {
+      "SHA256": "e5eba686da99393915a67f2b79ac67a85f0dd0f0b26411278f7ebddc30f94733",
+      "bytes": 955
+    },
+    "esp32s3/firmware/dependencies.lock": {
+      "SHA256": "08f2d1e4d4fb7ae1ed3cb772f4c051ccb10e9eafc43d9f2b397a93817b9201c5",
+      "bytes": 2535
+    },
+    "esp32s3/firmware/main/CMakeLists.txt": {
+      "SHA256": "e98469ff2913d87f6975d2362206e72ae6b23cebbdf7a488b4f9eae3844ce994",
+      "bytes": 560
+    },
+    "esp32s3/firmware/main/features.cpp": {
+      "SHA256": "9f75157b4f43feb633de48df2309b43dcbe64ce4f9a59c2e16b09ae78e1ba826",
+      "bytes": 3297
+    },
+    "esp32s3/firmware/main/features.h": {
+      "SHA256": "ea3b9a79edf4f713a4d8f27bbfea6e3bdfd076d8a0a3659c509976ddd7279749",
+      "bytes": 905
+    },
+    "esp32s3/firmware/main/idf_component.yml": {
+      "SHA256": "760d8560ce9fb4dbbef5bdf57a1128540523ecf416aeee1a33c18f997854456c",
+      "bytes": 143
+    },
+    "esp32s3/firmware/main/main.cpp": {
+      "SHA256": "5c0cc26522e5cbe1bcfc117df948b6fbf7bf6ae3df5bf46e366f1577acf5568c",
+      "bytes": 24067
+    },
+    "esp32s3/firmware/main/vocabulary.inc": {
+      "SHA256": "ca3366177784c068223371559f243b197f1798f852b28214b5405873aa03bdf3",
+      "bytes": 2200
+    },
+    "esp32s3/firmware/partitions.csv": {
+      "SHA256": "c9c1632a3cc5762234bce24bd36f85b9158d912ea5af9096c27eb4bf723292d3",
+      "bytes": 374
+    },
+    "esp32s3/firmware/sdkconfig.defaults": {
+      "SHA256": "4e356b48af17c36da90f0289c82456bef806bc797c66a9d0d702a8e00f1f91b0",
+      "bytes": 1078
+    },
+    "esp32s3/licenses/Apache-2.0.txt": {
+      "SHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    "esp32s3/licenses/ESP-DL_MIT.txt": {
+      "SHA256": "3513f1605ebcc227f7364956f6c30a303412597e232648cb3090e76697ca5aa3",
+      "bytes": 1095
+    },
+    "esp32s3/licenses/ESP-DSP_Apache-2.0.txt": {
+      "SHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    "esp32s3/licenses/FreeRTOS-Kernel_MIT.txt": {
+      "SHA256": "ef3551dd44c6d5d8174a074690a566866c4ebd695f5e41445364f95becc6c078",
+      "bytes": 1176
+    },
+    "esp32s3/licenses/LovyanGFX_and_bundled.txt": {
+      "SHA256": "ec7c22d763503f016c1e743e6089042e780fbb1c118ebcc0b1eb72232e8903b3",
+      "bytes": 5952
+    },
+    "esp32s3/licenses/M5GFX_MIT.txt": {
+      "SHA256": "2076614535b2a8ea22d46dc9c5469a924e1a726e9d81a7cb2723a5e9833fe7a3",
+      "bytes": 1064
+    },
+    "esp32s3/licenses/M5Unified_MIT.txt": {
+      "SHA256": "44611d917bece311f5c8eeffce83d8bf9e9ca3f815d262f694ff4a7996af50ea",
+      "bytes": 1063
+    },
+    "esp32s3/licenses/Mbed-TLS.txt": {
+      "SHA256": "9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b",
+      "bytes": 29852
+    },
+    "esp32s3/licenses/TLSF_BSD-3-Clause.txt": {
+      "SHA256": "94433e0cef736b10d6bd00bd87d7338eef64fb02797580c60aa4cedd54610237",
+      "bytes": 1662
+    },
+    "esp32s3/licenses/Xtensa-HAL_MIT.txt": {
+      "SHA256": "6464505e4dcfd112dd242f732fbe3f69279e818877dabdfa2512e0c6745be7e4",
+      "bytes": 1079
+    },
+    "esp32s3/licenses/efont_BSD-3-Clause.txt": {
+      "SHA256": "27c2942bbe8da9d5a8128695763d9a1da8d1697683ece43d7197f32a2de5c731",
+      "bytes": 1486
+    },
+    "esp32s3/licenses/newlib_COPYING.NEWLIB.txt": {
+      "SHA256": "422aa40293093fb54fc66e692a0d68fd0b24ed5602e5d1d33ad05ba3909057e9",
+      "bytes": 63318
+    },
+    "esp32s3/ralomi_cores3_w16a16_stream100.bin": {
+      "SHA256": "3bfb0812e2f67c29dcb655e9a174b732009693ee26fa5f059c08016dc9ddd972",
+      "bytes": 6431920
+    },
+    "esp32s3/ralomi_w16a16_stream100.espdl": {
+      "SHA256": "80db75b2ed89e74948eeac0259919ea5a49cd684d5f14c7c94d5aee5a0c4323c",
+      "bytes": 4334768
+    },
+    "features.py": {
+      "SHA256": "57d9a25f7462af929437ec66ff11e8bc16656adef781e7e9f747718abb60a911",
+      "bytes": 7509
+    },
+    "inference.py": {
+      "SHA256": "e67f72d14907a745a489f0132b401c73276c34390a299b287e13f7072a08e0a6",
+      "bytes": 6031
+    },
+    "inference_config.json": {
+      "SHA256": "7bdac0bef41e8b357a61b5b5d4ede9052dcdf7bbf0323201926ac61db44f2f26",
+      "bytes": 673
+    },
+    "model.onnx": {
+      "SHA256": "d7efa3c09018e48383fc26505ee9c55914aaf8bdf23cf9c970312a373f24a774",
+      "bytes": 8318262
+    },
+    "requirements.txt": {
+      "SHA256": "f3b2523a8e42c594554cae3a54863dc9dde324581dffe2fbc9144bbffbd5f316",
+      "bytes": 228
+    },
+    "vocabulary.json": {
+      "SHA256": "e52860e1a6de8ebf0480dab05e6861851e06e4e62c5d947d43a846b4bd791c23",
+      "bytes": 1794
+    }
+  },
+  "ESP32_S3": {
+    "board": "M5Stack CoreS3 (ESP32-S3, 16MB flash, 8MB PSRAM)",
+    "flash_image": "esp32s3/ralomi_cores3_w16a16_stream100.bin (write at 0x0)",
+    "quantization": "ESP-PPQ 1.3.11 W16A16, int16_lut_step=-1, calibration ReazonSpeech tiny 982 utterances, seed 1337",
+    "scored_espdl_SHA256": "24f4cb1ee7be2fa90ace8e805e1a42cfbea2d2dfc286d153c20caf5a37c8a83e",
+    "chunk_frames": 100,
+    "firmware_app_SHA256": "4f88a14716b6cfc391e585d04c8ababbad36a23861337a7c6233c4aaa5c31b8f",
+    "toolchain": "ESP-IDF v5.5.5, esp-dl 3.3.13, esp-dsp 1.8.2, M5Unified 0.2.17, M5GFX 0.2.23",
+    "board_minus_fp32_kana_CER_pp": {
+      "cv8_test_300": 0.0,
+      "reazon_test_300": -0.035
+    },
+    "seconds_per_1s_chunk": 0.454,
+    "microphone_result_after_recording_s": 0.495
+  }
+}

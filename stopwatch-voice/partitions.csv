@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 ayousanz
+#
+# 16MB flash. ESP-DL reads each .espdl from its partition (64KB aligned).
+# "model" is Ralomi stream100 (kana mode); "koeact" is KoeAct-JP's Ralomi e13 stream40 and "a2"
+# its decoder weights, memory-mapped (action mode). Only one of the two models is loaded per boot.
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xF000,   0x1000,
+factory,  app,  factory, 0x10000,  0x2F0000,
+model,    data, spiffs,  0x300000, 0x440000,
+koeact,   data, spiffs,  0x740000, 0x4A0000,
+a2,       data, spiffs,  0xBE0000, 0x120000,
+tts,      data, spiffs,  0xD00000, 0x100000,
+sprites,  data, 0x40,    0xE00000, 0x200000,

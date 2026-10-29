@@ -1,0 +1,2378 @@
+[
+  {
+    "character": " ",
+    "codepoint": 32,
+    "width": 4,
+    "height": 0,
+    "advance": 4,
+    "top_extent": 0,
+    "left_extent": 0
+  },
+  {
+    "character": "%",
+    "codepoint": 37,
+    "width": 15,
+    "height": 12,
+    "advance": 15,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "(",
+    "codepoint": 40,
+    "width": 6,
+    "height": 18,
+    "advance": 6,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": ")",
+    "codepoint": 41,
+    "width": 6,
+    "height": 18,
+    "advance": 6,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "-",
+    "codepoint": 45,
+    "width": 6,
+    "height": 6,
+    "advance": 6,
+    "top_extent": 6,
+    "left_extent": 0
+  },
+  {
+    "character": ".",
+    "codepoint": 46,
+    "width": 4,
+    "height": 3,
+    "advance": 4,
+    "top_extent": 3,
+    "left_extent": 0
+  },
+  {
+    "character": "/",
+    "codepoint": 47,
+    "width": 7,
+    "height": 16,
+    "advance": 6,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "0",
+    "codepoint": 48,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "1",
+    "codepoint": 49,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "2",
+    "codepoint": 50,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "3",
+    "codepoint": 51,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "4",
+    "codepoint": 52,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "5",
+    "codepoint": 53,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "6",
+    "codepoint": 54,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "7",
+    "codepoint": 55,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "8",
+    "codepoint": 56,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "9",
+    "codepoint": 57,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "A",
+    "codepoint": 65,
+    "width": 11,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": -1
+  },
+  {
+    "character": "B",
+    "codepoint": 66,
+    "width": 11,
+    "height": 12,
+    "advance": 11,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "C",
+    "codepoint": 67,
+    "width": 10,
+    "height": 12,
+    "advance": 10,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "D",
+    "codepoint": 68,
+    "width": 11,
+    "height": 12,
+    "advance": 11,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "E",
+    "codepoint": 69,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "F",
+    "codepoint": 70,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "S",
+    "codepoint": 83,
+    "width": 10,
+    "height": 12,
+    "advance": 10,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "U",
+    "codepoint": 85,
+    "width": 12,
+    "height": 12,
+    "advance": 12,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "X",
+    "codepoint": 88,
+    "width": 9,
+    "height": 12,
+    "advance": 9,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "d",
+    "codepoint": 100,
+    "width": 10,
+    "height": 13,
+    "advance": 10,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "f",
+    "codepoint": 102,
+    "width": 6,
+    "height": 13,
+    "advance": 5,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "m",
+    "codepoint": 109,
+    "width": 15,
+    "height": 9,
+    "advance": 15,
+    "top_extent": 9,
+    "left_extent": 0
+  },
+  {
+    "character": "s",
+    "codepoint": 115,
+    "width": 7,
+    "height": 9,
+    "advance": 7,
+    "top_extent": 9,
+    "left_extent": 0
+  },
+  {
+    "character": "…",
+    "codepoint": 8230,
+    "width": 16,
+    "height": 8,
+    "advance": 16,
+    "top_extent": 8,
+    "left_extent": 0
+  },
+  {
+    "character": "。",
+    "codepoint": 12290,
+    "width": 16,
+    "height": 5,
+    "advance": 16,
+    "top_extent": 4,
+    "left_extent": 0
+  },
+  {
+    "character": "ぁ",
+    "codepoint": 12353,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "あ",
+    "codepoint": 12354,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぃ",
+    "codepoint": 12355,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "い",
+    "codepoint": 12356,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ぅ",
+    "codepoint": 12357,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "う",
+    "codepoint": 12358,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぇ",
+    "codepoint": 12359,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "え",
+    "codepoint": 12360,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぉ",
+    "codepoint": 12361,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "お",
+    "codepoint": 12362,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "か",
+    "codepoint": 12363,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "が",
+    "codepoint": 12364,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "き",
+    "codepoint": 12365,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぎ",
+    "codepoint": 12366,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "く",
+    "codepoint": 12367,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぐ",
+    "codepoint": 12368,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "け",
+    "codepoint": 12369,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "げ",
+    "codepoint": 12370,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "こ",
+    "codepoint": 12371,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ご",
+    "codepoint": 12372,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "さ",
+    "codepoint": 12373,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ざ",
+    "codepoint": 12374,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 15,
+    "left_extent": 0
+  },
+  {
+    "character": "し",
+    "codepoint": 12375,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "じ",
+    "codepoint": 12376,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "す",
+    "codepoint": 12377,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ず",
+    "codepoint": 12378,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "せ",
+    "codepoint": 12379,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぜ",
+    "codepoint": 12380,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "そ",
+    "codepoint": 12381,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぞ",
+    "codepoint": 12382,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "た",
+    "codepoint": 12383,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "だ",
+    "codepoint": 12384,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ち",
+    "codepoint": 12385,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぢ",
+    "codepoint": 12386,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "っ",
+    "codepoint": 12387,
+    "width": 16,
+    "height": 10,
+    "advance": 16,
+    "top_extent": 9,
+    "left_extent": 0
+  },
+  {
+    "character": "つ",
+    "codepoint": 12388,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "づ",
+    "codepoint": 12389,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "て",
+    "codepoint": 12390,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "で",
+    "codepoint": 12391,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "と",
+    "codepoint": 12392,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ど",
+    "codepoint": 12393,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "な",
+    "codepoint": 12394,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "に",
+    "codepoint": 12395,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぬ",
+    "codepoint": 12396,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ね",
+    "codepoint": 12397,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "の",
+    "codepoint": 12398,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "は",
+    "codepoint": 12399,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ば",
+    "codepoint": 12400,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぱ",
+    "codepoint": 12401,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ひ",
+    "codepoint": 12402,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "び",
+    "codepoint": 12403,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぴ",
+    "codepoint": 12404,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ふ",
+    "codepoint": 12405,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぶ",
+    "codepoint": 12406,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぷ",
+    "codepoint": 12407,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "へ",
+    "codepoint": 12408,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "べ",
+    "codepoint": 12409,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ぺ",
+    "codepoint": 12410,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ほ",
+    "codepoint": 12411,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ぼ",
+    "codepoint": 12412,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ぽ",
+    "codepoint": 12413,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ま",
+    "codepoint": 12414,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "み",
+    "codepoint": 12415,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "む",
+    "codepoint": 12416,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "め",
+    "codepoint": 12417,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "も",
+    "codepoint": 12418,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ゃ",
+    "codepoint": 12419,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "や",
+    "codepoint": 12420,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ゅ",
+    "codepoint": 12421,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ゆ",
+    "codepoint": 12422,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ょ",
+    "codepoint": 12423,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "よ",
+    "codepoint": 12424,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ら",
+    "codepoint": 12425,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "り",
+    "codepoint": 12426,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "る",
+    "codepoint": 12427,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "れ",
+    "codepoint": 12428,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ろ",
+    "codepoint": 12429,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "わ",
+    "codepoint": 12431,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "を",
+    "codepoint": 12434,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ん",
+    "codepoint": 12435,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ゔ",
+    "codepoint": 12436,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ァ",
+    "codepoint": 12449,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ア",
+    "codepoint": 12450,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ィ",
+    "codepoint": 12451,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "イ",
+    "codepoint": 12452,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ゥ",
+    "codepoint": 12453,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ウ",
+    "codepoint": 12454,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ェ",
+    "codepoint": 12455,
+    "width": 16,
+    "height": 10,
+    "advance": 16,
+    "top_extent": 9,
+    "left_extent": 0
+  },
+  {
+    "character": "エ",
+    "codepoint": 12456,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "ォ",
+    "codepoint": 12457,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "オ",
+    "codepoint": 12458,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "カ",
+    "codepoint": 12459,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ガ",
+    "codepoint": 12460,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "キ",
+    "codepoint": 12461,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ギ",
+    "codepoint": 12462,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ク",
+    "codepoint": 12463,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "グ",
+    "codepoint": 12464,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ケ",
+    "codepoint": 12465,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ゲ",
+    "codepoint": 12466,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "コ",
+    "codepoint": 12467,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ゴ",
+    "codepoint": 12468,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "サ",
+    "codepoint": 12469,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ザ",
+    "codepoint": 12470,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "シ",
+    "codepoint": 12471,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ジ",
+    "codepoint": 12472,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ス",
+    "codepoint": 12473,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ズ",
+    "codepoint": 12474,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "セ",
+    "codepoint": 12475,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ゼ",
+    "codepoint": 12476,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ソ",
+    "codepoint": 12477,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ゾ",
+    "codepoint": 12478,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "タ",
+    "codepoint": 12479,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ダ",
+    "codepoint": 12480,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "チ",
+    "codepoint": 12481,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ヂ",
+    "codepoint": 12482,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ッ",
+    "codepoint": 12483,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ツ",
+    "codepoint": 12484,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ヅ",
+    "codepoint": 12485,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "テ",
+    "codepoint": 12486,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "デ",
+    "codepoint": 12487,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ト",
+    "codepoint": 12488,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ド",
+    "codepoint": 12489,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ナ",
+    "codepoint": 12490,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ニ",
+    "codepoint": 12491,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "ヌ",
+    "codepoint": 12492,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ネ",
+    "codepoint": 12493,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ノ",
+    "codepoint": 12494,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ハ",
+    "codepoint": 12495,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "バ",
+    "codepoint": 12496,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "パ",
+    "codepoint": 12497,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ヒ",
+    "codepoint": 12498,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ビ",
+    "codepoint": 12499,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "ピ",
+    "codepoint": 12500,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "フ",
+    "codepoint": 12501,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ブ",
+    "codepoint": 12502,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "プ",
+    "codepoint": 12503,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ヘ",
+    "codepoint": 12504,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 11,
+    "left_extent": 0
+  },
+  {
+    "character": "ベ",
+    "codepoint": 12505,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ペ",
+    "codepoint": 12506,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ホ",
+    "codepoint": 12507,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ボ",
+    "codepoint": 12508,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ポ",
+    "codepoint": 12509,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "マ",
+    "codepoint": 12510,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ミ",
+    "codepoint": 12511,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ム",
+    "codepoint": 12512,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "メ",
+    "codepoint": 12513,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "モ",
+    "codepoint": 12514,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ャ",
+    "codepoint": 12515,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ヤ",
+    "codepoint": 12516,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ュ",
+    "codepoint": 12517,
+    "width": 16,
+    "height": 9,
+    "advance": 16,
+    "top_extent": 9,
+    "left_extent": 0
+  },
+  {
+    "character": "ユ",
+    "codepoint": 12518,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ョ",
+    "codepoint": 12519,
+    "width": 16,
+    "height": 11,
+    "advance": 16,
+    "top_extent": 10,
+    "left_extent": 0
+  },
+  {
+    "character": "ヨ",
+    "codepoint": 12520,
+    "width": 16,
+    "height": 12,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ラ",
+    "codepoint": 12521,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "リ",
+    "codepoint": 12522,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "ル",
+    "codepoint": 12523,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "レ",
+    "codepoint": 12524,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ロ",
+    "codepoint": 12525,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ワ",
+    "codepoint": 12527,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ヲ",
+    "codepoint": 12530,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ン",
+    "codepoint": 12531,
+    "width": 16,
+    "height": 13,
+    "advance": 16,
+    "top_extent": 12,
+    "left_extent": 0
+  },
+  {
+    "character": "ヴ",
+    "codepoint": 12532,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "・",
+    "codepoint": 12539,
+    "width": 15,
+    "height": 7,
+    "advance": 15,
+    "top_extent": 7,
+    "left_extent": 0
+  },
+  {
+    "character": "ー",
+    "codepoint": 12540,
+    "width": 16,
+    "height": 8,
+    "advance": 16,
+    "top_extent": 8,
+    "left_extent": 0
+  },
+  {
+    "character": "一",
+    "codepoint": 19968,
+    "width": 16,
+    "height": 7,
+    "advance": 16,
+    "top_extent": 7,
+    "left_extent": 0
+  },
+  {
+    "character": "不",
+    "codepoint": 19981,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "中",
+    "codepoint": 20013,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "了",
+    "codepoint": 20102,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "備",
+    "codepoint": 20633,
+    "width": 17,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": -1
+  },
+  {
+    "character": "入",
+    "codepoint": 20837,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "再",
+    "codepoint": 20877,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "出",
+    "codepoint": 20986,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "分",
+    "codepoint": 20998,
+    "width": 17,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": -1
+  },
+  {
+    "character": "初",
+    "codepoint": 21021,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "刷",
+    "codepoint": 21047,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "化",
+    "codepoint": 21270,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "印",
+    "codepoint": 21360,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "反",
+    "codepoint": 21453,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "取",
+    "codepoint": 21462,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "可",
+    "codepoint": 21487,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "外",
+    "codepoint": 22806,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "大",
+    "codepoint": 22823,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "失",
+    "codepoint": 22833,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "完",
+    "codepoint": 23436,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "度",
+    "codepoint": 24230,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "得",
+    "codepoint": 24471,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "応",
+    "codepoint": 24540,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "態",
+    "codepoint": 24907,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "戻",
+    "codepoint": 25147,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "択",
+    "codepoint": 25246,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "押",
+    "codepoint": 25276,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "接",
+    "codepoint": 25509,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "敗",
+    "codepoint": 25943,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "明",
+    "codepoint": 26126,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "最",
+    "codepoint": 26368,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "期",
+    "codepoint": 26399,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "未",
+    "codepoint": 26410,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "枚",
+    "codepoint": 26522,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "果",
+    "codepoint": 26524,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "枠",
+    "codepoint": 26528,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "止",
+    "codepoint": 27490,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "残",
+    "codepoint": 27531,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "池",
+    "codepoint": 27744,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "源",
+    "codepoint": 28304,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "準",
+    "codepoint": 28310,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "無",
+    "codepoint": 28961,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "状",
+    "codepoint": 29366,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "白",
+    "codepoint": 30333,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "直",
+    "codepoint": 30452,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "示",
+    "codepoint": 31034,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "秒",
+    "codepoint": 31186,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "答",
+    "codepoint": 31572,
+    "width": 17,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "結",
+    "codepoint": 32080,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "続",
+    "codepoint": 32154,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "聞",
+    "codepoint": 32862,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "表",
+    "codepoint": 34920,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "試",
+    "codepoint": 35430,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "話",
+    "codepoint": 35441,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "認",
+    "codepoint": 35469,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "識",
+    "codepoint": 35672,
+    "width": 17,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "転",
+    "codepoint": 36578,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "選",
+    "codepoint": 36984,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "録",
+    "codepoint": 37682,
+    "width": 17,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": -1
+  },
+  {
+    "character": "長",
+    "codepoint": 38263,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "離",
+    "codepoint": 38626,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "電",
+    "codepoint": 38651,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "音",
+    "codepoint": 38899,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "験",
+    "codepoint": 39443,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "黄",
+    "codepoint": 40644,
+    "width": 16,
+    "height": 15,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  },
+  {
+    "character": "（",
+    "codepoint": 65288,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "）",
+    "codepoint": 65289,
+    "width": 16,
+    "height": 16,
+    "advance": 16,
+    "top_extent": 14,
+    "left_extent": 0
+  },
+  {
+    "character": "？",
+    "codepoint": 65311,
+    "width": 16,
+    "height": 14,
+    "advance": 16,
+    "top_extent": 13,
+    "left_extent": 0
+  }
+]

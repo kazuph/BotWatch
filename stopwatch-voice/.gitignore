@@ -1,0 +1,16 @@
+build/
+managed_components/
+models/
+sdkconfig
+sdkconfig.old
+sdkconfig.stage2
+sdkconfig.stage2.old
+__pycache__/
+reference/model.onnx
+reference/*.download
+
+pets/
+assets/pets/*
+main/presets_local.h
+main/print_font.inc
+assets/print-font.json
