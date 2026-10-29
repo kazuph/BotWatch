@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
     if (status != SAAN_OK) { fprintf(stderr, "init %d\n", status); return 6; }
     f = fopen(argv[3], "wb"); if (!f) { return 7; }
     saan_pcm_reset();float absolute_peak=0;
+    tts_level::Loudness loudness(SAAN_SR);
     while (true) {
         const float *pcm; int32_t n;
         status = saan_stream_pull_ptr(&st, &pcm, &n);
@@ -38,7 +39,7 @@ int main(int argc, char **argv) {
         if (status != SAAN_OK || !n) { break; }
         for (int i = 0; i < n; ++i) {
             absolute_peak=std::max(absolute_peak,std::abs(pcm[i]));
-            const uint16_t q = saan_f32_to_i16(raw?pcm[i]:tts_level::limit(pcm[i]*gain));
+            const uint16_t q = saan_f32_to_i16(raw?pcm[i]:loudness.process(pcm[i]*gain));
             fputc(q & 255, f); fputc(q >> 8, f);
         }
     }
