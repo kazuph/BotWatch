@@ -19,5 +19,5 @@ constexpr UiFont kUiFonts[] = {
     {34, 29, ui34_start},
     {38, 31, ui38_start},
     {40, 33, ui40_start},
-    {56, 41, ui56_start},
+    {56, 42, ui56_start},
 };

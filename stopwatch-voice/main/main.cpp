@@ -52,6 +52,8 @@
 #include <M5Unified.h>
 #include "a2.h"
 #include "action.h"
+#include "apps.h"
+#include "radio_app.h"
 #include "tts.h"
 #include "audio_gain.h"
 #include "ble_printer.h"
@@ -156,6 +158,10 @@ Mode load_mode()
 // Voice printing: the action mode (KoeAct) hears "印刷して" and reboots into the kana mode
 // (Ralomi) with this flag, which then takes the words and the go-ahead by voice and prints.
 constexpr const char *kVoicePrintKey = "voiceprint";
+bool g_radio_boot=false,g_apps_return=false;
+std::atomic<bool> g_apps_return_readonly{false};
+constexpr const char *kAppsReturnKey="apps_return";
+constexpr const char *kRadioBootKey="radio_boot";
 bool g_voice_print = false;  // this boot is a voice printing session
 
 bool take_voice_print_flag()
@@ -170,21 +176,35 @@ bool take_voice_print_flag()
 }
 
 void pause_listening();
-[[noreturn]] void reboot_into(Mode next, bool voice_print)
+bool take_boot_flag(const char *key) {
+    nvs_handle_t handle;uint8_t value=0;
+    if(nvs_open(kModeNamespace,NVS_READWRITE,&handle)!=ESP_OK)return false;
+    nvs_get_u8(handle,key,&value);
+    esp_err_t cleared=ESP_OK;
+    if(value){cleared=nvs_set_u8(handle,key,0);if(cleared==ESP_OK)cleared=nvs_commit(handle);}
+    nvs_close(handle);
+    if(value)printf("BOOT_FLAG key=%s consumed=1 clear=%s\n",key,esp_err_to_name(cleared));
+    return value!=0 && cleared==ESP_OK;
+}
+[[noreturn]] void reboot_into(Mode next, bool voice_print,bool radio=false,bool reopen_apps=false)
 {
     pause_listening();
     voice_screen::mode_switching(voice_print ? "いんさつのじゅんび中…" : "ちょっとまってね");
     nvs_handle_t handle;
-    esp_err_t saved = nvs_open(kModeNamespace, NVS_READWRITE, &handle);
+    const bool readonly=reopen_apps && g_apps_return_readonly.exchange(false);
+    esp_err_t saved = nvs_open(kModeNamespace, readonly?NVS_READONLY:NVS_READWRITE, &handle);
     if (saved == ESP_OK) {
         saved = nvs_set_u8(handle, kModeKey, (uint8_t)next);
         if (saved == ESP_OK) { saved = nvs_set_u8(handle, kVoicePrintKey, voice_print ? 1 : 0); }
         if (saved == ESP_OK) { saved = nvs_set_u8(handle,kCharacterKey,voice_screen::selected_character()); }
+        if (saved == ESP_OK) { saved = nvs_set_u8(handle,kRadioBootKey,radio?1:0); }
+        if (saved == ESP_OK) { saved = nvs_set_u8(handle,kAppsReturnKey,reopen_apps?1:0); }
         if (saved == ESP_OK) { saved = nvs_commit(handle); }
+        if(saved!=ESP_OK && reopen_apps && !readonly){nvs_set_u8(handle,kAppsReturnKey,0);nvs_commit(handle);}
         nvs_close(handle);
     }
-    printf("MODE_SWITCH next=%s voice_print=%d saved=%s\n", next == Mode::action ? "action" : "kana", voice_print,
-           esp_err_to_name(saved));
+    printf("MODE_SWITCH next=%s voice_print=%d saved=%s radio=%d apps=%d\n", next == Mode::action ? "action" : "kana", voice_print,
+           esp_err_to_name(saved),radio,reopen_apps && saved==ESP_OK);
     fflush(stdout);
     vTaskDelay(pdMS_TO_TICKS(300));
     esp_restart();
@@ -201,13 +221,15 @@ bool wants_voice_print(const std::string &kana)
 
 // True once a touch has stayed down for kModeHoldMs (call every loop; a lift starts over).
 struct LongTouch {
-    int64_t since = 0;
-    bool held()
-    {
-        if (M5.Touch.getCount() == 0) { since = 0; return false; }
-        const int64_t now = esp_timer_get_time();
-        if (since == 0) { since = now; }
-        return now - since >= kModeHoldMs * 1000LL;
+    characters::TouchGesture gesture;
+    int x=0,y=0;
+    bool held() {
+        bool down=false;
+        if(M5.Touch.getCount()) {
+            const auto &point=M5.Touch.getDetail(0);
+            down=point.isPressed();x=point.x;y=point.y;
+        }
+        return gesture.update(down,x,y,uint32_t(esp_timer_get_time()/1000)).kind==characters::TouchKind::mode_hold;
     }
 };
 
@@ -236,6 +258,8 @@ int16_t *g_microphone_warmup=nullptr;
 
 void microphone_released(void *, void *data, size_t length)
 {
+    if(radio_app::microphone_released(data,length))return;
+    if(apps::microphone_released(data,length))return;
     if (g_listen.active.load()) {
         const int64_t written = g_listen.written.load() + (int64_t)length;
         g_listen.written.store(written);
@@ -362,6 +386,12 @@ void serial_receiver(void *)
         if (length == 4 && (!memcmp(header, "TMUT", 4) || !memcmp(header, "TLIV", 4))) {
             tts::diagnostic(header[1] == 'M'); continue;
         }
+        if (length == 4 && (!memcmp(header,"FGON",4) || !memcmp(header,"FGOF",4))) {
+            voice_screen::font_audit(header[3]=='N');continue;
+        }
+        if (length == 4 && !memcmp(header,"AFAL",4)) {
+            g_apps_return_readonly=true;printf("APPS_RETURN_FAULT readonly=1\n");fflush(stdout);continue;
+        }
         if (length == 4 && !memcmp(header,"TFAL",4)) {
             g_restore_fault=true;
             printf("TTS_RESTORE_FAULT armed=1\n");fflush(stdout);continue;
@@ -377,6 +407,14 @@ void serial_receiver(void *)
             const int frames = size[0] | size[1] << 8;
             if (frames <= kFrames) { bytes = frames * kBins * sizeof(float); }
         } else if (memcmp(header, "RLMS", 4) == 0) { bytes = kMicSeconds * ralomi::kSampleRate * sizeof(int16_t); }
+        else if ((memcmp(header,"TPCM",4)==0 || memcmp(header,"RPCM",4)==0)) {
+            uint8_t size[2];if(!receive(size,2))continue;forward(size,2);
+            const unsigned count=size[0]|unsigned(size[1])<<8;
+            if(count<=tuner::PitchDetector::frameSize)bytes=count*sizeof(int16_t);
+        }
+        else if (memcmp(header,"WSET",4)==0) { bytes=7; }
+        else if (memcmp(header,"TCAL",4)==0) { bytes=2; }
+        else if (memcmp(header,"EGAM",4)==0 || memcmp(header,"EANS",4)==0 || memcmp(header,"TNAM",4)==0 || memcmp(header,"ASEL",4)==0 || memcmp(header,"RKEY",4)==0) { bytes=1; }
         else if (memcmp(header, "LPRS", 4) == 0 || memcmp(header, "PPRS", 4) == 0) { bytes = 1; }  // style index
         else if (memcmp(header, "LPCM", 4) == 0) {  // action mode listener feed: uint32 samples | PCM
             uint8_t size[4]; if (!receive(size, 4)) { continue; } forward(size, 4);
@@ -895,7 +933,7 @@ void run_ble_cycles(Recognizer &recognizer, std::vector<float> &pcm, std::vector
 
 bool print_cancelled()
 {
-    M5.update();
+    M5.update();apps::tick();
     return M5.BtnA.wasPressed();
 }
 
@@ -1020,7 +1058,7 @@ Recorded record_product(Recognizer &recognizer, std::vector<float> &pcm, std::ve
     int consumed = 0, widened = 0, computed = 0, fed = 0, progress = 0;
     int64_t feature_us = 0;
     while (true) {
-        M5.update();
+        M5.update();apps::tick();
         if (!M5.BtnA.isPressed()) { g_product.accepting = false; }
         const bool final = g_product.finished.load();
         const int end = g_product.completed.load();
@@ -1305,6 +1343,28 @@ void feed_lpcm(const std::function<void()> &pump)
     if (!start_listening()) { printf("ERROR MIC listen_restart\n"); }
 }
 
+void open_apps() {
+    const auto master_volume=M5.Speaker.getVolume();
+    if(!voice_screen::begin_overlay())return;
+    const bool active=g_listen.active.load();
+    const bool resume=g_listen.mic_on.load();
+    pause_listening();
+    g_listen.active=false;
+    const auto config=M5.Mic.config();
+    M5.Mic.end();
+    const int mode=apps::run(serial_commands,read_exact,[] { voice_screen::dump_pixels(print_hex); });
+    M5.Speaker.setVolume(master_volume);
+    printf("APP_MASTER restored=%u\n",unsigned(master_volume));
+    if(mode==2)reboot_into(g_mode,g_voice_print,true);
+    if(mode!=(g_mode==Mode::action?1:0)) reboot_into(mode?Mode::action:Mode::kana,false);
+    voice_screen::end_overlay();
+    M5.Mic.config(config);
+    const bool restored=restore_microphone(g_restore_fault.exchange(false));
+    g_listen.active=active;
+    if(!restored || (resume && !start_listening())) g_listen.failed=true;
+    printf("APPS_EXIT mode=%d restored=%d active=%d\n",mode,restored,active);
+}
+
 // Cuts utterances out of the ring hop by hop, against a room noise floor followed quickly down
 // and very slowly up (so steady noise is learnt but speech does not raise it).
 struct Cutter {
@@ -1442,8 +1502,9 @@ void serve_action(Recognizer &recognizer)
     int touch_x=0,touch_y=0;
     int progress = 0;
     uint8_t header[4] = {};
+    if(g_apps_return){g_apps_return=false;open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;release_barrier=true;}
     while (true) {
-        M5.update();
+        M5.update();apps::tick();
         if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed()) {
             printf("BUTTON A=%d B=%d\n", M5.BtnA.wasPressed(), M5.BtnB.wasPressed());
         }
@@ -1453,7 +1514,10 @@ void serve_action(Recognizer &recognizer)
             touch_x=point.x;touch_y=point.y;touch_down=point.isPressed();
         }
         if(phase!=Phase::button && !release_barrier &&
-           voice_screen::character_touch(touch_down,touch_x,touch_y,uint32_t(esp_timer_get_time()/1000))) { switch_mode(); }
+           voice_screen::character_touch(touch_down,touch_x,touch_y,uint32_t(esp_timer_get_time()/1000))) {
+            open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
+            release_barrier=true;continue;
+        }
         recover_listening();
         if (phase == Phase::button) {
             // Hold the left button and speak: the same ring, cut by the button instead of energy.
@@ -1508,7 +1572,9 @@ void serve_action(Recognizer &recognizer)
             uint8_t packet[11];
             if(!read_exact(packet,sizeof(packet))) { printf("ERROR CHARACTER_DIAG short\n");continue; }
             auto number=[&](int offset) { return int16_t(packet[offset] | (packet[offset+1]<<8)); };
-            if(voice_screen::diagnostic_touch(packet[0],number(1),number(3),number(5),number(7),uint16_t(number(9)))) switch_mode();
+            if(voice_screen::diagnostic_touch(packet[0],number(1),number(3),number(5),number(7),uint16_t(number(9)))) {
+                open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
+            }
             continue;
         }
         if (header[0] == 'L' && read_exact(header + 1, 3)) {
@@ -1525,6 +1591,10 @@ void serve_action(Recognizer &recognizer)
                 feed_lpcm([&] { pump(g_listen.written.load()); });
                 scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
             }
+            continue;
+        }
+        if (header[0]=='A' && read_exact(header+1,3) && std::memcmp(header,"APPS",4)==0) {
+            open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             continue;
         }
         if (header[0] == 'M' && read_exact(header + 1, 2)) {
@@ -1746,9 +1816,15 @@ void serve_voice_print(Recognizer &recognizer)
     };
 
     uint8_t header[4] = {};
+    LongTouch apps_touch;
     bool held = false;  // "LHLD": a host test feeds the words; the room is not listened to meanwhile
+    if(g_apps_return){g_apps_return=false;const auto entered=esp_timer_get_time();open_apps();give_up_at+=esp_timer_get_time()-entered;scan=g_listen.written.load();cutter.reset();}
     while (true) {
-        M5.update();
+        M5.update();apps::tick();
+        if(apps_touch.held()) {
+            const int64_t entered=esp_timer_get_time();open_apps();give_up_at+=esp_timer_get_time()-entered;
+            scan=g_listen.written.load();cutter.reset();continue;
+        }
         if (M5.BtnB.wasPressed()) { back("button"); }
         recover_listening();
         if (esp_timer_get_time() > give_up_at) { back("timeout"); }
@@ -1765,6 +1841,9 @@ void serve_voice_print(Recognizer &recognizer)
                 scan = g_listen.written.load(); cutter.reset();
                 printf("LISTEN_HOLD %d\n", held);
             }
+        } else if(header[0]=='A' && read_exact(header+1,3) && !std::memcmp(header,"APPS",4)) {
+            const auto entered=esp_timer_get_time();open_apps();give_up_at+=esp_timer_get_time()-entered;
+            scan=g_listen.written.load();cutter.reset();
         } else if (header[0] == 'M' && read_exact(header + 1, 2) && std::memcmp(header, "MOD", 3) == 0 &&
                    read_exact(header + 3, 1) && header[3] == 'E') {
             back("serial");
@@ -1853,11 +1932,12 @@ void serve(Recognizer &recognizer)
     bool scroll_gesture = false;
     bool blue_printed = false;
     LongTouch mode_touch;
+    if(g_apps_return){g_apps_return=false;open_apps();release_barrier=true;}
     while (true) {
         recover_listening();
-        M5.update();
-        // A long touch on the waiting screen switches to the action mode (touch is unused there).
-        if (mode_touch.held() && state == Ui::waiting) { switch_mode(); }
+        M5.update();apps::tick();
+        // The same stationary hold classifier opens the overlay; button actions stay unchanged.
+        if (mode_touch.held()) { open_apps();release_barrier=true;continue; }
         if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed()) {
             printf("BUTTON A=%d B=%d\n", M5.BtnA.wasPressed(), M5.BtnB.wasPressed());
             if (g_battery_armed && M5.BtnA.wasPressed()) {
@@ -1910,6 +1990,9 @@ void serve(Recognizer &recognizer)
         // Short timeout so the loop also watches the touch panel.
         if (xStreamBufferReceive(serial_commands, header, 1, pdMS_TO_TICKS(20)) != 1) {
             continue;
+        }
+        if(header[0]=='A' && read_exact(header+1,3) && std::memcmp(header,"APPS",4)==0) {
+            open_apps();continue;
         }
         if (header[0] == 'M') {  // "MIC" typed in a terminal, or "MODE"
             if (read_exact(header + 1, 2) && std::memcmp(header, "MIC", 3) == 0) {
@@ -2064,6 +2147,19 @@ void serve(Recognizer &recognizer)
 void recognition_task(void *)
 {
     log_memory("boot");
+    if(g_radio_boot) {
+        apps::reserve_audio_memory();
+        tts::restore_diagnostic();
+        auto microphone=M5.Mic.config();microphone.magnification=1;M5.Mic.config(microphone);
+        M5.Mic.setBufferReleaseCallback(nullptr,microphone_released);
+        report("MODE radio partition=none return_mode=%s",g_mode==Mode::action?"action":"kana");
+        const auto master_volume=M5.Speaker.getVolume();
+        const int selected_mode=apps::run(serial_commands,read_exact,[] {voice_screen::dump_pixels(print_hex);},true);
+        M5.Speaker.setVolume(master_volume);
+        if(selected_mode<2){const auto next=selected_mode?Mode::action:Mode::kana;reboot_into(next,next==g_mode && g_voice_print);}
+        reboot_into(g_mode,g_voice_print,false,true);
+    }
+    ralomi::features_init();
     if (!tts::begin()) { report("ERROR TTS init"); }
     home::set_speaker(speak_response);
     action::set_speaker(speak_response);
@@ -2075,6 +2171,8 @@ void recognition_task(void *)
     auto *model = new dl::Model(action_mode ? "koeact" : "model", fbs::MODEL_LOCATION_IN_FLASH_PARTITION);
     report("LOAD us=%" PRId64, esp_timer_get_time() - load_start);
     log_memory("model_loaded");
+    apps::reserve_audio_memory();
+    log_memory("audio_arena");
     static Recognizer recognizer(model);
     dl::TensorBase *input = recognizer.features_input();
     dl::TensorBase *output = model->get_outputs().at("logits");
@@ -2125,7 +2223,6 @@ extern "C" void app_main(void)
     report("BOARD id=%d stopwatch=%d display=%dx%d touch=%d mic_enabled=%d buttons=A(GPIO2),B(GPIO1)",
            (int)M5.getBoard(), M5.getBoard() == m5::board_t::board_M5StopWatch,
            M5.Display.width(), M5.Display.height(), M5.Touch.isEnabled(), M5.Mic.isEnabled());
-    ralomi::features_init();
     // NVS holds the mode. BLE also calls nvs_flash_init later, which then returns ESP_OK.
     esp_err_t nvs = nvs_flash_init();
     if (nvs == ESP_ERR_NVS_NO_FREE_PAGES || nvs == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -2133,6 +2230,8 @@ extern "C" void app_main(void)
         nvs = nvs_flash_init();
     }
     g_mode = nvs == ESP_OK ? load_mode() : Mode::kana;
+    g_radio_boot = nvs == ESP_OK && take_boot_flag(kRadioBootKey);
+    g_apps_return = nvs == ESP_OK && take_boot_flag(kAppsReturnKey);
     g_voice_print = nvs == ESP_OK && take_voice_print_flag() && g_mode == Mode::kana;
     report("NVS init=%s voice_print=%d", esp_err_to_name(nvs), g_voice_print);
     usb_serial_jtag_driver_config_t config = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
@@ -2146,5 +2245,5 @@ extern "C" void app_main(void)
     if (!serial_commands || xTaskCreatePinnedToCore(serial_receiver, "screen_serial", 8192, nullptr, 4, nullptr, 1) != pdPASS) {
         ESP_LOGE(TAG, "ERROR serial_receiver_task"); return;
     }
-    xTaskCreatePinnedToCore(recognition_task, "ralomi", 32768, nullptr, 5, nullptr, 0);
+    xTaskCreatePinnedToCore(recognition_task, "ralomi", g_radio_boot?CONFIG_ESP_MAIN_TASK_STACK_SIZE:32768, nullptr, 5, nullptr, 0);
 }

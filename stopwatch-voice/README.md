@@ -4,6 +4,35 @@ BotWatch は M5Stack StopWatch 上で音声認識・TTS・キャラクター表�
 ひらがな認識と常時ヒアリングを切り替え、1体表示・左右スワイプ・集合・タップ選択に対応します。
 ペットを置かない場合は3社キャラクターだけで動作します。
 
+## アプリ一覧
+
+待ち受け中やアプリ内で画面を1.5秒長押しすると、アプリ一覧が開きます。
+左右スワイプで選び、タップで開きます。ボタンの既存操作は変わりません。
+元の [M5StopWatch](https://github.com/kazuph/M5StopWatch) のアプリから機能だけを移し、絵の素材は使っていません（MIT、`licenses/M5StopWatch-MIT.txt`）。
+
+| アプリ | できること |
+|---|---|
+| はなしかけ / いんさつ | 既存の音声モード（常時ヒアリング・声だけ印刷）へ切り替え |
+| チューナー | A1〜C8の単音。日独のドレミ表記、♯♭両表記、オクターブ番号、±50セントの針、Hz表示。基準Aは410〜480Hz（440/442をすぐ選べる） |
+| おとのなみ | マイク入力の20帯域スペクトルと主な周波数 |
+| みみゲーム | 単音・音階・和音の聞き取り。音量は退出時だけ保存 |
+| ストップウォッチ | ラップ付き。一覧へ戻っても計測を続ける |
+| ポモドーロ | 25分作業・5分休憩。ほかの画面にいても進み、終わると振動で知らせる |
+| とけい | RTCの日時を表示・設定。RTCを読めないときはビルド日時から始める |
+| むせん | 近くの同じアプリを開いた端末と、押している間だけ話す無線（暗号化なし） |
+
+### 旧版からの更新は全書込みが必要
+
+無線を入れるため区画表を変えました（factory `0x350000`、model `0x360000`、koeact `0x7A0000`、a2 `0xC40000`、tts `0xD60000`、sprites `0xE00000` は不変）。
+以前の版を書き込んだ本体は、アプリだけでなく `build/flash_args` の全ファイル（モデル、A2、TTS、sprites を含む）を書き込み直してください。
+アプリだけを書くと、区画の位置が合わずに起動できません。
+
+### 未検証の範囲
+
+注入した音声と実マイクの両方で、2台間の無線の送受信（両方向50/50フレーム、欠落0）とチューナー140例を確認しました。
+次は未検証です。無線の受信音をスピーカーで鳴らしたときの聞こえ方とメモリ、実楽器でのチューナー精度、指での操作感、プリンター接続中の印刷。
+本体によってはRTCを読めず、とけいがビルド日時から始まることがあります（原因は未解決）。
+
 ## 取得とビルド
 
 ```sh
@@ -32,9 +61,9 @@ USBポートは接続のたびに `/dev/cu.usbmodem*` を確認して指定し�
 (cd build && uvx esptool --chip esp32s3 --port /dev/cu.usbmodem1101 write-flash @flash_args)
 ```
 
-区画は現在factoryアプリ `0x10000`（領域長 `0x2F0000`）、モデル
-`0x300000`（実体長 `4,334,768`）、うごきモード用の `koeact` `0x740000`
-（4,813,760バイト）と `a2` `0xBE0000`（1,132,544バイト）、16MB flashです。
+区画は現在factoryアプリ `0x10000`（領域長 `0x350000`）、モデル
+`0x360000`（実体長 `4,334,768`）、うごきモード用の `koeact` `0x7A0000`
+（4,813,760バイト）と `a2` `0xC40000`（1,132,544バイト）、16MB flashです。
 以下の経緯の段落はうごきモード追加前の値です。ブートローダーと
 区画表のアドレス・各ファイルの実サイズは生成したflash_argsと成果物で確認します。
 初版はアプリ1,917,040バイト、モデル0x200000でした。Noto追加後の実測
@@ -279,12 +308,12 @@ macOSの `say -v Kyoko` で作ったWAV 17本（再生はしない）で、実�
 起動時は選択中の1体を大きく表示します。左右スワイプで6体を循環し、ダブルタップまたは
 「みんなあつまって」「みんな集合」で集合表示へ。集合中にキャラをタップするとその1体へ戻ります。
 声による向き・表情・ジャンプ・遊んで・背景変更は両方の表示で共通です。
-待ち受け中の1.5秒長押しは既存の切り替えを維持し、移動やタップと分離しています。
+待ち受け中やアプリ内の1.5秒長押しで一覧を開きます。移動やタップの判定は保持しています。
 選択はRAMで保持し、切り替えによる再起動時の既存NVS commitにだけ保存を加えます。
 図形の3体は1体表示では468pxの画面作業領域へ実寸で直接描画し、拡大するのはペットのドット絵だけです。
 
-`sprites` は `0xE00000` / 2MB。区画表は `tts`（`0xD00000` / 1MB）も併記し、このアプリの書込定義は
-`tts` のデータに触れません。素材の再生成は行わず、親が採用した追加画像を `scripts/clean_sprite_edges.py` →
+`sprites` は `0xE00000` / 2MB。区画表は `tts`（`0xD60000` / 640KiB）も併記し、全書込みでは
+`tts` の654,032バイトも名前から配置します。区画は655,360バイトです。素材の再生成は行わず、親が採用した追加画像を `scripts/clean_sprite_edges.py` →
 `scripts/build_sprites.py` で処理します。原本と出所は `assets/pets/sources.json` に記録します。
 
 `CTCH` 診断はヘッダーに続く11バイト（`<BhhhhH`）で種類、開始x/y、移動dx/dy、押下時間msを渡します。
@@ -340,9 +369,9 @@ sanoTTS-jp — https://github.com/ayutaz/sanoTTS-jp
 
 ```
 
-The `tts` partition occupies 0xD00000–0xDFFFFF only; 0xE00000–0xFFFFFF belongs to the shared `sprites` partition (data subtype 0x40).
-The combined firmware retains both partition-table entries. Shared-device verification writes
-only the partition table and application, preserving the existing TTS and sprite data.
+The `tts` partition occupies 0xD60000–0xDFFFFF only; 0xE00000–0xFFFFFF belongs to the shared `sprites` partition (data subtype 0x40).
+The combined firmware retains both partition-table entries. A layout migration writes all flash_args files, including both recognition models, A2, TTS and sprites.
+Subsequent application-only verification preserves the data partitions.
 Validate that write set with `scripts/verify_build.py --app-only --output <evidence.json>`.
 No device kanji dictionary is included. Readings and accents are generated offline by
 `scripts/generate_tts_phrases.py` using OpenJTalk, then stored in `main/tts_phrases.h`.
@@ -416,3 +445,29 @@ AW8737Aは既存の最大出力モードを維持し、既定音量は50%です�
 
 実機試験は `scripts/device_lock.py` で排他し、起動完了後にTMUTの応答を確認してから音声を注入します。
 終了時は失敗した場合もTLIVを送り、`TTS_DIAGNOSTIC muted=0 pcm=0` を確認して戻します。
+
+### 押して話す無線
+
+「むせん」を選ぶと、最後の音声モードを保存して軽い起動へ再起動します。
+この起動では認識モデル、A2、TTS、キャラクターの作業領域を読み込みません。
+近くで同じアプリを開いた端末へ自動接続し、青いボタンを押している間に送信します。
+送信は16kHz録音からG.711 μ-lawの8kHz・20ms単位へ変換し、受信は44.1kHzへ戻します。
+暗号化は使いません。同時に押したときは元のMAC順の手順で片方だけが送信します。
+1.5秒長押しで終了し、元の音声モードへ再起動して一覧を再表示します。声だけ印刷の起動目的も保存します。
+一覧再表示フラグは一度読んだら消し、保存・読消しに失敗したら元モードの待受へ戻ります。
+
+無線の音声形式と接続手順は `main/radio/`、本体との受け渡しは `main/radio_app.cpp`。
+`TMUT` は受信音声も消音します。`RSTA` で接続状態・送受信数・復号数・欠落数を記録し、
+`RKEY` と `RPCM` は実際のPTT送信経路へ検査用入力を渡します。
+検査は `scripts/device_lock.py -- uv run --with pyserial --with pillow python scripts/check_ptt_pair.py --first <port> --second <port> --output <evidence>`。
+
+無線のIRAM最適化はOFFとし、対象関数をフラッシュ側へ置きます。
+Wi-Fi送信は元の動的確保を使い、PSRAM優先のWi-Fi/LWIP確保はOFFです。
+音アプリの共有作業領域61,444Bを、モデル読込直後にPSRAMへ1回だけ確保します。
+チューナー・スペクトル・耳・無線は同時に開かず、この領域の中を使います。
+退出時は録音・再生の完了を待ち、配列の参照と使用位置を0へ戻します。
+共有領域は再起動まで保持し、長い利用後の細切れな空き領域への再確保を避けます。
+一覧の画面退避も共有領域に置き、音アプリを開く直前に捨てます。
+退避を保持したまま戻る時は画素を復元し、捨てた後は元の画面状態から描き直します。
+`AUDIO_ARENA` は予約量、`APP_MEMORY` は予約量と使用量・各RAMの最大連続領域を記録します。
+`AUDIO_RELEASE` の容量0を実機ログで確認できます。ポモドーロ等のRAM上の計時は再起動で止まります。

@@ -3,11 +3,25 @@
 #include <cstdint>
 #include <string>
 #include "label_raster.h"
+#include "pitch_detector.h"
+#include "ear_game.h"
 #include "character_motion.h"
 #include "character_touch.h"
 
 namespace voice_screen {
 bool begin();
+bool begin_overlay();
+void end_overlay();
+void discard_overlay();
+int app_count();
+void app_radio(const char *state,int volume);
+void app_menu(int rotation,const char *message=nullptr);
+void app_timer(const char *title,const std::string &value,const std::string &detail,const char *left,const char *right);
+void app_clock(const std::string &date,const std::string &time,const char *field,bool editing);
+void app_spectrum(std::span<const float> power, double peakHz);
+void app_ear(const ear_game::Question &question,int feedback,int volume);
+void app_tuner(const tuner::PitchResult &pitch, int calibration, bool japanese);
+int app_at(int rotation, int x, int y);
 void show(const char *status, const std::string &text);
 void waiting();
 void recording();
@@ -58,6 +72,7 @@ unsigned selected_character();
 void gather_characters();
 bool character_touch(bool down,int x,int y,uint32_t ms);
 bool diagnostic_touch(unsigned kind,int x,int y,int dx,int dy,uint16_t duration);
+void font_audit(bool enabled);
 void mode_switching(const char *next_mode);
 
 // Voice printing (kana mode entered from the action mode by voice).

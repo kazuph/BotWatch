@@ -166,8 +166,8 @@ void grok(CorporatePainter &paint,double x, double y, double back, double open, 
         double tilt=mood==3?side*.55:mood==2?-side*.45:-.35;
         double h=15*open*(mood==2?.8:1)*(1-back);
         if(mood==1) {
-            paint.line(ex-5,ey+2,ex,ey-2,4,eye); paint.line(ex,ey-2,ex+5,ey+2,4,eye);
-        } else paint.line(ex-std::sin(tilt)*h/2,ey-std::cos(tilt)*h/2,ex+std::sin(tilt)*h/2,ey+std::cos(tilt)*h/2,6.5,eye);
+            paint.line(ex-5,ey+2,ex,ey-2,2,eye); paint.line(ex,ey-2,ex+5,ey+2,2,eye);
+        } else paint.line(ex-std::sin(tilt)*h/2,ey-std::cos(tilt)*h/2,ex+std::sin(tilt)*h/2,ey+std::cos(tilt)*h/2,3.25,eye);
     }
 }
 

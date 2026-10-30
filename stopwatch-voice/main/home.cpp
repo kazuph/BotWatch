@@ -107,7 +107,7 @@ int satellite_band(const std::string &text)
     return -1;
 }
 
-void draw(const char *caption, const std::string &kana)
+void draw(const char *caption, const std::string &kana,bool quote=true)
 {
     const State &s = g_state;
     char tv[48], aircon[48];
@@ -118,7 +118,7 @@ void draw(const char *caption, const std::string &kana)
         {voice_screen::Appliance::aircon, "エアコン", s.aircon ? aircon : "オフ", s.aircon, kModeColours[s.mode]},
         {voice_screen::Appliance::light, "でんき", s.light ? "オン" : "オフ", s.light, 0xF2C14E},
     };
-    voice_screen::home_panel(tiles, 3, g_focus, caption, kana.empty() ? kana : "「" + kana + "」");
+    voice_screen::home_panel(tiles, 3, g_focus, caption, !quote || kana.empty() ? kana : "「" + kana + "」");
 }
 }  // namespace
 
@@ -206,4 +206,5 @@ bool perform(const Command &command, const std::string &kana)
 }
 
 void show(const char *caption) { draw(caption, ""); }
+void redraw(const std::string &caption,const std::string &kana) { draw(caption.c_str(),kana,false); }
 }  // namespace home

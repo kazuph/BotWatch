@@ -28,3 +28,5 @@ notice in `LovyanGFX_and_bundled.txt`. The firmware uses no other M5GFX fonts.
 The firmware source in [`firmware/`](firmware/) downloads these components from the ESP
 Component Registry at build time (`main/idf_component.yml`, `dependencies.lock`); they are not
 copied into this repository.
+
+PTT 無線の `main/radio/`（接続手順、ESP-NOW、G.711）は M5Stack M5StopWatch-UserDemo の MIT ソースを移植しています。参照版は kazuph/M5StopWatch の `d9ecb3e461187cf362b3d4c5aa99cbf168bf7021`、`main/apps/app_transceiver/` です。各ファイルの著作権表示を保持し、会話モードは PTT のみに限定しています。

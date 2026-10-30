@@ -50,7 +50,8 @@ void memory(const char *stage) {
 }
 }
 bool is_ready() { return ready; }
-void diagnostic(bool value) { saved_muted = value; muted.store(value); printf("TTS_DIAGNOSTIC muted=%d pcm=%d\n", value, value); fflush(stdout); }
+bool is_muted() { return muted.load(); }
+void diagnostic(bool value) { saved_muted = value; muted.store(value); if(value)M5.Speaker.stop(); printf("TTS_DIAGNOSTIC muted=%d pcm=%d\n", value, value); fflush(stdout); }
 void diagnostic_phrases(void (*speak)(const char *)) {
     if(!muted.load()) { printf("ERROR TTS_TABLE mute_required\n");return; }
     unsigned count=0;
@@ -61,9 +62,12 @@ void diagnostic_phrases(void (*speak)(const char *)) {
     }
     printf("TTS_TABLE_DONE phrases=%u\n",count);fflush(stdout);
 }
-bool begin() {
+void restore_diagnostic() {
     if (esp_reset_reason() != ESP_RST_SW) { saved_muted = false; }
     muted.store(saved_muted);
+}
+bool begin() {
+    restore_diagnostic();
     memory("before_init");
     const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "tts");
     const void *blob = nullptr;

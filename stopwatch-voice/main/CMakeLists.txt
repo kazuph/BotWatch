@@ -12,10 +12,10 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/pet_config.h" "#pragma once\nconstexpr int kPetCount=${BOTWATCH_PET_COUNT};\n")
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 ayousanz
-idf_component_register(SRCS "main.cpp" "features.cpp" "voice_screen.cpp" "ble_printer.cpp" "label_raster.cpp"
+idf_component_register(SRCS "radio_app.cpp" "radio/transport/esp_now_radio.cpp" "pomodoro.cpp" "ear_game.cpp" "pitch_detector.cpp" "apps.cpp" "main.cpp" "features.cpp" "voice_screen.cpp" "ble_printer.cpp" "label_raster.cpp"
                             "tts.cpp" "tts_text.cpp" "action.cpp" "characters.cpp" "home.cpp" "koeact/a2.c"
                        INCLUDE_DIRS "." "koeact" "${CMAKE_CURRENT_BINARY_DIR}/generated"
-                       PRIV_REQUIRES esp_timer esp_psram esp_driver_usb_serial_jtag vfs bt nvs_flash
+                       PRIV_REQUIRES esp_wifi esp_netif esp_timer esp_psram esp_driver_usb_serial_jtag vfs bt nvs_flash
                                      esp_partition spi_flash json sanotts
                        EMBED_FILES "../assets/ui15.vlw" "../assets/ui17.vlw" "../assets/ui20.vlw" "../assets/ui22.vlw" "../assets/ui24.vlw" "../assets/ui32.vlw" "../assets/ui34.vlw" "../assets/ui38.vlw" "../assets/ui40.vlw" "../assets/ui56.vlw")
 
@@ -51,4 +51,15 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     BYPRODUCTS "${CMAKE_CURRENT_LIST_DIR}/print_font.inc" "${CMAKE_CURRENT_LIST_DIR}/../assets/print-font.json"
     VERBATIM)
   add_dependencies(${COMPONENT_LIB} botwatch_print_font)
+endif()
+
+# A measurement-only build links the real ESP-NOW transport and G.711 paths.
+# The probe source lives in ignored evidence, never in the normal firmware.
+if(BOTWATCH_RADIO_PROBE_DIR)
+  target_sources(${COMPONENT_LIB} PRIVATE "${BOTWATCH_RADIO_PROBE_DIR}/radio_probe.cpp"
+    "${BOTWATCH_RADIO_PROBE_DIR}/transport/esp_now_radio.cpp")
+  target_compile_definitions(${COMPONENT_LIB} PRIVATE BOTWATCH_RADIO_MEASURE)
+  idf_component_get_property(wifi_lib esp_wifi COMPONENT_LIB)
+  idf_component_get_property(netif_lib esp_netif COMPONENT_LIB)
+  target_link_libraries(${COMPONENT_LIB} PRIVATE ${wifi_lib} ${netif_lib})
 endif()

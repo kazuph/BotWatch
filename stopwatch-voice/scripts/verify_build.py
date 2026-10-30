@@ -28,6 +28,9 @@ def main():
     assert ble == {"BT_ENABLED": True, "BT_NIMBLE_ENABLED": True,
                    "BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL": True,
                    "BT_NIMBLE_MAX_CONNECTIONS": 1, "BT_CTRL_BLE_MAX_ACT": 2}, "stage 2 NimBLE configuration differs"
+    for flag in ("ESP_WIFI_IRAM_OPT","ESP_WIFI_RX_IRAM_OPT","ESP_WIFI_EXTRA_IRAM_OPT","LWIP_IRAM_OPTIMIZATION","ESP_WIFI_SLP_IRAM_OPT"):
+        assert not config.get(flag,False), f"radio flash-resident code contract changed: {flag}"
+    assert config["ESP_WIFI_TX_BUFFER_TYPE"] == 1 and not config["SPIRAM_TRY_ALLOCATE_WIFI_LWIP"], "retain original dynamic Wi-Fi TX allocation"
     dependencies = yaml.safe_load((root / "dependencies.lock").read_text())["dependencies"]
     versions = {name: item["version"] for name, item in dependencies.items()}
     for name, version in {
@@ -60,15 +63,25 @@ def main():
     assert model["offset"] == partitions["model"]["offset"]
     assert model["length"] == SIZE and model["sha256"] == SHA256
     assert model["length"] <= partitions["model"]["size"]
-    # BRIEF.md: retain all model locations, reserve D00000..DFFFFF for the other task.
-    for name, offset, size in (("model", 0x300000, 0x440000), ("koeact", 0x740000, 0x4A0000),
-                               ("a2", 0xBE0000, 0x120000), ("tts", 0xD00000, 0x100000),
+    # Owner-approved PTT layout; sprites retain their shared address.
+    for name, offset, size in (("factory", 0x10000, 0x350000), ("model", 0x360000, 0x440000), ("koeact", 0x7A0000, 0x4A0000),
+                               ("a2", 0xC40000, 0x120000), ("tts", 0xD60000, 0xA0000),
                                ("sprites", 0xE00000, 0x200000)):
         assert partitions[name] == {"offset": offset, "size": size}, f"partition contract changed: {name}"
     tts = next(item for item in files if item["offset"] == partitions["tts"]["offset"])
     assert tts["length"] == TTS_SIZE and tts["sha256"] == TTS_SHA256
     writes = [item for item in files if item["offset"] in (0x8000, app["offset"])] if args.app_only else files
-    assert all(item["end_exclusive"] <= 0xD00000 or item["offset"] >= 0xE00000 for item in writes), "write into reserved speech region"
+    ordered=sorted(partitions.items(),key=lambda pair:pair[1]["offset"])
+    for (_,left),(_,right) in zip(ordered,ordered[1:]):
+        assert left["offset"]+left["size"]<=right["offset"], "overlapping partitions"
+    for name in ("factory","model","koeact","a2","tts","sprites"):
+        part=partitions[name]
+        for item in files:
+            if item["offset"]==part["offset"]:
+                assert item["length"]<=part["size"],f"{name} file exceeds partition"
+    assert tts["length"]<=partitions["tts"]["size"]
+    assert TTS_SIZE==654032
+
     sprite_files = [item for item in files if item["offset"] == partitions["sprites"]["offset"]]
     manifest_path = root / "assets/pets/manifest.json"
     pet_count = json.loads(manifest_path.read_text())["count"] if manifest_path.exists() else 0

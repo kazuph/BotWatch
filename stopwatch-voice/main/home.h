@@ -19,4 +19,5 @@ Command parse(const std::string &kana);
 bool perform(const Command &command, const std::string &kana);
 // The panel as it stands (B button returns to the character).
 void show(const char *caption);
+void redraw(const std::string &caption,const std::string &kana);
 }
