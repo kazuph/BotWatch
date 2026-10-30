@@ -1,9 +1,12 @@
 #include "voice_screen.h"
 #include "characters.h"
+#include "audio_buffer.h"
+#include "home.h"
 #include "freertos/task.h"
 
 #include <M5Unified.h>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -39,6 +42,10 @@ int rows = 0;
 int safe_side = 0;
 bool actions = false, error_actions = false;
 bool animated = false, characters_ready = false;
+enum class NormalScreen { waiting,text,previews,avatar,home,voice_prompt,voice_confirm,failure,success };
+NormalScreen normal_screen=NormalScreen::waiting;
+int success_battery=-1;
+bool tuner_screen_ready=false,spectrum_screen_ready=false;
 bool character_background_invalid=true;
 Avatar character_avatar;
 characters::View character_view;
@@ -141,14 +148,43 @@ void use_font(int size)
 {
     if (current_size != size) { canvas.unloadFont(); canvas.loadFont(font(size).data); current_size = size; }
 }
+uint32_t font_word(const uint8_t *p);
+std::atomic<bool> font_audit_enabled{false};
+void audit_text(const char *text,int size)
+{
+    if(!font_audit_enabled.load()) return;
+    const auto *data=font(size).data;
+    const unsigned count=font_word(data);
+    unsigned missing=0;
+    for(const unsigned char *p=reinterpret_cast<const unsigned char *>(text);*p;) {
+        unsigned bytes=*p<0x80?1:*p<0xe0?2:*p<0xf0?3:4;
+        uint32_t code=*p & (bytes==1?0x7f:bytes==2?0x1f:bytes==3?0xf:7);
+        ++p;
+        for(unsigned i=1;i<bytes && *p;++i,++p) code=(code<<6)|(*p&63);
+        // M5GFX advances spaces without looking up a VLW bitmap.
+        if(code==0x20) continue;
+        bool found=false;
+        for(unsigned i=0;i<count;++i) if(font_word(data+24+i*28)==code) {found=true;break;}
+        if(!found) ++missing;
+    }
+    flockfile(stdout);
+    printf("FONT_TEXT size=%d missing=%u utf8=",size,missing);
+    for(const unsigned char *p=reinterpret_cast<const unsigned char *>(text);*p;++p) printf("%02x",*p);
+    printf("\n");fflush(stdout);funlockfile(stdout);
+}
+void audited_draw_string(const char *text,int x,int y)
+{
+    audit_text(text,current_size);canvas.drawString(text,x,y);
+}
 int origin() { return (canvas.width() - 466) / 2; }
 void text_at(const std::string &text, int size, int x, int baseline, uint16_t color, bool centered = true, uint16_t background_color = kIvory)
 {
     use_font(size); canvas.setTextColor(color, background_color);
-    canvas.drawString(text.c_str(), x + origin() - (centered ? canvas.textWidth(text.c_str()) / 2 : 0), baseline + origin() - font(size).ascent);
+    audited_draw_string(text.c_str(), x + origin() - (centered ? canvas.textWidth(text.c_str()) / 2 : 0), baseline + origin() - font(size).ascent);
 }
 void background()
 {
+    tuner_screen_ready=false;spectrum_screen_ready=false;
     animated = false;
     character_gesture.clear();
     style_labels = nullptr; role_text_radius = 186;
@@ -295,6 +331,7 @@ void cached_roles()
 }
 void draw_roles()
 {
+    audit_text(left_role,style_labels?17:20);audit_text(right_role,style_labels?17:20);
     if(animated) { cached_roles();return; }
     for (int side = 0; side < 2; ++side) {
         const char *role = side ? right_role : left_role;
@@ -445,21 +482,21 @@ void draw()
     canvas.fillSprite(kIvory);
     if (views.empty()) { return; }
     for (const auto &line : views[first].lines) {
-        canvas.drawString(line_text(line).c_str(), line.x, line.y);
+        audited_draw_string(line_text(line).c_str(), line.x, line.y);
     }
     if (actions) {
         const int font_height = canvas.fontHeight();
         const int top = (canvas.height() - safe_side) / 2;
         const char *header1 = error_actions ? "印刷に失敗" : "これで";
         const char *header2 = error_actions ? "" : "印刷しますか？";
-        canvas.drawString(header1, (canvas.width() - canvas.textWidth(header1)) / 2, top);
-        canvas.drawString(header2, (canvas.width() - canvas.textWidth(header2)) / 2, top + font_height);
+        audited_draw_string(header1, (canvas.width() - canvas.textWidth(header1)) / 2, top);
+        audited_draw_string(header2, (canvas.width() - canvas.textWidth(header2)) / 2, top + font_height);
         const int controls_y = top + safe_side - font_height;
         if (preview_bits) { paint_preview(preview_bits, preview_rows, controls_y - font_height, font_height); }
         if (paper_length > 150) {
             char length[32]; snprintf(length, sizeof(length), "%.0fmm", paper_length);
             canvas.setTextColor(TFT_RED, kIvory);
-            canvas.drawString(length, (canvas.width() - canvas.textWidth(length)) / 2, controls_y - 2 * font_height);
+            audited_draw_string(length, (canvas.width() - canvas.textWidth(length)) / 2, controls_y - 2 * font_height);
             canvas.setTextColor(kInk, kIvory);
         }
         const char *left = error_actions ? "戻る" : "やり直し";
@@ -467,9 +504,9 @@ void draw()
         const int gap = canvas.textWidth(" ");
         const int width = canvas.textWidth(left) + gap + canvas.textWidth(right);
         const int x = (canvas.width() - width) / 2;
-        canvas.drawString(left, x, controls_y);
+        audited_draw_string(left, x, controls_y);
         canvas.setTextColor(TFT_CYAN, TFT_BLACK);
-        canvas.drawString(right, x + canvas.textWidth(left) + gap, controls_y);
+        audited_draw_string(right, x + canvas.textWidth(left) + gap, controls_y);
         canvas.setTextColor(kInk, kIvory);
     }
     draw_roles();
@@ -542,7 +579,7 @@ void build_views()
 
 void show(const char *status, const std::string &text)
 {
-    Lock lock;
+    Lock lock;normal_screen=NormalScreen::text;
     use_font(32);
     style_labels = nullptr;
     actions = false; preview_bits = nullptr; paper_length = 0;
@@ -568,7 +605,7 @@ void scroll(int delta)
 
 void waiting()
 {
-    Lock lock; background(); roles("おして話す", "");
+    Lock lock;normal_screen=NormalScreen::waiting; background(); roles("おして話す", "");
     icon(kMic,kMicWidth,kMicHeight,157,97);
     text_at("左上のボタンを",34,233,294,kInk);
     text_at("おしながら",34,233,336,kInk); text_at("話してね",34,233,378,kInk);
@@ -583,7 +620,7 @@ void confirmation(const std::string &text) { show("これで\n印刷しますか
 
 void confirmation(const std::string &text, const uint8_t *bits, int height, double length)
 {
-    Lock lock;
+    Lock lock;normal_screen=NormalScreen::text;
     actions = true; error_actions = false; preview_bits = bits; preview_rows = height; paper_length = length;
     const int fh = canvas.fontHeight();
     region_top = (canvas.height() - safe_side) / 2 + 2 * fh;
@@ -594,7 +631,7 @@ void confirmation(const std::string &text, const uint8_t *bits, int height, doub
 
 void failure(const std::string &reason)
 {
-    Lock lock; background(); roles("おして話す","もういちど");
+    Lock lock;normal_screen=NormalScreen::failure; background(); roles("おして話す","もういちど");
     canvas.fillCircle(233+origin(),160+origin(),54,kCoralTrack);
     text_at("!",56,233,180,rgb(0xD9675A));
     if(reason=="プリンターにつながりません") {
@@ -716,7 +753,7 @@ void paint_preview(const uint8_t *bits, int height, int available_top, int avail
 void previews(const std::string &text, const label_raster::Label *labels, const char *const *names, int count,
               int selected, bool reset_scroll, const char *heading, const char *right)
 {
-    Lock lock;
+    Lock lock;normal_screen=NormalScreen::previews;
     roles("おして話す", right);
     style_labels = labels; style_names = names; style_count = count; list_heading = heading;
     selected_style = selected; source = text;
@@ -757,7 +794,7 @@ void printing(bool started)
 }
 void success(int battery_percent)
 {
-    Lock lock; background(); roles("","");
+    Lock lock;normal_screen=NormalScreen::success;success_battery=battery_percent; background(); roles("","");
     icon(kSuccess,kSuccessWidth,kSuccessHeight,170,117);
     text_at("できたよ！",38,233,295,kInk);
     if(battery_percent>=0) {
@@ -808,12 +845,12 @@ void draw_caption(const std::string &text,const CaptionRow &row,uint16_t ink,boo
     use_font(32);canvas.setTextSize(row.scale);
     if(outlined) {
         canvas.setTextColor(ink==TFT_WHITE?TFT_BLACK:kIvory);
-        canvas.drawString(text.c_str(),row.x-kScale,row.y);
-        canvas.drawString(text.c_str(),row.x+kScale,row.y);
-        canvas.drawString(text.c_str(),row.x,row.y-kScale);
-        canvas.drawString(text.c_str(),row.x,row.y+kScale);
+        audited_draw_string(text.c_str(),row.x-kScale,row.y);
+        audited_draw_string(text.c_str(),row.x+kScale,row.y);
+        audited_draw_string(text.c_str(),row.x,row.y-kScale);
+        audited_draw_string(text.c_str(),row.x,row.y+kScale);
     }
-    canvas.setTextColor(ink);canvas.drawString(text.c_str(),row.x,row.y);
+    canvas.setTextColor(ink);audited_draw_string(text.c_str(),row.x,row.y);
     canvas.setTextSize(kScale);
 }
 
@@ -872,7 +909,7 @@ bool start_characters()
 
 void avatar(const Avatar &a, const std::string &caption, const std::string &kana)
 {
-    Lock lock;
+    Lock lock;normal_screen=NormalScreen::avatar;
     if(!characters_ready) { printf("ERROR characters_not_ready\n"); return; }
     if(!animated) last_present_us=0;
     if(!animated || a.background!=character_avatar.background || a.ring!=character_avatar.ring || a.ring_rgb!=character_avatar.ring_rgb)
@@ -966,7 +1003,7 @@ bool diagnostic_touch(unsigned kind,int x,int y,int dx,int dy,uint16_t duration)
 
 void home_panel(const Tile *tiles, int count, int focus, const std::string &caption, const std::string &kana)
 {
-    Lock lock; background(); roles("", "もどる");
+    Lock lock;normal_screen=NormalScreen::home;character_caption=caption;character_kana=kana; background(); roles("", "もどる");
     constexpr int kWidth = 122, kHeight = 150, kGap = 8, kTop = 132;  // clear of the button arc
     const int left = 233 - (count * kWidth + (count - 1) * kGap) / 2;
     for (int i = 0; i < count; ++i) {
@@ -1014,7 +1051,7 @@ void home_panel(const Tile *tiles, int count, int focus, const std::string &capt
 
 void voice_prompt(const char *line1, const char *line2, const std::string &heard)
 {
-    Lock lock; background(); roles("", "やめる");
+    Lock lock;normal_screen=NormalScreen::voice_prompt;character_caption=line1;character_kana=line2;source=heard; background(); roles("", "やめる");
     icon(kMic, kMicWidth, kMicHeight, 157, 97);
     text_at("ラベルいんさつ", 32, 233, 284, kOlive);
     text_at(line1, 32, 233, 330, kInk);
@@ -1025,7 +1062,7 @@ void voice_prompt(const char *line1, const char *line2, const std::string &heard
 
 void voice_confirm(const uint8_t *bits, int rows, const std::string &text)
 {
-    Lock lock; background(); roles("", "やめる");
+    Lock lock;normal_screen=NormalScreen::voice_confirm;preview_bits=bits;preview_rows=rows;source=text; background(); roles("", "やめる");
     // The label as it will print, as wide as the circle allows at that height.
     const double scale = std::min(0.8, 280.0 / paper_rows(rows));  // clear of the right button arc
     const int width = std::lround(paper_rows(rows) * scale);
@@ -1038,6 +1075,218 @@ void voice_confirm(const uint8_t *bits, int rows, const std::string &text)
 }
 
 // While the board restarts with the other model: no mode is named, only that it is getting ready.
+namespace {
+constexpr const char *app_names[][2] = {
+    {"はなしかけ", ""}, {"いんさつ", ""}, {"チューナー", ""}, {"おとのなみ", ""},
+    {"みみゲーム", ""}, {"ストップ", "ウォッチ"}, {"ポモドーロ", ""}, {"とけい", ""}, {"むせん", ""}
+};
+constexpr int app_radius=145, app_button_radius=48;
+void app_position(int index, int rotation, int &x, int &y) {
+    const double angle=(index-rotation)*2*M_PI/std::size(app_names)-M_PI/2;
+    x=233+std::lround(app_radius*std::cos(angle));
+    y=233+std::lround(app_radius*std::sin(angle));
+}
+}
+namespace {
+audio_memory::Buffer<uint32_t> overlay_pixels;
+bool overlay_active=false;
+int overlay_font=32;
+size_t overlay_runs=0;
+bool overlay_animated=false;
+const label_raster::Label *overlay_labels=nullptr;
+const char *overlay_left="",*overlay_right="";
+double overlay_role_radius=186;
+}
+bool begin_overlay() {
+    Lock lock;
+    const auto *pixels=static_cast<const uint16_t*>(canvas.getBuffer());
+    const size_t count=canvas.width()*canvas.height();
+    size_t runs=0;
+    for(size_t i=0;i<count;){const auto color=pixels[i];size_t length=1;while(i+length<count && length<UINT16_MAX && pixels[i+length]==color)++length;i+=length;++runs;}
+    audio_memory::arena.rewind();
+    const bool stored=overlay_pixels.allocate(runs);
+    overlay_font=current_size;overlay_active=true;
+    size_t run=0;
+    if(stored)for(size_t i=0;i<count;){const auto color=pixels[i];size_t length=1;while(i+length<count && length<UINT16_MAX && pixels[i+length]==color)++length;overlay_pixels[run++]=uint32_t(color)<<16|uint32_t(length);i+=length;}
+    overlay_runs=run;overlay_animated=animated;animated=false;overlay_labels=style_labels;
+    overlay_left=left_role;overlay_right=right_role;overlay_role_radius=role_text_radius;
+    printf("APP_OVERLAY bytes=%u stored=%d reserved=%u\n",unsigned(runs*sizeof(uint32_t)),stored,unsigned(audio_memory::arena.capacity()));return true;
+}
+void discard_overlay() {
+    Lock lock;overlay_pixels.reset();overlay_runs=0;audio_memory::arena.rewind();
+}
+void end_overlay() {
+    Lock lock;
+    if(!overlay_active)return;
+    const bool stored=overlay_pixels.size()!=0;
+    style_labels=overlay_labels;left_role=overlay_left;right_role=overlay_right;role_text_radius=overlay_role_radius;
+    use_font(overlay_font);canvas.clearClipRect();
+    character_background_invalid=true;animated=overlay_animated;character_gesture.clear();
+    if(stored) {
+        auto *pixels=static_cast<uint16_t*>(canvas.getBuffer());size_t at=0;
+        for(size_t i=0;i<overlay_runs;++i){const auto run=overlay_pixels[i];std::fill_n(pixels+at,run&UINT16_MAX,uint16_t(run>>16));at+=run&UINT16_MAX;}
+        canvas.pushSprite(0,0);
+    } else {
+        switch(normal_screen) {
+        case NormalScreen::waiting:waiting();break;
+        case NormalScreen::text:draw();break;
+        case NormalScreen::previews:draw_previews();break;
+        case NormalScreen::avatar:draw_avatar();break;
+        case NormalScreen::home:home::redraw(character_caption,character_kana);break;
+        case NormalScreen::voice_prompt:voice_prompt(character_caption.c_str(),character_kana.c_str(),source);break;
+        case NormalScreen::voice_confirm:voice_confirm(preview_bits,preview_rows,source);break;
+        case NormalScreen::failure:failure(source);break;
+        case NormalScreen::success:success(success_battery);break;
+        }
+    }
+    discard_overlay();overlay_active=false;
+    printf("APP_OVERLAY_RESTORE path=%s screen=%d\n",stored?"snapshot":"redraw",int(normal_screen));
+}
+int app_count() {return std::size(app_names);}
+void app_radio(const char *state,int volume) {
+    Lock lock;background();roles("", "");
+    text_at("むせん",24,233,95,kOlive);text_at(state,24,233,210,kInk);
+    text_at("ボタンをおしてはなす",17,233,290,kSub);
+    char value[48];std::snprintf(value,sizeof(value),"おんりょう %d%%",volume);text_at(value,17,233,335,kSub);
+    text_at("ながおしでアプリ",15,233,448,kSub);present();
+}
+void app_menu(int rotation,const char *message) {
+    Lock lock; background(); roles("", "");
+    for(int i=0;i<int(std::size(app_names));++i) {
+        int x,y;app_position(i,rotation,x,y);
+        const auto color=i==rotation?kYellow:kBlue;
+        canvas.fillCircle(x+origin(),y+origin(),app_button_radius,color);
+        const bool two=app_names[i][1][0];
+        text_at(app_names[i][0],17,x,y+(two?-2:7),kInk,true,color);
+        if(two) text_at(app_names[i][1],17,x,y+18,kInk,true,color);
+    }
+    text_at("アプリ",24,233,235,kInk);
+    text_at(message?message:"よこにスワイプ",15,233,262,kSub);
+    present();
+}
+void app_timer(const char *title,const std::string &value,const std::string &detail,const char *left,const char *right) {
+    Lock lock;background();roles(left,right);text_at(title,24,233,95,kOlive);
+    text_at(value,40,233,230,kInk);
+    text_at(detail,17,233,292,kSub);
+    text_at(left,24,153,374,kInk);text_at(right,24,313,374,kInk);
+    text_at("ながおしでアプリ",15,233,448,kSub);present();
+}
+void app_clock(const std::string &date,const std::string &time,const char *field,bool editing) {
+    Lock lock;background();roles("", "");text_at("とけい",24,233,92,kOlive);
+    text_at(date,24,233,164,kInk);text_at(time,40,233,236,kInk);
+    if(editing) {
+        text_at(field,24,233,289,kOlive);text_at("-      つぎ      +",32,233,350,kInk);
+        text_at("ほぞん",24,233,408,kInk);
+    } else {text_at(field,17,233,292,kSub);text_at("じこくをあわせる",24,233,385,kInk);}
+    text_at("ながおしでアプリ",15,233,448,kSub);present();
+}
+void app_spectrum(std::span<const float> power,double peakHz) {
+    Lock lock;
+    const bool full=!spectrum_screen_ready;
+    if(full) {
+        background();roles("", "");text_at("おとのなみ",24,233,80,kOlive);
+        text_at("スペクトル  0 - 8000 Hz",17,233,420,kSub);
+        text_at("ながおしでアプリ",15,233,448,kSub);
+    }
+    canvas.fillRect(93+origin(),150+origin(),280,181,kIvory);
+    if(!power.empty()) {
+        const double peak=*std::max_element(power.begin()+1,power.end());
+        constexpr int bands=20; // Original HAL AudioSpectrumFrame::bandCount.
+        for(int band=0;band<bands;++band) {
+            const int start=std::max(1,int(std::pow(double(power.size()-1),double(band)/bands)));
+            const int end=std::min(int(power.size()),std::max(start+1,int(std::pow(double(power.size()-1),double(band+1)/bands))));
+            const double value=*std::max_element(power.begin()+start,power.begin()+end);
+            const int height=peak>0?std::lround(180*std::sqrt(value/peak)):0;
+            canvas.fillRect(93+origin()+band*14,330+origin()-height,11,height,kBlue);
+        }
+    }
+    canvas.fillRect(74+origin(),355+origin(),318,42,kIvory);
+    char label[64];std::snprintf(label,sizeof(label),"%.1f Hz",peakHz);text_at(label,32,233,390,kInk);
+    if(full)present();
+    else {
+        M5.Display.setClipRect(93+origin(),150+origin(),280,181);canvas.pushSprite(0,0);
+        M5.Display.setClipRect(74+origin(),355+origin(),318,42);canvas.pushSprite(0,0);M5.Display.clearClipRect();
+    }
+    spectrum_screen_ready=true;
+}
+
+void app_ear(const ear_game::Question &question,int feedback,int volume) {
+    Lock lock;background();roles("", "");text_at("みみゲーム",24,233,72,kOlive);
+    text_at("たんおん    おんかい    わおん",17,233,120,kInk);
+    char volume_label[48];std::snprintf(volume_label,sizeof(volume_label),"おんりょう %d%%",volume);text_at(volume_label,17,233,151,kSub);
+    for(int i=0;i<3;++i)text_at(question.choices[i],17,233,190+i*51,kInk);
+    if(feedback>=0) {
+        text_at(feedback?"せいかい":"ちがうよ",24,233,342,kOlive);
+        use_font(15);text_at(fit(question.answerDetail,330),15,233,367,kSub);
+    }
+    text_at("もういちど       つぎへ",24,233,412,kInk);
+    text_at("ながおしでアプリ",15,233,448,kSub);present();
+}
+void app_tuner(const tuner::PitchResult &pitch,int calibration,bool japanese) {
+    Lock lock;
+    static tuner::PitchResult previous;
+    static int previous_calibration=0,previous_needle=-1;
+    static bool previous_japanese=false;
+    static std::string previous_line;
+    const bool full=!tuner_screen_ready || previous_calibration!=calibration || previous_japanese!=japanese;
+    auto push=[&](int x,int y,int w,int h) {
+        if(full)return;
+        M5.Display.setClipRect(x+origin(),y+origin(),w,h);canvas.pushSprite(0,0);M5.Display.clearClipRect();
+    };
+    if(full) {
+        background();roles("", "");text_at("チューナー",24,233,72,kOlive);
+        text_at("-50          0          +50",17,233,342,kSub);
+        char calibration_line[48];std::snprintf(calibration_line,sizeof(calibration_line),"-   A=%d Hz   +",calibration);
+        text_at(calibration_line,24,233,385,kInk);
+        text_at("440      442      日 / DE",17,233,420,kOlive);
+        text_at("ながおしでアプリ",15,233,448,kSub);
+    }
+    static constexpr const char *ja[]={"ド","ド♯ / レ♭","レ","レ♯ / ミ♭","ミ","ファ","ファ♯ / ソ♭","ソ","ソ♯ / ラ♭","ラ","ラ♯ / シ♭","シ"};
+    static constexpr const char *de[]={"C","Cis / Des","D","Dis / Es","E","F","Fis / Ges","G","Gis / As","A","B","H"};
+    const bool changed=full || pitch.valid!=previous.valid || (pitch.valid && (pitch.midi!=previous.midi));
+    if(changed) {
+        canvas.fillRect(74+origin(),110+origin(),318,168,kIvory);
+        if(pitch.valid) {
+            text_at(japanese?ja[pitch.pitchClass]:de[pitch.pitchClass],32,233,152,kInk);
+            char octave[16];std::snprintf(octave,sizeof(octave),"%d",pitch.octave);text_at(octave,56,233,220,kInk);
+        } else text_at("おとをきかせてね",24,233,204,kSub);
+    }
+    char line[96]="";
+    if(pitch.valid)std::snprintf(line,sizeof(line),"%.2f Hz   %+.1f cent",pitch.frequencyHz,pitch.cents);
+    if(changed || previous_line!=line) {
+        canvas.fillRect(74+origin(),243+origin(),318,35,kIvory);
+        if(pitch.valid)text_at(line,24,233,272,kInk);
+        if(!changed)push(74,243,318,35);
+    }
+    if(changed)push(74,110,318,168);
+    const int needle=pitch.valid?233+std::lround(std::clamp(pitch.cents,-50.0f,50.0f)*3):-1;
+    if(full || needle!=previous_needle) {
+        if(!full && previous_needle>=0)canvas.drawLine(previous_needle+origin(),289+origin(),previous_needle+origin(),316+origin(),kIvory);
+        canvas.drawLine(83+origin(),302+origin(),383+origin(),302+origin(),kSub);
+        if(needle>=0)canvas.drawLine(needle+origin(),289+origin(),needle+origin(),316+origin(),kOlive);
+        const int left=previous_needle<0?needle:needle<0?previous_needle:std::min(needle,previous_needle);
+        const int right=std::max(needle,previous_needle);
+        if(left>=0)push(left,289,right-left+1,28);
+    }
+    if(full)present();
+    tuner_screen_ready=true;previous=pitch;previous_calibration=calibration;previous_japanese=japanese;previous_line=line;previous_needle=needle;
+}
+
+int app_at(int rotation,int x,int y) {
+    x-=origin();y-=origin();
+    for(int i=0;i<int(std::size(app_names));++i) {
+        int cx,cy;app_position(i,rotation,cx,cy);
+        if((x-cx)*(x-cx)+(y-cy)*(y-cy)<=app_button_radius*app_button_radius) return i;
+    }
+    return -1;
+}
+
+void font_audit(bool enabled)
+{
+    font_audit_enabled.store(enabled);
+    printf("FONT_AUDIT enabled=%d\n",enabled);fflush(stdout);
+}
+
 void mode_switching(const char *message)
 {
     Lock lock; background(); roles("", "");
