@@ -141,8 +141,9 @@ Command parse(const std::string &kana)
     else if (has(kana, {"おれんじ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 0}; }
     else if (has(kana, {"ほあんとー", "ほあんとう"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 1}; }
     else if (has(kana, {"しろ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 2}; }
-    else if (has(kana, {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ"})) { c = {Kind::tv_band, 0, 0}; }
-    else if (satellite_band(kana) > 0 && (has(kana, {"にして", "にかえて", "にきりかえて"}) || has(kana, {"てれび"}))) {
+    else if (has(kana, {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ", "ちでじ"})) { c = {Kind::tv_band, 0, 0}; }
+    else if (satellite_band(kana) > 0 && (kana == "びーえす" || kana == "しーえす" ||
+             has(kana, {"にして", "にかえて", "にきりかえて"}) || has(kana, {"てれび"}))) {
         c = {Kind::tv_band, 0, satellite_band(kana)};
     }
     else if (has(kana, {"れいぼー", "れーぼー", "れいぼう", "れぼー"})) { c = {Kind::aircon_mode, 1, 0}; }

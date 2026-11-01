@@ -26,6 +26,8 @@ int main()
         {"おんりょーをじゅーあげて", K::tv_volume, 0, 10}, {"てれびのおんりょーをあげて", K::tv_volume, 0, 1},
         {"おんりょーをあげて", K::none, 0, 0},  // KoeAct's adjust_volume keeps this
         {"てれびをちじょーはにして", K::tv_band, 0, 0}, {"びーえすにして", K::tv_band, 0, 1},
+        {"ちでじにして", K::tv_band, 0, 0}, {"てれびをちでじにかえて", K::tv_band, 0, 0},
+        {"びーえす", K::tv_band, 0, 1}, {"しーえす", K::tv_band, 0, 2},
         {"ちゃんねるいちにして", K::tv_channel, 0, 1}, {"ちゃんねるはちにして", K::tv_channel, 0, 8},
         {"ちゃんねるきゅーにして", K::tv_channel, 0, 9},
         {"ちゃんねるあげて", K::tv_channel_step, 0, 1}, {"ちゃんねるさげて", K::tv_channel_step, 0, -1},

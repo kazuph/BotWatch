@@ -1353,11 +1353,14 @@ home::SendResult send_home(const home::Command &command)
     }
     if (command.device == 1 && command.kind == Kind::power)
         return {ir_home::send_aircon_power(command.value != 0), 0, "transmit_failed"};
-    if (command.kind == Kind::tv_band || command.device == 2) {
+    if (command.kind == Kind::tv_band) {
+        if (command.value < 0 || command.value > 2) return {false, 0, "out_of_range"};
+        const auto key = ir_codes::tv_band_key(command.value);
+        return {ir_home::send_tv(key), 0, "transmit_failed"};
+    }
+    if (command.device == 2) {
         ir_home::Learned slot;
-        if (command.kind == Kind::tv_band)
-            slot = command.value == 0 ? ir_home::Learned::terrestrial : ir_home::Learned::satellite;
-        else if (command.kind == Kind::power)
+        if (command.kind == Kind::power)
             slot = command.value ? ir_home::Learned::light_on : ir_home::Learned::light_off;
         else if (command.kind == Kind::light_mode && command.value >= 0 && command.value <= 2)
             slot = static_cast<ir_home::Learned>(static_cast<int>(ir_home::Learned::light_orange) + command.value);
@@ -1688,7 +1691,13 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0] == 'I' && read_exact(header + 1, 3)) {
-            if (!std::memcmp(header,"IRMN",4)) {
+            if (!std::memcmp(header,"IBST",4) || !std::memcmp(header,"ITDT",4)) {
+                const home::Command command{home::Command::Kind::tv_band, 0, header[1] == 'B' ? 1 : 0};
+                bool success = false;
+                home::perform(command, "", &success);
+                printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (!std::memcmp(header,"IRMN",4)) {
                 if (monitor_pending) { printf("IRMN error=busy\n"); fflush(stdout); continue; }
                 monitor_active_before = g_listen.active.load(); monitor_resume = g_listen.mic_on.load();
                 monitor_mic = M5.Mic.isRunning(); monitor_held = held;
@@ -1704,16 +1713,27 @@ void serve_action(Recognizer &recognizer)
                 scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
             } else if (!std::memcmp(header,"ICTV",4) || !std::memcmp(header,"ICTR",4) ||
                 !std::memcmp(header,"ICFL",4) || !std::memcmp(header,"ICLV",4) ||
-                !std::memcmp(header,"ICJD",4) || !std::memcmp(header,"ICPL",4) || !std::memcmp(header,"IC3D",4)) {
+                !std::memcmp(header,"ICJD",4) || !std::memcmp(header,"ICPL",4) || !std::memcmp(header,"IC3D",4) ||
+                !std::memcmp(header,"ICUU",4) || !std::memcmp(header,"ICDD",4) || !std::memcmp(header,"ICLL",4) ||
+                !std::memcmp(header,"ICRR",4) || !std::memcmp(header,"ICOK",4) || !std::memcmp(header,"ICBK",4) ||
+                !std::memcmp(header,"ICTD",4)) {
                 const bool tv = header[2] == 'T' && header[3] == 'V';
                 const bool radio = header[2] == 'T' && header[3] == 'R';
                 const bool flashback = header[2] == 'F';
                 const bool live = header[2] == 'L', japan = header[2] == 'J', list = header[2] == 'P';
-                const char *name = tv ? "IR_KEY_TV" : radio ? "IR_KEY_TV_RADIO" : flashback ? "IR_KEY_FLASHBACK" :
-                                   live ? "IR_KEY_LIVETV" : japan ? "IR_KEY_JAPAN_DISPLAY" : list ? "IR_KEY_PRLIST" : "IR_KEY_3DIGIT_INPUT";
-                const auto key = tv ? ir_codes::TvKey::candidate_tv : radio ? ir_codes::TvKey::candidate_tv_radio :
-                                 flashback ? ir_codes::TvKey::candidate_flashback : live ? ir_codes::TvKey::candidate_livetv :
-                                 japan ? ir_codes::TvKey::candidate_japan_display : list ? ir_codes::TvKey::candidate_prlist : ir_codes::TvKey::candidate_3digit_input;
+                const bool digit = header[2] == '3', up = header[2] == 'U', down = header[2] == 'D';
+                const bool left = !std::memcmp(header,"ICLL",4), right = header[2] == 'R', ok_key = header[2] == 'O';
+                const bool terrestrial = !std::memcmp(header,"ICTD",4);
+                const char *name = terrestrial ? "IR_KEY_TERRESTRIAL_CAPTURED" : tv ? "IR_KEY_TV" : radio ? "IR_KEY_TV_RADIO" : flashback ? "IR_KEY_FLASHBACK" :
+                                   left ? "IR_KEY_LEFT" : live ? "IR_KEY_LIVETV" : japan ? "IR_KEY_JAPAN_DISPLAY" :
+                                   list ? "IR_KEY_PRLIST" : digit ? "IR_KEY_3DIGIT_INPUT" : up ? "IR_KEY_UP" :
+                                   down ? "IR_KEY_DOWN" : right ? "IR_KEY_RIGHT" : ok_key ? "IR_KEY_OK" : "IR_KEY_BACK";
+                const auto key = terrestrial ? ir_codes::TvKey::candidate_terrestrial_captured : tv ? ir_codes::TvKey::candidate_tv : radio ? ir_codes::TvKey::candidate_tv_radio :
+                                 flashback ? ir_codes::TvKey::candidate_flashback : left ? ir_codes::TvKey::candidate_left :
+                                 live ? ir_codes::TvKey::candidate_livetv : japan ? ir_codes::TvKey::candidate_japan_display :
+                                 list ? ir_codes::TvKey::candidate_prlist : digit ? ir_codes::TvKey::candidate_3digit_input :
+                                 up ? ir_codes::TvKey::candidate_up : down ? ir_codes::TvKey::candidate_down :
+                                 right ? ir_codes::TvKey::candidate_right : ok_key ? ir_codes::TvKey::candidate_ok : ir_codes::TvKey::candidate_back;
                 const bool ok = ir_home::send_tv(key);
                 voice_screen::ir_candidate(name, ok);
                 printf("IR_CANDIDATE name=%s success=%d\n", name, ok); fflush(stdout);

@@ -7,14 +7,22 @@ namespace ir_codes {
 enum class TvKey { power, volume_up, volume_down, channel_1, channel_2, channel_3,
                    channel_4, channel_5, channel_6, channel_7, channel_8, channel_9,
                    channel_up, channel_down, candidate_tv, candidate_tv_radio, candidate_flashback, candidate_livetv,
-                   candidate_japan_display, candidate_prlist, candidate_3digit_input };
+                   candidate_japan_display, candidate_prlist, candidate_3digit_input,
+                   candidate_up, candidate_down, candidate_left, candidate_right, candidate_ok, candidate_back,
+                   candidate_terrestrial_captured };
 constexpr uint32_t tv_code(TvKey key)
 {
     constexpr uint32_t codes[] = {0x20DF10EF, 0x20DF40BF, 0x20DFC03F, 0x20DF8877,
         0x20DF48B7, 0x20DFC837, 0x20DF28D7, 0x20DFA857, 0x20DF6897, 0x20DFE817, 0x20DF18E7,
         0x20DF9867, 0x20DF00FF, 0x20DF807F, 0x20DFF00F, 0x20DF0FF0, 0x20DF58A7, 0x20DF7986,
-        0x20DF35CA, 0x20DFCA35, 0x20DFC43B};
+        0x20DF35CA, 0x20DFCA35, 0x20DFC43B,
+        0x20DF02FD, 0x20DF827D, 0x20DFE01F, 0x20DF609F, 0x20DF22DD, 0x20DF14EB, 0x20DFDB0C};
     return codes[static_cast<unsigned>(key)];
+}
+
+constexpr TvKey tv_band_key(int band)
+{
+    return band == 0 ? TvKey::candidate_terrestrial_captured : TvKey::candidate_tv;
 }
 
 // Alternating carrier mark / space, following StackChan's LG NEC timings.
