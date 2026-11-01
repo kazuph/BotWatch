@@ -58,6 +58,7 @@
 #include "audio_gain.h"
 #include "ble_printer.h"
 #include "home.h"
+#include "ir_home.h"
 #include "label_raster.h"
 
 #include "dl_model_base.hpp"
@@ -396,6 +397,8 @@ void serial_receiver(void *)
             g_restore_fault=true;
             printf("TTS_RESTORE_FAULT armed=1\n");fflush(stdout);continue;
         }
+        if (length == 4 && !memcmp(header, "IRRX", 4)) { ir_home::receive_diagnostic(); continue; }
+        if (length == 4 && !memcmp(header, "IRTX", 4)) { ir_home::transmit_diagnostic(); continue; }
         forward(header, length);
         size_t bytes = 0;
         if (memcmp(header, "RLMA", 4) == 0) {

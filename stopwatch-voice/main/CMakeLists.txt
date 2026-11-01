@@ -13,9 +13,9 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/pet_config.h" "#pragma once\nc
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 ayousanz
 idf_component_register(SRCS "radio_app.cpp" "radio/transport/esp_now_radio.cpp" "pomodoro.cpp" "ear_game.cpp" "pitch_detector.cpp" "apps.cpp" "main.cpp" "features.cpp" "voice_screen.cpp" "ble_printer.cpp" "label_raster.cpp"
-                            "tts.cpp" "tts_text.cpp" "action.cpp" "characters.cpp" "home.cpp" "koeact/a2.c"
+                            "tts.cpp" "tts_text.cpp" "action.cpp" "characters.cpp" "home.cpp" "ir_home.cpp" "koeact/a2.c"
                        INCLUDE_DIRS "." "koeact" "${CMAKE_CURRENT_BINARY_DIR}/generated"
-                       PRIV_REQUIRES esp_wifi esp_netif esp_timer esp_psram esp_driver_usb_serial_jtag vfs bt nvs_flash
+                       PRIV_REQUIRES esp_wifi esp_netif esp_timer esp_psram esp_driver_usb_serial_jtag esp_driver_rmt vfs bt nvs_flash
                                      esp_partition spi_flash json sanotts
                        EMBED_FILES "../assets/ui15.vlw" "../assets/ui17.vlw" "../assets/ui20.vlw" "../assets/ui22.vlw" "../assets/ui24.vlw" "../assets/ui32.vlw" "../assets/ui34.vlw" "../assets/ui38.vlw" "../assets/ui40.vlw" "../assets/ui56.vlw")
 
