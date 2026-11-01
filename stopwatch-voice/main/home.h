@@ -15,6 +15,7 @@ struct Command {
 struct SendResult { bool ok; int sent; const char *reason; };
 using Sender = SendResult (*)(const Command &command);
 void set_sender(Sender sender);
+void set_aircon_settings(int mode, int temperature);
 
 // Apply it, draw the panel and print HOME_ACTION. Returns false for Kind::none.
 bool perform(const Command &command, const std::string &kana, bool *sent = nullptr);

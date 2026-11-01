@@ -39,7 +39,7 @@ inline std::array<uint32_t, 67> nec(uint32_t code)
 }
 
 // 61-byte frame observed from the real remote at 27 C; keep all unknown fields intact.
-inline std::array<uint8_t, 61> hitachi_power(bool on)
+inline std::array<uint8_t, 61> hitachi_frame(bool on, int mode, int temperature)
 {
     std::array<uint8_t, 61> frame = {
         0x01,0x10,0x00,0x40,0xBF,0xFF,0x00,0xCC,0x33,0x92,0x6D,0x44,0xBB,0x6C,0x93,
@@ -48,6 +48,9 @@ inline std::array<uint8_t, 61> hitachi_power(bool on)
         0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF
     };
     frame[11] = 0x13; frame[12] = uint8_t(~frame[11]);
+    frame[13] = uint8_t((frame[13] & 0x03) | (temperature << 2)); frame[14] = uint8_t(~frame[13]);
+    constexpr uint8_t modes[] = {3, 6, 5};
+    frame[25] = uint8_t((frame[25] & 0xF0) | modes[mode]); frame[26] = uint8_t(~frame[25]);
     frame[27] = on ? uint8_t(frame[27] | 0x10) : uint8_t(frame[27] & ~0x10);
     frame[28] = uint8_t(~frame[27]);
     return frame;

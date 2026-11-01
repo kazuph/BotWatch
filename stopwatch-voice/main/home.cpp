@@ -17,7 +17,7 @@ using Kind = Command::Kind;
 struct State {
     bool tv = false, aircon = false, light = false;
     int band = 0, volume = 0;   // TV: 0 地上波 1 BS 2 CS; volume is a relative step
-    int mode = 0, degrees = 27;  // captured air conditioner template
+    int mode = 1, degrees = 24;  // observed heat frame
 } g_state;
 int g_focus = 0;
 
@@ -45,6 +45,7 @@ void draw(const char *caption, const std::string &kana,bool quote=true)
 
 void set_speaker(Speaker speaker) { g_speaker = speaker; }
 void set_sender(Sender sender) { g_sender = sender; }
+void set_aircon_settings(int mode, int temperature) { g_state.mode = mode; g_state.degrees = temperature; }
 
 bool perform(const Command &command, const std::string &kana, bool *sent)
 {

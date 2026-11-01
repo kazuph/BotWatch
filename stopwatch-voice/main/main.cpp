@@ -1379,6 +1379,31 @@ bool broadcast_beep()
     return sounded && restored;
 }
 
+int g_aircon_mode = 1, g_aircon_temperature = 24;
+void load_aircon_settings()
+{
+    nvs_handle_t handle;
+    if (nvs_open("aircon", NVS_READONLY, &handle) == ESP_OK) {
+        uint8_t mode = 1, temperature = 24;
+        nvs_get_u8(handle, "mode", &mode); nvs_get_u8(handle, "temperature", &temperature); nvs_close(handle);
+        if (mode <= 2) g_aircon_mode = mode;
+        if (temperature >= 16 && temperature <= 31) g_aircon_temperature = temperature;
+    }
+    home::set_aircon_settings(g_aircon_mode, g_aircon_temperature);
+}
+void save_aircon_settings()
+{
+    nvs_handle_t handle;
+    esp_err_t error = nvs_open("aircon", NVS_READWRITE, &handle);
+    if (error == ESP_OK) {
+        error = nvs_set_u8(handle, "mode", g_aircon_mode);
+        if (error == ESP_OK) error = nvs_set_u8(handle, "temperature", g_aircon_temperature);
+        if (error == ESP_OK) error = nvs_commit(handle);
+        nvs_close(handle);
+    }
+    printf("AIRCON_SETTINGS mode=%d temperature=%d saved=%s\n", g_aircon_mode, g_aircon_temperature, esp_err_to_name(error));
+}
+
 home::SendResult send_home(const home::Command &command)
 {
     using Kind = home::Command::Kind;
@@ -1404,8 +1429,15 @@ home::SendResult send_home(const home::Command &command)
         }
         return {true, sent, ""};
     }
-    if (command.device == 1 && command.kind == Kind::power)
-        return {ir_home::send_aircon_power(command.value != 0), 0, "transmit_failed"};
+    if (command.device == 1 && (command.kind == Kind::power || command.kind == Kind::aircon_mode || command.kind == Kind::temperature)) {
+        const int mode = command.kind == Kind::aircon_mode ? command.value : g_aircon_mode;
+        const int temperature = command.kind == Kind::temperature ? command.value : g_aircon_temperature;
+        if (mode < 0 || mode > 2 || temperature < 16 || temperature > 31) return {false, 0, "out_of_range"};
+        const bool on = command.kind != Kind::power || command.value != 0;
+        if (!ir_home::send_aircon(on, mode, temperature)) return {false, 0, "transmit_failed"};
+        if (command.kind != Kind::power) { g_aircon_mode = mode; g_aircon_temperature = temperature; save_aircon_settings(); }
+        return {true, 0, ""};
+    }
     if (command.kind == Kind::tv_band) {
         if (command.value < 0 || command.value > 2) return {false, 0, "out_of_range"};
         const auto key = ir_codes::tv_band_key(command.value);
@@ -1873,11 +1905,11 @@ void serve_action(Recognizer &recognizer)
                 printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
                 scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
             } else if (!std::memcmp(header,"ITUP",4) || !std::memcmp(header,"ITDN",4) ||
-                !std::memcmp(header,"ITPW",4) || !std::memcmp(header,"IAON",4) || !std::memcmp(header,"IAOF",4)) {
+                !std::memcmp(header,"ITPW",4) || !std::memcmp(header,"IAON",4) || !std::memcmp(header,"IAOF",4) || !std::memcmp(header,"IAHT",4)) {
                 using Kind = home::Command::Kind;
                 const home::Command command = header[1] == 'T'
                     ? home::Command{header[2] == 'P' ? Kind::power : Kind::tv_volume, 0, header[2] == 'D' ? -1 : 1}
-                    : home::Command{Kind::power, 1, header[3] == 'N' ? 1 : 0};
+                    : home::Command{header[2] == 'H' ? Kind::aircon_mode : Kind::power, 1, header[2] == 'H' || header[3] == 'N' ? 1 : 0};
                 bool success = false;
                 home::perform(command, "", &success);
                 printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
@@ -2536,6 +2568,7 @@ void recognition_task(void *)
     if (!tts::begin()) { report("ERROR TTS init"); }
     home::set_speaker(speak_response);
     home::set_sender(send_home);
+    load_aircon_settings();
     action::set_speaker(speak_response);
     const bool action_mode = g_mode == Mode::action;
     report("MODE %s partition=%s", action_mode ? "action" : "kana", action_mode ? "koeact" : "model");

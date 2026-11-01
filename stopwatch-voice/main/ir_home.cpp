@@ -436,9 +436,9 @@ void compare_tv_loopback()
     if (queue) { vQueueDelete(queue); queue = nullptr; }
 }
 
-bool send_aircon_power(bool on)
+bool send_aircon(bool on, int mode, int temperature)
 {
-    const auto timings = ir_codes::hitachi_timings(ir_codes::hitachi_power(on));
+    const auto timings = ir_codes::hitachi_timings(ir_codes::hitachi_frame(on, mode, temperature));
     return send_timings(timings.data(), timings.size());
 }
 

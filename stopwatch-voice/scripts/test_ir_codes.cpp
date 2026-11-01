@@ -39,7 +39,7 @@ int main()
     if (!raw_ok) { ++failed; std::printf("FAIL captured terrestrial pulses=%zu bits=%08X\n", captured.size(), bits); }
     else std::printf("PASS captured terrestrial pulses=%zu bits=%08X\n", captured.size(), bits);
     for (bool on : {false, true}) {
-        auto frame = ir_codes::hitachi_power(on);
+        auto frame = ir_codes::hitachi_frame(on, 1, 24);
         auto timings = ir_codes::hitachi_timings(frame);
         IRsendTest sender(4); sender.begin(); sender.reset();
         sender.sendHitachiAc424(frame.data(), frame.size(), 0);
