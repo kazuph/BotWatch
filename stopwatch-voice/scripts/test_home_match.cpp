@@ -4,31 +4,56 @@
 #include <cstring>
 #include <vector>
 #include "home_match.h"
+#include "broadcast_voice.h"
+#include "ir_codes.h"
 
 int main() {
+    static_assert(ir_codes::tv_code(ir_codes::tv_band_key(0)) == 0x20DFDB0C);
+    static_assert(ir_codes::tv_code(ir_codes::tv_band_key(1)) == 0x20DFF00F);
     const char *full_vocab[] = {
 #include "vocabulary.inc"
     };
     const home_match::Phrase full_phrases[] = {
-#include "home_phrases.inc"
+        {"てれび", false}, {"ちじょーは", false}, {"ちでじ", false}, {"びーえす", false}, {"しーえす", false},
     };
     const size_t full_count = sizeof(full_phrases) / sizeof(full_phrases[0]);
     const size_t vocab_count = sizeof(full_vocab) / sizeof(full_vocab[0]);
     const size_t full_bytes = home_match::Matcher::bytes(full_phrases, full_count, full_vocab, vocab_count);
     assert(full_bytes > 0 && full_bytes < 61340);
-    for (const char *required : {"てれびをちでじにして", "てれびをちじょーはにして", "てれびをびーえすにして", "てれびをしーえすにして", "てれびをけさないで"}) {
+    for (const char *required : {"てれび", "ちでじ", "ちじょーは", "びーえす", "しーえす"}) {
         bool found = false;
         for (const auto &phrase : full_phrases) if (!std::strcmp(phrase.text, required)) found = true;
         assert(found);
+    }
+    std::vector<std::max_align_t> full_storage((full_bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+    home_match::Matcher word_matcher;
+    assert(word_matcher.init(full_storage.data(), full_phrases, full_count, full_vocab, vocab_count));
+    for (size_t target = 0; target < full_count; ++target) {
+        word_matcher.set_begin(target == 0 ? 0 : 1);
+        word_matcher.reset(); const char *p = full_phrases[target].text; size_t previous = 0;
+        auto feed_token = [&](size_t id) {
+            std::vector<float> logits(vocab_count, -8.0f); logits[id] = 5.0f;
+            word_matcher.feed(logits.data(), vocab_count, 1.0f);
+        };
+        while (*p) {
+            size_t best = 0, length = 0;
+            for (size_t i = 2; i < vocab_count; ++i) {
+                const size_t n = std::strlen(full_vocab[i]);
+                if (n > length && std::strncmp(p, full_vocab[i], n) == 0) { best = i; length = n; }
+            }
+            assert(best); if (best == previous) feed_token(0);
+            feed_token(best); previous = best; p += length;
+        }
+        const auto word_result = word_matcher.result(target == 0 ? 0 : 1);
+        assert(word_result.best && !std::strcmp(word_result.best->text, full_phrases[target].text));
+        assert(word_result.score >= broadcast_voice::kScoreThreshold);
     }
     const char *vocab[] = {"<blank>", "<unk>", "あ", "い"};
     const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
     const size_t bytes = home_match::Matcher::bytes(phrases, 2, vocab, 4);
     std::vector<std::max_align_t> storage((bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
-    const size_t extra = home_match::Matcher::extra_bytes(phrases, 2, vocab, 4);
-    std::vector<std::max_align_t> extra_storage((extra + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
     home_match::Matcher matcher;
-    assert(matcher.init(storage.data(), extra_storage.data(), phrases, 2, vocab, 4));
+    assert(matcher.init(storage.data(), phrases, 2, vocab, 4));
     const float rows[][4] = {{std::log(.1f),std::log(.1f),std::log(.7f),std::log(.1f)},
                              {std::log(.7f),std::log(.1f),std::log(.1f),std::log(.1f)},
                              {std::log(.1f),std::log(.1f),std::log(.1f),std::log(.7f)}};
@@ -36,7 +61,6 @@ int main() {
     auto result = matcher.result();
     assert(std::strcmp(result.best->text, "あい") == 0);
     assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
-    assert(result.start == 0 && result.end == 3);
     assert(std::strcmp(result.second->text, "ああ") == 0 && result.second->negative);
     assert(std::fabs(result.score2 - (2 * std::log(.7f) + std::log(.1f)) / 3) < 1e-5f);
     matcher.reset();
@@ -44,29 +68,20 @@ int main() {
     result = matcher.result();
     assert(std::strcmp(result.best->text, "ああ") == 0 && result.best->negative);
     assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
-    const float before_after[] = {std::log(.1f), std::log(.7f), std::log(.1f), std::log(.1f)};
-    matcher.reset(); matcher.feed(before_after, 4, 1.0f);
-    for (const auto &row : rows) matcher.feed(row, 4, 1.0f);
-    matcher.feed(before_after, 4, 1.0f);
-    result = matcher.result();
-    assert(std::strcmp(result.best->text, "あい") == 0 && result.start == 1 && result.end == 4);
-    assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
-    // Per-token normalization penalizes the two-token path for its required blank;
-    // per-frame normalization gives equal scores for equal per-frame confidence.
-    const float short_per_token = std::log(.7f);
-    const float long_per_token = 3 * std::log(.7f) / 2;
-    assert(short_per_token > long_per_token);
-    assert(std::fabs(result.score - short_per_token) < 1e-5f);
-    const home_match::Phrase short_phrase[] = {{"い", false}};
-    const size_t short_bytes = home_match::Matcher::bytes(short_phrase, 1, vocab, 4);
-    std::vector<std::max_align_t> short_storage((short_bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
-    const size_t short_extra = home_match::Matcher::extra_bytes(short_phrase, 1, vocab, 4);
-    std::vector<std::max_align_t> short_extra_storage((short_extra + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
-    home_match::Matcher short_matcher;
-    assert(short_matcher.init(short_storage.data(), short_extra_storage.data(), short_phrase, 1, vocab, 4));
-    short_matcher.feed(rows[2], 4, 1.0f);
-    assert(std::fabs(short_matcher.result().score - result.score) < 1e-5f);
+    using namespace broadcast_voice;
+    State state;
+    assert(state.wake("てれび", -2.0f) == Decision::wake);
+    assert(state.wake("てれび", -2.01f) == Decision::none);
+    assert(state.wake("ちでじ", -0.1f) == Decision::none);
+    state.arm(1000, 16000);
+    assert(state.command("ちでじ", -2.01f, 1001) == Decision::none && !state.waiting(1001));
+    state.arm(1000, 16000);
+    assert(state.command("ちじょーは", -2.0f, 81000) == Decision::terrestrial);
+    state.arm(1000, 16000);
+    assert(state.command("びーえす", -1.0f, 81001) == Decision::none && !state.waiting(81001));
+    state.arm(1000, 16000);
+    assert(state.command("しーえす", -1.0f, 1001) == Decision::satellite);
     const home_match::Phrase bad[] = {{"未登録", false}};
     assert(home_match::Matcher::bytes(bad, 1, vocab, 4) == 0);
-    puts("PASS local CTC scores, ranking, boundaries, normalization, repeated token, vocabulary");
+    puts("PASS full CTC scores, ranking, threshold, timeout, vocabulary");
 }

@@ -79,44 +79,6 @@ int number_at(const std::string &text, size_t &pos)
     return total + std::max(digit, 0);
 }
 
-bool terrestrial_request(const std::string &text)
-{
-    const size_t marker = text.find("れびを");
-    if (marker == std::string::npos) {
-        for (const char *prefix : {"をちじょーはん", "をちじょーは"}) {
-            const size_t length = std::strlen(prefix);
-            if (text.compare(0, length, prefix) == 0 &&
-                (at(text, length, "にして") || at(text, length, "にかえて") || at(text, length, "にきりかえて"))) return true;
-        }
-        return false;
-    }
-    const size_t begin = marker + std::strlen("れびを");
-    size_t end = std::string::npos;
-    for (const char *command : {"にして", "にかえて", "にきりかえて"}) {
-        end = std::min(end, text.find(command, begin));
-    }
-    const size_t special = text.find("じゅまして", begin);
-    const bool use_special = special != std::string::npos && (end == std::string::npos || special < end);
-    if (use_special) end = special;
-    else if (end != std::string::npos) {
-        const std::string word = text.substr(begin, end - begin);
-        size_t number_end = 0;
-        if (number_at(word, number_end) >= 0 && number_end == word.size()) return false;
-        bool matched = false;
-        for (const char *suffix : {"じゅ", "はん", "じ", "は"}) {
-            if (ends_with(word, suffix)) { end -= std::strlen(suffix); matched = true; break; }
-        }
-        if (!matched) return false;
-    } else return false;
-    for (size_t pos = begin; pos < end;) {
-        size_t next = pos;
-        if ((text[pos] >= '0' && text[pos] <= '9') || number_at(text, next) >= 0) return false;
-        const unsigned char lead = text[pos];
-        pos += lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
-    }
-    return true;
-}
-
 // The first kana number immediately followed by one of `suffixes`, or -1.
 int number_before(const std::string &text, std::initializer_list<const char *> suffixes)
 {
@@ -128,20 +90,6 @@ int number_before(const std::string &text, std::initializer_list<const char *> s
         }
         const unsigned char lead = text[start];
         start += lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
-    }
-    return -1;
-}
-
-// "BS" / "CS" read as kana come out loosely ("びーえす", "りえす", "しんえーす"): decide by the
-// one or two kana before "えす"/"えーす". 1 BS, 2 CS, -1 none.
-int satellite_band(const std::string &text)
-{
-    for (const char *es : {"えーす", "えす"}) {
-        for (size_t pos = text.find(es); pos != std::string::npos; pos = text.find(es, pos + 1)) {
-            const std::string before = text.substr(pos >= 6 ? pos - 6 : 0, pos >= 6 ? 6 : pos);
-            if (has(before, {"し"})) { return 2; }
-            if (has(before, {"び", "ぴ", "り", "ぶ", "べ"})) { return 1; }
-        }
     }
     return -1;
 }
@@ -179,10 +127,6 @@ Command parse(const std::string &kana)
     else if (has(kana, {"おれんじ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 0}; }
     else if (has(kana, {"ほあんとー", "ほあんとう"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 1}; }
     else if (has(kana, {"しろ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 2}; }
-    else if (has(kana, {"れびを"}) && satellite_band(kana) > 0) {
-        c = {Kind::tv_band, 0, satellite_band(kana)};
-    }
-    else if (terrestrial_request(kana)) { c = {Kind::tv_band, 0, 0}; }
     else if (has(kana, {"れいぼー", "れーぼー", "れいぼう", "れぼー"})) { c = {Kind::aircon_mode, 1, 0}; }
     else if (has(kana, {"だんぼー", "だんぼう", "だんぼ"})) { c = {Kind::aircon_mode, 1, 1}; }
     else if (has(kana, {"どらい", "じょしつ"})) { c = {Kind::aircon_mode, 1, 2}; }

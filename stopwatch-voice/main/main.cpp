@@ -73,6 +73,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "home_match.h"
+#include "broadcast_voice.h"
 #include "freertos/FreeRTOS.h"
 #include "features.h"
 #include "freertos/task.h"
@@ -93,7 +94,7 @@ const char *const kVocabulary[] = {
 #include "vocabulary.inc"
 };
 const home_match::Phrase kHomePhrases[] = {
-#include "home_phrases.inc"
+    {"てれび", false}, {"ちじょーは", false}, {"ちでじ", false}, {"びーえす", false}, {"しーえす", false},
 };
 
 // Boot lines are kept so "INFO" can repeat them: USB-Serial/JTAG output is lost until the host opens the port.
@@ -527,10 +528,11 @@ public:
     int layer_steps() const { return m_layer_steps; }
     int64_t encode_us() const { return m_encode_us; }
     void set_home_match(home_match::Matcher *matcher) { m_home_match = matcher; }
+    void set_match_stage(bool command_stage) { if (m_home_match) m_home_match->set_begin(command_stage ? 1 : 0); }
     int64_t match_us() const { return m_match_us; }
-    home_match::Result match_result() {
+    home_match::Result match_result(size_t begin = 0) {
         const int64_t start = esp_timer_get_time();
-        const auto result = m_home_match->result();
+        const auto result = m_home_match->result(begin);
         m_match_us += esp_timer_get_time() - start;
         return result;
     }
@@ -1184,13 +1186,14 @@ struct ActionResult {
     bool decoded = false, accepted = false;
     float p_act = 0;
     std::string kana, json;
+    home_match::Result match{};
 };
 
 // KoeAct-JP on one utterance of raw int16 PCM, with the release's preprocessing (koeact.runtime
 // clean): leading exact zeros (codec start-up) dropped, the whole utterance set to -23 dBFS RMS
 // (peak at most 0.99), then 0.5 s of silence before and 0.3 s after. `raw` must not overlap `pcm`.
 ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples, std::vector<float> &pcm,
-                        std::vector<float> &features)
+                        std::vector<float> &features, bool command_stage = false)
 {
     ActionResult out;
     const int64_t start = esp_timer_get_time();
@@ -1211,15 +1214,17 @@ ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples,
     const int frames = std::min(ralomi::frame_count(total), kA2MaxSteps * kSubsampling);
     ralomi::log_mel(pcm.data(), total, features.data());
     const int64_t feature_us = esp_timer_get_time() - start;
+    recognizer.set_match_stage(command_stage);
     recognizer.run_all(features.data(), frames);
     Recognition kana = finish(recognizer, frames);
     out.kana = kana.text;
-    const auto match = recognizer.match_result();
+    const auto match = recognizer.match_result(command_stage ? 1 : 0);
+    out.match = match;
     const auto rule = home::parse(out.kana);
-    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi negative=%d start=%u end=%u\n",
+    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi phase=%s\n",
            match.best ? match.best->text : "none", match.score, match.second ? match.second->text : "none", match.score2,
            match.score - match.score2, (long long)recognizer.match_us(), out.kana.c_str(), int(rule.kind), rule.device, rule.value,
-           match.best && match.best->negative, unsigned(match.start), unsigned(match.end));
+           command_stage ? "command" : "wake");
     int64_t generate_us = -1;
     a2_result result{};
     if (g_a2_ready && recognizer.layer_steps() > 0) {
@@ -1362,6 +1367,24 @@ void speak_response(const char *caption)
            (long long)before, (long long)after, g_listen.mic_on.load());
     if (!restored) { g_listen.failed=true;printf("ERROR TTS microphone_restore\n"); }
     fflush(stdout);
+}
+
+bool broadcast_beep()
+{
+    const bool active = g_listen.active.load(), resume = g_listen.mic_on.load();
+    const bool microphone = M5.Mic.isRunning();
+    const auto volume = M5.Speaker.getVolume();
+    pause_listening(); g_listen.active = false; M5.Mic.end();
+    const bool ready = M5.Speaker.begin();
+    const bool sounded = ready && M5.Speaker.tone(2000, 100);
+    if (ready) { while (M5.Speaker.isPlaying()) vTaskDelay(1); M5.Speaker.end(); }
+    M5.Speaker.setVolume(volume);
+    bool restored = !microphone || restore_microphone(false);
+    g_listen.active = active;
+    if (resume && restored) restored = start_listening();
+    if (!restored) g_listen.failed = true;
+    printf("BROADCAST_BEEP ready=%d sounded=%d restored=%d\n", ready, sounded, restored);
+    return sounded && restored;
 }
 
 home::SendResult send_home(const home::Command &command)
@@ -1519,19 +1542,16 @@ void serve_action(Recognizer &recognizer)
     constexpr size_t phrase_count = sizeof(kHomePhrases) / sizeof(kHomePhrases[0]);
     constexpr size_t vocab_count = sizeof(kVocabulary) / sizeof(kVocabulary[0]);
     const size_t match_bytes = home_match::Matcher::bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
-    const size_t extra_bytes = home_match::Matcher::extra_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
     const size_t free_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     auto match_memory = std::unique_ptr<void, decltype(&heap_caps_free)>(
         match_bytes ? heap_caps_malloc(match_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
-    auto match_extra = std::unique_ptr<void, decltype(&heap_caps_free)>(
-        extra_bytes ? heap_caps_malloc(extra_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
     home_match::Matcher matcher;
-    if (!match_memory || !match_extra || !matcher.init(match_memory.get(), match_extra.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
-        printf("ERROR HOME_MATCH allocation bytes=%u extra=%u psram_free=%u\n", unsigned(match_bytes), unsigned(extra_bytes), unsigned(free_before));
+    if (!match_memory || !matcher.init(match_memory.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
+        printf("ERROR HOME_MATCH allocation bytes=%u psram_free=%u\n", unsigned(match_bytes), unsigned(free_before));
         vTaskDelete(nullptr); return;
     }
-    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u extra=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
-           unsigned(match_bytes + extra_bytes), unsigned(extra_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
+    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
+           unsigned(match_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
            unsigned(free_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), unsigned(phrase_count));
     recognizer.set_home_match(&matcher);
     if (!start_listening()) {
@@ -1551,6 +1571,28 @@ void serve_action(Recognizer &recognizer)
     bool listening_drawn = false;
     ListenStats stats;
     int64_t next_stat = esp_timer_get_time() + 60 * 1000000LL;
+    broadcast_voice::State broadcast;
+    auto handle_broadcast = [&](const ActionResult &result, bool command_stage, int64_t onset) {
+        const char *word = result.match.best ? result.match.best->text : nullptr;
+        const auto decision = command_stage ? broadcast.command(word, result.match.score, onset)
+                                            : broadcast.wake(word, result.match.score);
+        printf("BROADCAST phase=%s best=%s score=%.6f threshold=%.1f accepted=%d\n",
+               command_stage ? "command" : "wake", word ? word : "none", result.match.score,
+               broadcast_voice::kScoreThreshold, decision != broadcast_voice::Decision::none);
+        if (decision == broadcast_voice::Decision::wake) {
+            if (broadcast_beep()) broadcast.arm(g_listen.written.load(), ralomi::kSampleRate);
+            return true;
+        }
+        if (command_stage) {
+            if (decision == broadcast_voice::Decision::terrestrial || decision == broadcast_voice::Decision::satellite) {
+                const home::Command command{home::Command::Kind::tv_band, 0,
+                    decision == broadcast_voice::Decision::terrestrial ? 0 : 1};
+                home::perform(command, result.kana);
+            }
+            return true;
+        }
+        return false;
+    };
 
     // Copy [begin, end) out of the ring and run it; a VAD utterance that is not a request leaves
     // the screen as it was (the room's talk must not keep changing it).
@@ -1565,9 +1607,13 @@ void serve_action(Recognizer &recognizer)
         printf("LISTEN_SEG trigger=%s samples=%d voiced_hops=%d noise_dbfs=%.1f\n", by_button ? "button" : "vad",
                samples, cutter.voiced, cutter.noise);
         if (!by_button) { action::idle("かんがえ中…"); }
-        const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features);
+        const int64_t onset = std::min(end, begin + int64_t(kPrerollHops) * ralomi::kHop);
+        const bool command_stage = broadcast.waiting(onset);
+        const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features, command_stage);
         const home::Command appliance = home::parse(result.kana);
-        if (wants_voice_print(result.kana)) {
+        if (handle_broadcast(result, command_stage, onset)) {
+            ++stats.accepted;
+        } else if (wants_voice_print(result.kana)) {
             pause_listening();
             speak_response("ラベルをいんさつするよ");
             reboot_into(Mode::kana, true);
@@ -1700,6 +1746,7 @@ void serve_action(Recognizer &recognizer)
         }
         if (held) { scan = g_listen.written.load(); }
         else { pump(g_listen.written.load()); }
+        if (!cutter.speaking && phase != Phase::button) broadcast.waiting(g_listen.written.load());
         if (esp_timer_get_time() >= next_stat) {
             next_stat += 60 * 1000000LL;
             printf("LISTEN_STAT segments=%d accepted=%d rejected=%d dropped=%d button=%d max_us=%" PRId64
@@ -1935,9 +1982,12 @@ void serve_action(Recognizer &recognizer)
                 rest -= count / 2;
             }
             action::idle("かんがえ中…");
-            const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features);
+            const int64_t onset = g_listen.written.load();
+            const bool command_stage = broadcast.waiting(onset);
+            const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features, command_stage);
             const home::Command appliance = home::parse(result.kana);
-            if (wants_voice_print(result.kana)) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); }
+            if (handle_broadcast(result, command_stage, onset)) { }
+            else if (wants_voice_print(result.kana)) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); }
             else if (appliance.kind != home::Command::Kind::none) { home::perform(appliance, result.kana); }
             else if (!action::perform_extra(result.kana) && !action::perform_talk(result.kana)) { show_action(result); }
             scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
