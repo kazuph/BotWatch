@@ -43,18 +43,6 @@ bool at(const std::string &text, size_t pos, const char *word)
     return text.compare(pos, std::strlen(word), word) == 0;
 }
 
-bool terrestrial_request(const std::string &text)
-{
-    for (const char *stem : {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ", "ちでじ",
-                             "ちだじ", "ちでつ", "ちだず", "ひじょーはん", "ひじょーは"}) {
-        for (size_t pos = text.find(stem); pos != std::string::npos; pos = text.find(stem, pos + 1)) {
-            const size_t end = pos + std::strlen(stem);
-            if (at(text, end, "にして") || at(text, end, "にかえて") || at(text, end, "にきりかえて")) return true;
-        }
-    }
-    return false;
-}
-
 // A kana number read greedily at `pos` ("にじゅーはち" -> 28, "ひゃくご" -> 105); returns the
 // value and moves `pos` past it, or -1 when no number starts there.
 int number_at(const std::string &text, size_t &pos)
@@ -89,6 +77,27 @@ int number_at(const std::string &text, size_t &pos)
     if (!any) { return -1; }
     pos = p;
     return total + std::max(digit, 0);
+}
+
+bool terrestrial_request(const std::string &text)
+{
+    const size_t marker = text.find("れびを");
+    if (marker == std::string::npos) return false;
+    const size_t begin = marker + std::strlen("れびを");
+    for (const char *suffix : {"じにして", "じにかえて", "じにきりかえて",
+                               "はにして", "はにかえて", "はにきりかえて"}) {
+        const size_t length = std::strlen(suffix);
+        if (!ends_with(text, suffix) || text.size() - length < begin) continue;
+        const size_t end = text.size() - length;
+        for (size_t pos = begin; pos < end;) {
+            size_t next = pos;
+            if ((text[pos] >= '0' && text[pos] <= '9') || number_at(text, next) >= 0) return false;
+            const unsigned char lead = text[pos];
+            pos += lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+        }
+        return true;
+    }
+    return false;
 }
 
 // The first kana number immediately followed by one of `suffixes`, or -1.
@@ -153,11 +162,10 @@ Command parse(const std::string &kana)
     else if (has(kana, {"おれんじ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 0}; }
     else if (has(kana, {"ほあんとー", "ほあんとう"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 1}; }
     else if (has(kana, {"しろ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 2}; }
-    else if (terrestrial_request(kana)) { c = {Kind::tv_band, 0, 0}; }
-    else if (satellite_band(kana) > 0 && (kana == "びーえす" || kana == "しーえす" ||
-             has(kana, {"にして", "にかえて", "にきりかえて"}) || has(kana, {"てれび"}))) {
+    else if (has(kana, {"れびを"}) && satellite_band(kana) > 0) {
         c = {Kind::tv_band, 0, satellite_band(kana)};
     }
+    else if (terrestrial_request(kana)) { c = {Kind::tv_band, 0, 0}; }
     else if (has(kana, {"れいぼー", "れーぼー", "れいぼう", "れぼー"})) { c = {Kind::aircon_mode, 1, 0}; }
     else if (has(kana, {"だんぼー", "だんぼう", "だんぼ"})) { c = {Kind::aircon_mode, 1, 1}; }
     else if (has(kana, {"どらい", "じょしつ"})) { c = {Kind::aircon_mode, 1, 2}; }
