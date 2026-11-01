@@ -82,22 +82,39 @@ int number_at(const std::string &text, size_t &pos)
 bool terrestrial_request(const std::string &text)
 {
     const size_t marker = text.find("れびを");
-    if (marker == std::string::npos) return false;
-    const size_t begin = marker + std::strlen("れびを");
-    for (const char *suffix : {"じにして", "じにかえて", "じにきりかえて",
-                               "はにして", "はにかえて", "はにきりかえて"}) {
-        const size_t length = std::strlen(suffix);
-        if (!ends_with(text, suffix) || text.size() - length < begin) continue;
-        const size_t end = text.size() - length;
-        for (size_t pos = begin; pos < end;) {
-            size_t next = pos;
-            if ((text[pos] >= '0' && text[pos] <= '9') || number_at(text, next) >= 0) return false;
-            const unsigned char lead = text[pos];
-            pos += lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+    if (marker == std::string::npos) {
+        for (const char *prefix : {"をちじょーはん", "をちじょーは"}) {
+            const size_t length = std::strlen(prefix);
+            if (text.compare(0, length, prefix) == 0 &&
+                (at(text, length, "にして") || at(text, length, "にかえて") || at(text, length, "にきりかえて"))) return true;
         }
-        return true;
+        return false;
     }
-    return false;
+    const size_t begin = marker + std::strlen("れびを");
+    size_t end = std::string::npos;
+    for (const char *command : {"にして", "にかえて", "にきりかえて"}) {
+        end = std::min(end, text.find(command, begin));
+    }
+    const size_t special = text.find("じゅまして", begin);
+    const bool use_special = special != std::string::npos && (end == std::string::npos || special < end);
+    if (use_special) end = special;
+    else if (end != std::string::npos) {
+        const std::string word = text.substr(begin, end - begin);
+        size_t number_end = 0;
+        if (number_at(word, number_end) >= 0 && number_end == word.size()) return false;
+        bool matched = false;
+        for (const char *suffix : {"じゅ", "はん", "じ", "は"}) {
+            if (ends_with(word, suffix)) { end -= std::strlen(suffix); matched = true; break; }
+        }
+        if (!matched) return false;
+    } else return false;
+    for (size_t pos = begin; pos < end;) {
+        size_t next = pos;
+        if ((text[pos] >= '0' && text[pos] <= '9') || number_at(text, next) >= 0) return false;
+        const unsigned char lead = text[pos];
+        pos += lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+    }
+    return true;
 }
 
 // The first kana number immediately followed by one of `suffixes`, or -1.
