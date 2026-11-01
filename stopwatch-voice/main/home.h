@@ -16,8 +16,6 @@ struct SendResult { bool ok; int sent; const char *reason; };
 using Sender = SendResult (*)(const Command &command);
 void set_sender(Sender sender);
 
-// The command in `kana`, or Kind::none. A negated request ("…ないで") is none.
-Command parse(const std::string &kana);
 // Apply it, draw the panel and print HOME_ACTION. Returns false for Kind::none.
 bool perform(const Command &command, const std::string &kana, bool *sent = nullptr);
 // The panel as it stands (B button returns to the character).

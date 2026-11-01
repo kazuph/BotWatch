@@ -1,14 +1,9 @@
-// Host test of main/home.cpp's kana rules (the panel drawing is stubbed).
-//   c++ -std=c++17 -I main -I scripts/host_stubs scripts/test_home_parse.cpp main/home.cpp -o test_home && ./test_home
+// Check that prior appliance operations remain represented by the staged voice catalog.
 #include <cstdio>
 #include <string>
 
 #include "home.h"
-#include "voice_screen.h"
-
-namespace voice_screen {
-void home_panel(const Tile *, int, int, const std::string &, const std::string &) {}
-}
+#include "voice_catalog.h"
 
 int main()
 {
@@ -70,16 +65,24 @@ int main()
         {"らいとをけして", K::none, 0, 0},  // KoeAct's set_led
         {"わらって", K::none, 0, 0}, {"かおをみぎによんじゅーごどむけて", K::none, 0, 0},
     };
-    int failed = 0;
+    int failed = 0, checked = 0;
     for (const Case &c : cases) {
-        const home::Command got = home::parse(c.kana);
-        const bool ok = got.kind == c.kind && (c.kind == K::none || (got.device == c.device && got.value == c.value));
-        if (!ok) {
+        if (c.kind == K::none) continue;
+        using V = voice_catalog::Kind;
+        const V kind = c.kind == K::power ? V::power : c.kind == K::aircon_mode ? V::aircon_mode :
+            c.kind == K::temperature ? V::temperature : c.kind == K::tv_volume ? V::tv_volume :
+            c.kind == K::tv_channel ? V::tv_channel : c.kind == K::tv_channel_step ? V::tv_channel_step : V::light_mode;
+        const auto group = c.device == 0 ? voice_catalog::group(voice_catalog::k_tv) :
+                           c.device == 1 ? voice_catalog::group(voice_catalog::k_aircon) : voice_catalog::group(voice_catalog::k_light);
+        bool found = false;
+        for (size_t i = 0; i < group.count; ++i)
+            if (group.phrases[i].kind == int(kind) && group.phrases[i].value == c.value) found = true;
+        ++checked;
+        if (!found) {
             ++failed;
-            printf("FAIL %s kind=%d device=%d value=%d\n", c.kana, (int)got.kind, got.device, got.value);
+            printf("FAIL %s kind=%d device=%d value=%d\n", c.kana, int(c.kind), c.device, c.value);
         }
     }
-    printf("%s %d/%d\n", failed ? "FAIL" : "PASS", (int)(sizeof(cases) / sizeof(cases[0])) - failed,
-           (int)(sizeof(cases) / sizeof(cases[0])));
+    printf("%s prior operation mappings %d/%d\n", failed ? "FAIL" : "PASS", checked - failed, checked);
     return failed != 0;
 }

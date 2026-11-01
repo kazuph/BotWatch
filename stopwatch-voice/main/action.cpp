@@ -243,10 +243,9 @@ void reset()
     idle("話しかけてね");
 }
 
-bool perform_extra(const std::string &kana)
+bool perform_extra(characters::Command command, const std::string &kana)
 {
     using C=characters::Command;
-    const C command=characters::parse(kana);
     if(command==C::none) return false;
     const char *caption="話しかけてね";
     if(command==C::jump || command==C::play) {
@@ -267,9 +266,8 @@ bool perform_extra(const std::string &kana)
     return true;
 }
 
-bool perform_talk(const std::string &kana)
+bool perform_talk(const char *caption, const std::string &kana)
 {
-    const char *caption=talk::parse(kana);
     if(!caption) return false;
     g_avatar.expression=Expression::happy;
     g_avatar.back=false;g_avatar.move=characters::Move::rest;

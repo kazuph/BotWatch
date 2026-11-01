@@ -73,7 +73,8 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "home_match.h"
-#include "broadcast_voice.h"
+#include "voice_control.h"
+#include "talk_commands.h"
 #include "freertos/FreeRTOS.h"
 #include "features.h"
 #include "freertos/task.h"
@@ -92,9 +93,6 @@ constexpr int kMicSeconds = 4;
 
 const char *const kVocabulary[] = {
 #include "vocabulary.inc"
-};
-const home_match::Phrase kHomePhrases[] = {
-    {"てれび", false}, {"ちじょーは", false}, {"ちでじ", false}, {"びーえす", false}, {"しーえす", false},
 };
 
 // Boot lines are kept so "INFO" can repeat them: USB-Serial/JTAG output is lost until the host opens the port.
@@ -220,10 +218,6 @@ bool take_boot_flag(const char *key) {
 
 // "ラベルを印刷して", "いんさつして" ... in the kana KoeAct heard; "印刷しないで" is not.
 // The first mora wavers ("らべるをぴんさつして" on the board), so "んさつ" is what is looked for.
-bool wants_voice_print(const std::string &kana)
-{
-    return kana.find("んさつ") != std::string::npos && kana.find("ないで") == std::string::npos;
-}
 
 // True once a touch has stayed down for kModeHoldMs (call every loop; a lift starts over).
 struct LongTouch {
@@ -523,12 +517,12 @@ public:
     dl::TensorBase *features_input() const { return m_features; }
     int chunk_frames() const { return m_features->shape[1]; }
     int state_count() const { return (int)m_states.size(); }
+    int vocabulary_size() const { return m_logits->shape.back(); }
     bool has_layers() const { return m_layer4 != nullptr; }
     // Steps encoded into the decoder arena this utterance; -1 once a chunk could not be.
     int layer_steps() const { return m_layer_steps; }
     int64_t encode_us() const { return m_encode_us; }
     void set_home_match(home_match::Matcher *matcher) { m_home_match = matcher; }
-    void set_match_stage(bool command_stage) { if (m_home_match) m_home_match->set_begin(command_stage ? 1 : 0); }
     int64_t match_us() const { return m_match_us; }
     home_match::Result match_result(size_t begin = 0) {
         const int64_t start = esp_timer_get_time();
@@ -1193,7 +1187,7 @@ struct ActionResult {
 // clean): leading exact zeros (codec start-up) dropped, the whole utterance set to -23 dBFS RMS
 // (peak at most 0.99), then 0.5 s of silence before and 0.3 s after. `raw` must not overlap `pcm`.
 ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples, std::vector<float> &pcm,
-                        std::vector<float> &features, bool command_stage = false)
+                        std::vector<float> &features)
 {
     ActionResult out;
     const int64_t start = esp_timer_get_time();
@@ -1214,17 +1208,14 @@ ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples,
     const int frames = std::min(ralomi::frame_count(total), kA2MaxSteps * kSubsampling);
     ralomi::log_mel(pcm.data(), total, features.data());
     const int64_t feature_us = esp_timer_get_time() - start;
-    recognizer.set_match_stage(command_stage);
     recognizer.run_all(features.data(), frames);
     Recognition kana = finish(recognizer, frames);
     out.kana = kana.text;
-    const auto match = recognizer.match_result(command_stage ? 1 : 0);
+    const auto match = recognizer.match_result();
     out.match = match;
-    const auto rule = home::parse(out.kana);
-    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi phase=%s\n",
+    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=removed method=viterbi\n",
            match.best ? match.best->text : "none", match.score, match.second ? match.second->text : "none", match.score2,
-           match.score - match.score2, (long long)recognizer.match_us(), out.kana.c_str(), int(rule.kind), rule.device, rule.value,
-           command_stage ? "command" : "wake");
+           match.score - match.score2, (long long)recognizer.match_us(), out.kana.c_str());
     int64_t generate_us = -1;
     a2_result result{};
     if (g_a2_ready && recognizer.layer_steps() > 0) {
@@ -1539,21 +1530,36 @@ void serve_action(Recognizer &recognizer)
     g_listen.written = 0;
     g_listen.active = true;
     if (!voice_screen::start_characters()) { printf("ERROR characters_start\n"); vTaskDelete(nullptr); return; }
-    constexpr size_t phrase_count = sizeof(kHomePhrases) / sizeof(kHomePhrases[0]);
     constexpr size_t vocab_count = sizeof(kVocabulary) / sizeof(kVocabulary[0]);
-    const size_t match_bytes = home_match::Matcher::bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
+    const voice_catalog::Group groups[] = {voice_catalog::group(voice_catalog::k_idle), voice_catalog::group(voice_catalog::k_tv),
+        voice_catalog::group(voice_catalog::k_aircon), voice_catalog::group(voice_catalog::k_light)};
+    size_t match_bytes = 0;
+    for (const auto &group : groups) {
+        const size_t bytes = home_match::Matcher::bytes(group.phrases, group.count, kVocabulary, vocab_count);
+        if (!bytes) { printf("ERROR HOME_MATCH vocabulary\n"); vTaskDelete(nullptr); return; }
+        match_bytes = std::max(match_bytes, bytes);
+    }
     const size_t free_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     auto match_memory = std::unique_ptr<void, decltype(&heap_caps_free)>(
         match_bytes ? heap_caps_malloc(match_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
     home_match::Matcher matcher;
-    if (!match_memory || !matcher.init(match_memory.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
+    if (recognizer.vocabulary_size() != int(vocab_count) || !match_memory || !matcher.init(match_memory.get(), groups[0].phrases, groups[0].count, kVocabulary, vocab_count)) {
         printf("ERROR HOME_MATCH allocation bytes=%u psram_free=%u\n", unsigned(match_bytes), unsigned(free_before));
         vTaskDelete(nullptr); return;
     }
-    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
-           unsigned(match_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
-           unsigned(free_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), unsigned(phrase_count));
+    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u psram_before=%u psram_after=%u\n",
+           unsigned(match_bytes), unsigned(free_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
     recognizer.set_home_match(&matcher);
+    const home_match::Phrase *current_group = groups[0].phrases;
+    auto configure_group = [&](voice_control::Target target) {
+        const size_t index = target == voice_control::Target::tv ? 1 : target == voice_control::Target::aircon ? 2 : target == voice_control::Target::light ? 3 : 0;
+        const auto group = groups[index];
+        if (current_group != group.phrases) {
+            if (!matcher.init(match_memory.get(), group.phrases, group.count, kVocabulary, vocab_count)) return false;
+            matcher.set_begin(0); current_group = group.phrases;
+        }
+        return true;
+    };
     if (!start_listening()) {
         printf("ERROR MIC listen_start\n");
         voice_screen::failure("録音に失敗しました");
@@ -1571,30 +1577,36 @@ void serve_action(Recognizer &recognizer)
     bool listening_drawn = false;
     ListenStats stats;
     int64_t next_stat = esp_timer_get_time() + 60 * 1000000LL;
-    broadcast_voice::State broadcast;
-    auto handle_broadcast = [&](const ActionResult &result, bool command_stage, int64_t onset) {
-        const char *word = result.match.best ? result.match.best->text : nullptr;
-        const float margin = result.match.second ? result.match.score - result.match.score2
-                                                 : std::numeric_limits<float>::quiet_NaN();
-        const auto outcome = command_stage ? broadcast.command(word, result.match.score, result.kana.c_str(), onset)
-                                           : broadcast.wake(word, result.match.score, margin, result.kana.c_str());
-        const auto decision = outcome.decision;
-        printf("BROADCAST phase=%s best=%s score=%.6f margin=%.6f threshold=%.1f accepted=%d reason=%s\n",
-               command_stage ? "command" : "wake", word ? word : "none", result.match.score,
-               margin, command_stage ? broadcast_voice::kCommandScoreThreshold : broadcast_voice::kWakeScoreThreshold,
-               decision != broadcast_voice::Decision::none, outcome.reason);
-        if (decision == broadcast_voice::Decision::wake) {
-            if (broadcast_beep()) broadcast.arm(g_listen.written.load(), ralomi::kSampleRate);
+    voice_control::State voice_state;
+    auto handle_voice = [&](const ActionResult &result, voice_control::Target target) {
+        using K = voice_catalog::Kind;
+        const auto *candidate = result.match.best;
+        const auto outcome = voice_control::decide(result.match, result.kana.c_str());
+        printf("VOICE_MATCH target=%d best=%s score=%.6f margin=%.6f accepted=%d reason=%s\n", int(target),
+               candidate ? candidate->text : "none", result.match.score, result.match.score - result.match.score2,
+               outcome.accepted, outcome.reason);
+        if (target != voice_control::Target::none) voice_state.clear();
+        if (candidate && candidate->negative) return true;
+        if (!outcome.accepted) return target != voice_control::Target::none;
+        const auto kind = static_cast<K>(candidate->kind);
+        if (voice_control::is_wake(kind)) {
+            const auto next = kind == K::wake_tv ? voice_control::Target::tv : kind == K::wake_aircon ? voice_control::Target::aircon : voice_control::Target::light;
+            if (broadcast_beep()) voice_state.arm(next, g_listen.written.load(), ralomi::kSampleRate);
             return true;
         }
-        if (command_stage) {
-            if (decision == broadcast_voice::Decision::terrestrial || decision == broadcast_voice::Decision::satellite) {
-                const home::Command command{home::Command::Kind::tv_band, 0,
-                    decision == broadcast_voice::Decision::terrestrial ? 0 : 1};
-                home::perform(command, result.kana);
-            }
+        if (target != voice_control::Target::none) {
+            using H = home::Command::Kind;
+            const int device = target == voice_control::Target::tv ? 0 : target == voice_control::Target::aircon ? 1 : 2;
+            const H action = kind == K::power ? H::power : kind == K::tv_band ? H::tv_band : kind == K::tv_volume ? H::tv_volume :
+                kind == K::tv_channel ? H::tv_channel : kind == K::tv_channel_step ? H::tv_channel_step : kind == K::aircon_mode ? H::aircon_mode :
+                kind == K::temperature ? H::temperature : kind == K::light_mode ? H::light_mode : H::none;
+            if (action != H::none) home::perform({action, device, candidate->value}, result.kana);
             return true;
         }
+        if (kind == K::character) return action::perform_extra(static_cast<characters::Command>(candidate->value), result.kana);
+        if (kind == K::talk && candidate->value >= 0 && size_t(candidate->value) < sizeof(talk::kReplies) / sizeof(talk::kReplies[0]))
+            return action::perform_talk(talk::kReplies[candidate->value].caption, result.kana);
+        if (kind == K::print_start) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); return true; }
         return false;
     };
 
@@ -1612,21 +1624,10 @@ void serve_action(Recognizer &recognizer)
                samples, cutter.voiced, cutter.noise);
         if (!by_button) { action::idle("かんがえ中…"); }
         const int64_t onset = std::min(end, begin + int64_t(kPrerollHops) * ralomi::kHop);
-        const bool command_stage = broadcast.waiting(onset);
-        const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features, command_stage);
-        const home::Command appliance = home::parse(result.kana);
-        if (handle_broadcast(result, command_stage, onset)) {
-            ++stats.accepted;
-        } else if (wants_voice_print(result.kana)) {
-            pause_listening();
-            speak_response("ラベルをいんさつするよ");
-            reboot_into(Mode::kana, true);
-        } else if (appliance.kind != home::Command::Kind::none) {
-            ++stats.accepted;
-            home::perform(appliance, result.kana);
-        } else if (action::perform_extra(result.kana)) {
-            ++stats.accepted;
-        } else if (action::perform_talk(result.kana)) {
+        const auto target = voice_state.target(onset);
+        if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); return; }
+        const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features);
+        if (handle_voice(result, target)) {
             ++stats.accepted;
         } else if (result.decoded && !result.accepted && !by_button) {
             ++stats.rejected;
@@ -1750,7 +1751,7 @@ void serve_action(Recognizer &recognizer)
         }
         if (held) { scan = g_listen.written.load(); }
         else { pump(g_listen.written.load()); }
-        if (!cutter.speaking && phase != Phase::button) broadcast.waiting(g_listen.written.load());
+        if (!cutter.speaking && phase != Phase::button) voice_state.target(g_listen.written.load());
         if (esp_timer_get_time() >= next_stat) {
             next_stat += 60 * 1000000LL;
             printf("LISTEN_STAT segments=%d accepted=%d rejected=%d dropped=%d button=%d max_us=%" PRId64
@@ -1987,13 +1988,10 @@ void serve_action(Recognizer &recognizer)
             }
             action::idle("かんがえ中…");
             const int64_t onset = g_listen.written.load();
-            const bool command_stage = broadcast.waiting(onset);
-            const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features, command_stage);
-            const home::Command appliance = home::parse(result.kana);
-            if (handle_broadcast(result, command_stage, onset)) { }
-            else if (wants_voice_print(result.kana)) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); }
-            else if (appliance.kind != home::Command::Kind::none) { home::perform(appliance, result.kana); }
-            else if (!action::perform_extra(result.kana) && !action::perform_talk(result.kana)) { show_action(result); }
+            const auto target = voice_state.target(onset);
+            if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); continue; }
+            const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features);
+            if (!handle_voice(result, target)) show_action(result);
             scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
         }
     }
@@ -2034,34 +2032,6 @@ std::string recognize_ring(Recognizer &recognizer, int64_t begin, int64_t end, s
     return result.text;
 }
 
-// Characters in UTF-8 text (the kana are one character each, "ゅ" included).
-int characters(const std::string &text)
-{
-    int count = 0;
-    for (const unsigned char byte : text) { count += (byte & 0xC0) != 0x80; }
-    return count;
-}
-
-// The go-ahead to print must be a short reply of its own ("いんさつ", "いんさつして"): with the
-// room always heard, chatter that merely contains 印刷 printed a label on the board.
-constexpr int kGoAheadCharacters = 6;
-
-// ... and it must begin with the word: room speech heard as "にゅんさつ" printed a label too.
-bool go_ahead(const std::string &text)
-{
-    if (characters(text) > kGoAheadCharacters) { return false; }
-    for (const char *word : {"いんさつ", "ぴんさつ", "びんさつ", "いんさ", "おねがい"}) {
-        if (text.rfind(word, 0) == 0) { return true; }
-    }
-    return false;
-}
-
-bool heard_any(const std::string &text, std::initializer_list<const char *> words)
-{
-    for (const char *word : words) { if (text.find(word) != std::string::npos) { return true; } }
-    return false;
-}
-
 // Speak the words, see the label, say "いんさつ": the label prints and the board goes back to the
 // action mode. "やりなおし" listens again, "やめる" (or the right button, or a minute of
 // silence) goes back without printing.
@@ -2073,6 +2043,20 @@ void serve_voice_print(Recognizer &recognizer)
         static_cast<int16_t *>(heap_caps_malloc(kMaxSamples * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
         heap_caps_free);
     if (!ring) { printf("ERROR MIC listen_buffer allocation\n"); reboot_into(Mode::action, false); }
+    constexpr size_t vocab_count = sizeof(kVocabulary) / sizeof(kVocabulary[0]);
+    const auto words_group = voice_catalog::group(voice_catalog::k_print_words);
+    const auto confirm_group = voice_catalog::group(voice_catalog::k_print_confirm);
+    const size_t match_bytes = std::max(home_match::Matcher::bytes(words_group.phrases, words_group.count, kVocabulary, vocab_count),
+                                        home_match::Matcher::bytes(confirm_group.phrases, confirm_group.count, kVocabulary, vocab_count));
+    auto match_memory = std::unique_ptr<void, decltype(&heap_caps_free)>(heap_caps_malloc(match_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT), heap_caps_free);
+    home_match::Matcher matcher;
+    if (recognizer.vocabulary_size() != int(vocab_count) || !match_memory ||
+        !matcher.init(match_memory.get(), words_group.phrases, words_group.count, kVocabulary, vocab_count)) {
+        printf("ERROR VOICE_PRINT matcher bytes=%u vocab=%d\n", unsigned(match_bytes), recognizer.vocabulary_size());
+        reboot_into(Mode::action, false); return;
+    }
+    recognizer.set_home_match(&matcher);
+    const home_match::Phrase *current_group = words_group.phrases;
     if (!prepare_microphone(pcm)) { printf("ERROR MIC prepare\n"); reboot_into(Mode::action, false); }
     std::fill(ring.get(), ring.get() + kMaxSamples, 0);
     g_listen.ring = ring.get();
@@ -2118,13 +2102,18 @@ void serve_voice_print(Recognizer &recognizer)
         speak_response(result.sent ? "いんさつされたかわからないよ" : "プリンターにつながらないよ");
         step = Step::confirm;
     };
-    auto handle = [&](const std::string &text) {
+    auto handle = [&](const std::string &text, const home_match::Result &match) {
         give_up_at = esp_timer_get_time() + kIdleUs;
+        const auto outcome = voice_control::decide(match, text.c_str());
+        const auto *candidate = match.best;
+        printf("VOICE_PRINT_MATCH best=%s score=%.6f margin=%.6f accepted=%d reason=%s\n",
+               candidate ? candidate->text : "none", match.score, match.score - match.score2, outcome.accepted, outcome.reason);
+        if (step == Step::confirm && candidate && candidate->negative) return;
         if (step == Step::words) {
             if (text.empty()) { voice_screen::voice_prompt("ききとれなかったよ", "もういちど話してね", ""); speak_response("ききとれなかったよ。もういちど話してね"); return; }
             // The go-ahead said too early is not the label: right after the switch the board took
             // "ーさつ" as the words. ("さつき" and other words with さつ still print.)
-            if (go_ahead(text) || (characters(text) <= kGoAheadCharacters && heard_any(text, {"んさつ", "ーさつ"}))) {
+            if (outcome.accepted && candidate && static_cast<voice_catalog::Kind>(candidate->kind) == voice_catalog::Kind::print_early) {
                 voice_screen::voice_prompt("いんさつしたい", "ことばを話してね", text);
                 speak_response("いんさつしたいことばを話してね");
                 printf("UI_STATE voice_print_words go_ahead_too_early=%s\n", text.c_str());
@@ -2144,16 +2133,14 @@ void serve_voice_print(Recognizer &recognizer)
             printf("UI_STATE voice_print_confirm text=%s rows=%d\n", text.c_str(), label.rows);
             return;
         }
-        if (heard_any(text, {"やめ", "きゃんせる", "もどって"})) { back("cancelled"); }
-        // "やりなおし" came out as "やりな", "やりが" and "なりなおし" on the board: a short reply
-        // starting "やり" or holding "なおし" (a redo uses no paper, so it may be loose).
-        if ((characters(text) <= kGoAheadCharacters && (text.rfind("やり", 0) == 0 || heard_any(text, {"なおし"}))) ||
-            heard_any(text, {"もういちど", "もいちど"})) {
+        const auto kind = candidate ? static_cast<voice_catalog::Kind>(candidate->kind) : voice_catalog::Kind::negative;
+        if (outcome.accepted && kind == voice_catalog::Kind::cancel) { back("cancelled"); }
+        if (outcome.accepted && kind == voice_catalog::Kind::redo) {
             step = Step::words;
             voice_screen::voice_prompt("いんさつしたい", "ことばを話してね", "");
             speak_response("いんさつしたいことばを話してね");
     printf("UI_STATE voice_print_words\n");
-        } else if (go_ahead(text)) {
+        } else if (outcome.accepted && kind == voice_catalog::Kind::print_confirm) {
             print();
         } else {
             voice_screen::voice_confirm(label.bits.get(), label.rows, g_last_text);  // keep waiting for a go-ahead
@@ -2167,9 +2154,15 @@ void serve_voice_print(Recognizer &recognizer)
             const int64_t hop = scan;
             scan += ralomi::kHop;
             if (cutter.step(level, hop, scan) != Cutter::Event::segment) { continue; }
+            const auto group = step == Step::words ? words_group : confirm_group;
+            if (current_group != group.phrases) {
+                if (!matcher.init(match_memory.get(), group.phrases, group.count, kVocabulary, vocab_count)) { printf("ERROR VOICE_PRINT group\n"); return; }
+                current_group = group.phrases;
+            }
             const std::string text = recognize_ring(recognizer, cutter.start, cutter.end, pcm, features);
+            const auto match = recognizer.match_result();
             cutter.reset();
-            handle(text);
+            handle(text, match);
             scan = g_listen.written.load();  // what was said meanwhile is not taken as an answer
             return;
         }

@@ -7,8 +7,8 @@
 #include <limits>
 
 namespace home_match {
-struct Phrase { const char *text; bool negative; };
-struct Candidate { const char *text; uint16_t offset, length; bool negative; };
+struct Phrase { const char *text; bool negative; int8_t kind = 0, value = 0; bool long_form = false; };
+struct Candidate { const char *text; uint16_t offset, length; int8_t kind, value; bool negative, long_form; };
 struct Result { const Candidate *best; const Candidate *second; float score, score2; };
 
 // The caller supplies PSRAM for candidates, token IDs and Viterbi states.
@@ -45,7 +45,7 @@ public:
         for (size_t i = 0; i < count; ++i) {
             const char *p = phrases[i].text; size_t length = 0;
             while (*p) { const size_t id = token(p, vocab, vocab_size); ids_[offset + length++] = id; p += std::strlen(vocab[id]); }
-            candidates_[i] = {phrases[i].text, static_cast<uint16_t>(offset), static_cast<uint16_t>(length), phrases[i].negative}; offset += length;
+            candidates_[i] = {phrases[i].text, static_cast<uint16_t>(offset), static_cast<uint16_t>(length), phrases[i].kind, phrases[i].value, phrases[i].negative, phrases[i].long_form}; offset += length;
         }
         reset(); return true;
     }
