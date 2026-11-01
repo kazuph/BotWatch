@@ -79,6 +79,7 @@ void mode_switching(const char *next_mode);
 void voice_prompt(const char *line1, const char *line2, const std::string &heard);
 void ir_prompt(const char *line1, const char *line2, const char *line3, const char *line4);
 void ir_candidate(const char *name, bool success);
+void ir_monitor(unsigned count, bool decoded, uint32_t code, unsigned edges);
 void app_ir_learning(int index, bool waiting, const char *status);
 void voice_confirm(const uint8_t *bits, int rows, const std::string &text);
 

@@ -1063,6 +1063,18 @@ void ir_prompt(const char *line1, const char *line2, const char *line3, const ch
     present();
 }
 
+void ir_monitor(unsigned count, bool decoded, uint32_t code, unsigned edges)
+{
+    Lock lock; background();
+    char top[48], bottom[48];
+    std::snprintf(top, sizeof(top), "%u", count);
+    if (decoded) std::snprintf(bottom, sizeof(bottom), "%08lX", static_cast<unsigned long>(code));
+    else std::snprintf(bottom, sizeof(bottom), "%u EDGE", edges);
+    text_at(top, 56, 233, 190, kInk);
+    text_at(bottom, 32, 233, 270, kInk);
+    present();
+}
+
 void ir_candidate(const char *name, bool success)
 {
     Lock lock; background();

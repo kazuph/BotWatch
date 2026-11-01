@@ -74,7 +74,7 @@ def main():
     kana="".join(chr(c) for c in range(0x3041,0x3097))+"".join(chr(c) for c in range(0x30a1,0x30f7))
     for size in (15,17):extend(size,700,sample_names+kana)
     replies="".join(re.findall(r'\{"[^"\n]+", "([^"\n]+)"\}', (ROOT / "main/talk_commands.h").read_text()))
-    extend(32,800,"ジャンプ！あそぼう！うしろをむいたよ背景をかえたよ切替チャンネルをあげたよさげたよ"+sample_names+replies)
+    extend(32,800,"ジャンプ！あそぼう！うしろをむいたよ背景をかえたよ切替チャンネルをあげたよさげたよ0123456789ABCDEFXG " +sample_names+replies)
 
 
 if __name__=="__main__": main()

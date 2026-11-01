@@ -1,4 +1,6 @@
 #include "ir_home.h"
+#include "ir_monitor_decode.h"
+#include "voice_screen.h"
 
 #include <cstdio>
 #include <atomic>
@@ -8,6 +10,7 @@
 #include "driver/rmt_tx.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 #include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -28,6 +31,14 @@ std::atomic<bool> session{false};
 std::atomic<bool> skipped{false};
 std::atomic<int> session_count{-1};
 std::atomic<bool> scope_running{false};
+std::atomic<bool> monitor_running{false}, monitor_stop{false}, transmitting{false};
+constexpr unsigned kMonitorCapacity = kCaptureSymbols * 2;
+constexpr uint32_t kMonitorGapUs = 60000;  // same gap as the selected RMT receive boundary
+struct MonitorEdge { uint32_t at; uint8_t level; uint8_t self; };
+MonitorEdge *monitor_ring = nullptr;
+uint32_t *monitor_intervals = nullptr;
+unsigned monitor_write = 0, monitor_read = 0, monitor_dropped = 0;
+portMUX_TYPE monitor_mux = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE scope_mux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint32_t scope_edges = 0;
 volatile int64_t scope_last = 0, scope_min = INT64_MAX, scope_max = 0;
@@ -56,13 +67,81 @@ bool send_timings(const uint32_t *timings, size_t count, bool diagnostic = false
     if (err == ESP_OK) err = rmt_new_copy_encoder(&ec, &encoder);
     bool enabled = false;
     if (err == ESP_OK) { err = rmt_enable(tx); enabled = err == ESP_OK; }
+    if (err == ESP_OK) transmitting = true;
     if (err == ESP_OK) err = rmt_transmit(tx, encoder, symbols.data(), symbols.size() * sizeof(symbols[0]), &transmit);
     if (err == ESP_OK) err = rmt_tx_wait_all_done(tx, -1);
+    transmitting = false;
     if (enabled) rmt_disable(tx);
     if (encoder) rmt_del_encoder(encoder);
     if (tx) rmt_del_channel(tx);
     gpio_reset_pin(GPIO_NUM_10); gpio_set_direction(GPIO_NUM_10, GPIO_MODE_OUTPUT); gpio_set_level(GPIO_NUM_10, 0);
     return err == ESP_OK;
+}
+
+void IRAM_ATTR monitor_edge(void *)
+{
+    const MonitorEdge edge{uint32_t(esp_timer_get_time()), uint8_t(gpio_get_level(GPIO_NUM_11)), uint8_t(transmitting.load())};
+    portENTER_CRITICAL_ISR(&monitor_mux);
+    const unsigned next = (monitor_write + 1) % kMonitorCapacity;
+    if (next == monitor_read) ++monitor_dropped;
+    else { monitor_ring[monitor_write] = edge; monitor_write = next; }
+    portEXIT_CRITICAL_ISR(&monitor_mux);
+}
+
+void monitor_task(void *)
+{
+    unsigned groups = 0, edges = 0, intervals = 0, dropped_seen = 0;
+    uint32_t previous = 0;
+    bool self = false, overflow = false; uint8_t initial_level = 1;
+    auto finish = [&] {
+        if (!edges) return;
+        uint32_t code = 0;
+        const bool decoded = initial_level == 0 && !overflow && decode_monitor_nec(monitor_intervals, intervals, code);
+        ++groups;
+        printf("IRMN_FRAME n=%u edges=%u first_us=%u self=%d overflow=%d nec=", groups, edges,
+               intervals ? unsigned(monitor_intervals[0]) : 0, self, overflow);
+        if (decoded) printf("%08lX", static_cast<unsigned long>(code)); else printf("UNKNOWN");
+        printf(" intervals=");
+        for (unsigned i = 0; i < intervals; ++i) printf("%u,", unsigned(monitor_intervals[i]));
+        printf("\n"); fflush(stdout);
+        voice_screen::ir_monitor(groups, decoded, code, edges);
+        if (M5.Speaker.begin()) M5.Speaker.tone(2000, 100);
+        edges = intervals = 0; self = overflow = false;
+    };
+    while (true) {
+        MonitorEdge edge{}; bool available = false; unsigned dropped;
+        portENTER_CRITICAL(&monitor_mux);
+        if (monitor_read != monitor_write) {
+            edge = monitor_ring[monitor_read]; monitor_read = (monitor_read + 1) % kMonitorCapacity; available = true;
+        }
+        dropped = monitor_dropped;
+        portEXIT_CRITICAL(&monitor_mux);
+        if (dropped != dropped_seen) {
+            printf("IRMN_OVERFLOW dropped=%u\n", dropped); fflush(stdout);
+            overflow = true; dropped_seen = dropped;
+        }
+        if (available) {
+            const uint32_t gap = edge.at - previous;
+            if (edges && gap >= kMonitorGapUs) finish();
+            else if (edges) {
+                if (intervals < kMonitorCapacity) monitor_intervals[intervals++] = gap;
+                else overflow = true;
+            }
+            if (!edges) initial_level = edge.level;
+            ++edges; self |= edge.self; previous = edge.at;
+        } else {
+            if (monitor_stop.load()) break;
+            if (edges && uint32_t(esp_timer_get_time()) - previous >= kMonitorGapUs) finish();
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+    }
+    gpio_intr_disable(GPIO_NUM_11); gpio_isr_handler_remove(GPIO_NUM_11);
+    finish();
+    heap_caps_free(monitor_ring); heap_caps_free(monitor_intervals);
+    monitor_ring = nullptr; monitor_intervals = nullptr;
+    monitor_running = false;
+    printf("IRMN stopped frames=%u dropped=%u\n", groups, dropped_seen); fflush(stdout);
+    vTaskDelete(nullptr);
 }
 
 void scope_edge(void *)
@@ -146,7 +225,7 @@ void receive_task(void *)
 
 void receive_diagnostic()
 {
-    if (rx) { printf("IR_RX busy\n"); return; }
+    if (rx || monitor_running) { printf("IR_RX busy\n"); return; }
     M5.Power.setExtOutput(true);
     const bool uses_ir_pins = M5.Ex_I2C.getSDA() == 10 || M5.Ex_I2C.getSDA() == 11 ||
                               M5.Ex_I2C.getSCL() == 10 || M5.Ex_I2C.getSCL() == 11;
@@ -258,6 +337,7 @@ void scope_task(void *arg)
 
 bool start_edge_scope(bool tx_low)
 {
+    if (monitor_running) return false;
     bool expected = false;
     if (!scope_running.compare_exchange_strong(expected, true)) return false;
     if (xTaskCreate(scope_task, "ir_scope", 4096, reinterpret_cast<void *>(uintptr_t(tx_low)), 5, nullptr) != pdPASS) {
@@ -269,6 +349,48 @@ bool start_edge_scope(bool tx_low)
 
 bool edge_scope_active() { return scope_running; }
 
+bool start_monitor()
+{
+    if (rx || scope_running || monitor_running) { printf("IRMN error=busy\n"); fflush(stdout); return false; }
+    M5.Power.setExtOutput(true);
+    if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) { printf("IRMN error=shared_i2c\n"); fflush(stdout); return false; }
+    const bool released = M5.Ex_I2C.release();
+    gpio_reset_pin(GPIO_NUM_10); gpio_set_direction(GPIO_NUM_10, GPIO_MODE_OUTPUT); gpio_set_level(GPIO_NUM_10, 0);
+    gpio_reset_pin(GPIO_NUM_11); gpio_set_direction(GPIO_NUM_11, GPIO_MODE_INPUT);
+    gpio_pullup_en(GPIO_NUM_11); gpio_set_intr_type(GPIO_NUM_11, GPIO_INTR_ANYEDGE);
+    printf("IRMN memory internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u\n",
+           unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)), unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+           unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)), unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM)));
+    monitor_ring = static_cast<MonitorEdge *>(heap_caps_malloc(sizeof(MonitorEdge) * kMonitorCapacity, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    monitor_intervals = static_cast<uint32_t *>(heap_caps_malloc(sizeof(uint32_t) * kMonitorCapacity, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if (!monitor_ring || !monitor_intervals) {
+        heap_caps_free(monitor_ring); heap_caps_free(monitor_intervals); monitor_ring = nullptr; monitor_intervals = nullptr;
+        printf("IRMN error=no_memory\n"); fflush(stdout); return false;
+    }
+    monitor_write = monitor_read = monitor_dropped = 0; monitor_stop = false;
+    esp_err_t err = gpio_install_isr_service(0);
+    if (err == ESP_ERR_INVALID_STATE) err = ESP_OK;
+    if (err == ESP_OK) err = gpio_isr_handler_add(GPIO_NUM_11, monitor_edge, nullptr);
+    if (err != ESP_OK) {
+        heap_caps_free(monitor_ring); heap_caps_free(monitor_intervals); monitor_ring = nullptr; monitor_intervals = nullptr;
+        printf("IRMN error=%s\n", esp_err_to_name(err)); fflush(stdout); return false;
+    }
+    monitor_running = true;
+    if (xTaskCreate(monitor_task, "ir_monitor", 4096, nullptr, 5, nullptr) != pdPASS) {
+        gpio_intr_disable(GPIO_NUM_11); gpio_isr_handler_remove(GPIO_NUM_11);
+        heap_caps_free(monitor_ring); heap_caps_free(monitor_intervals); monitor_ring = nullptr; monitor_intervals = nullptr;
+        monitor_running = false; printf("IRMN error=task_start\n"); fflush(stdout); return false;
+    }
+    printf("IRMN ready mic_running=%d tx_low=%d i2c_release=%d power=%d gap_us=%u\n", M5.Mic.isRunning(),
+           gpio_get_level(GPIO_NUM_10) == 0, released, M5.Power.getExtOutput(), unsigned(kMonitorGapUs));
+    fflush(stdout);
+    voice_screen::ir_monitor(0, false, 0, 0);
+    return true;
+}
+
+void stop_monitor() { if (monitor_running) { gpio_intr_disable(GPIO_NUM_11); monitor_stop = true; } }
+bool monitor_active() { return monitor_running; }
+
 bool send_tv(ir_codes::TvKey key, bool diagnostic)
 {
     const auto timings = ir_codes::nec(ir_codes::tv_code(key));
@@ -277,7 +399,7 @@ bool send_tv(ir_codes::TvKey key, bool diagnostic)
 
 void compare_tv_loopback()
 {
-    if (rx || scope_running) { printf("TVLOOP error=busy\n"); fflush(stdout); return; }
+    if (rx || scope_running || monitor_running) { printf("TVLOOP error=busy\n"); fflush(stdout); return; }
     M5.Power.setExtOutput(true);
     if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) { printf("TVLOOP error=shared_i2c\n"); fflush(stdout); return; }
     M5.Ex_I2C.release();
@@ -372,7 +494,7 @@ bool send_learned(Learned slot)
 
 void loopback_probe()
 {
-    if (rx || scope_running) { printf("IR_LOOP error=busy\n"); fflush(stdout); return; }
+    if (rx || scope_running || monitor_running) { printf("IR_LOOP error=busy\n"); fflush(stdout); return; }
     M5.Power.setExtOutput(true);
     if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) { printf("IR_LOOP error=shared_i2c\n"); fflush(stdout); return; }
     M5.Ex_I2C.release();
@@ -430,7 +552,7 @@ void loopback_probe()
 
 void loopback_trials(bool reuse, bool tx_low)
 {
-    if (rx || scope_running) { printf("IR_TRIAL error=busy\n"); fflush(stdout); return; }
+    if (rx || scope_running || monitor_running) { printf("IR_TRIAL error=busy\n"); fflush(stdout); return; }
     M5.Power.setExtOutput(true);
     if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) { printf("IR_TRIAL error=shared_i2c\n"); fflush(stdout); return; }
     M5.Ex_I2C.release();

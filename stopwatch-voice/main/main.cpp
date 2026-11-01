@@ -401,6 +401,7 @@ void serial_receiver(void *)
         if (length == 4 && !memcmp(header, "IRRW", 4)) { ir_home::receive_session(); continue; }
         if (length == 4 && !memcmp(header, "IRGT", 4)) { ir_home::session_result(); continue; }
         if (length == 4 && !memcmp(header, "IRSK", 4)) { ir_home::skip_session(); continue; }
+        if (length == 4 && !memcmp(header, "IRMS", 4)) { ir_home::stop_monitor(); continue; }
         if (length == 4 && !memcmp(header, "ILPB", 4)) { ir_home::loopback_probe(); continue; }
         if (length == 4 && !memcmp(header, "ITCP", 4)) { ir_home::compare_tv_loopback(); continue; }
         if (length == 4 && !memcmp(header, "IRTX", 4)) { ir_home::transmit_diagnostic(); continue; }
@@ -1552,12 +1553,26 @@ void serve_action(Recognizer &recognizer)
     bool release_barrier = false, held = false;
     bool scope_pending = false, scope_paused = false, scope_active_before = false;
     bool scope_resume = false, scope_mic = false, scope_held_before = false, scope_muted_before = false;
+    bool monitor_pending = false, monitor_active_before = false, monitor_resume = false, monitor_mic = false, monitor_held = false;
     int touch_x=0,touch_y=0;
     int progress = 0;
     uint8_t header[4] = {};
     if(g_apps_return){g_apps_return=false;open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;release_barrier=true;}
     while (true) {
         M5.update();apps::tick();
+        if (monitor_pending && ir_home::monitor_active() && M5.BtnB.wasPressed()) {
+            ir_home::stop_monitor(); release_barrier = true;
+        }
+        if (monitor_pending && !ir_home::monitor_active()) {
+            M5.Speaker.end();
+            bool restored = !monitor_mic || restore_microphone(false);
+            g_listen.active = monitor_active_before;
+            if (monitor_resume && restored) restored = start_listening();
+            if (!restored) g_listen.failed = true;
+            held = monitor_held; monitor_pending = false;
+            scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            printf("IRMN microphone_restored=%d\n", restored); fflush(stdout);
+        }
         if (scope_pending && !ir_home::edge_scope_active()) {
             tts::diagnostic(scope_muted_before);
             if (scope_paused) {
@@ -1583,7 +1598,7 @@ void serve_action(Recognizer &recognizer)
             ir_home::skip_session();
             release_barrier = true;
         }
-        if(!(held && ir_home::session_active()) && phase!=Phase::button && !release_barrier &&
+        if(!monitor_pending && !(held && ir_home::session_active()) && phase!=Phase::button && !release_barrier &&
            voice_screen::character_touch(touch_down,touch_x,touch_y,uint32_t(esp_timer_get_time()/1000))) {
             open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             release_barrier=true;continue;
@@ -1611,7 +1626,7 @@ void serve_action(Recognizer &recognizer)
         if (release_barrier && !M5.BtnA.isPressed() && !M5.BtnB.isPressed() && M5.Touch.getCount() == 0) {
             release_barrier = false;
         }
-        if (!(held && ir_home::session_active()) && !release_barrier && phase != Phase::button) {
+        if (!monitor_pending && !(held && ir_home::session_active()) && !release_barrier && phase != Phase::button) {
             if (M5.BtnA.wasPressed()) {
                 phase = Phase::button;
                 start = std::max<int64_t>(0, g_listen.written.load() - (int64_t)kPrerollHops * ralomi::kHop);
@@ -1672,7 +1687,21 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0] == 'I' && read_exact(header + 1, 3)) {
-            if (!std::memcmp(header,"ICTV",4) || !std::memcmp(header,"ICTR",4) ||
+            if (!std::memcmp(header,"IRMN",4)) {
+                if (monitor_pending) { printf("IRMN error=busy\n"); fflush(stdout); continue; }
+                monitor_active_before = g_listen.active.load(); monitor_resume = g_listen.mic_on.load();
+                monitor_mic = M5.Mic.isRunning(); monitor_held = held;
+                held = true; pause_listening(); g_listen.active = false; M5.Mic.end();
+                monitor_pending = ir_home::start_monitor();
+                if (!monitor_pending) {
+                    bool restored = !monitor_mic || restore_microphone(false);
+                    g_listen.active = monitor_active_before;
+                    if (monitor_resume && restored) restored = start_listening();
+                    if (!restored) g_listen.failed = true;
+                    held = monitor_held;
+                }
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (!std::memcmp(header,"ICTV",4) || !std::memcmp(header,"ICTR",4) ||
                 !std::memcmp(header,"ICFL",4) || !std::memcmp(header,"ICLV",4)) {
                 const bool tv = header[2] == 'T' && header[3] == 'V';
                 const bool radio = header[2] == 'T' && header[3] == 'R';
