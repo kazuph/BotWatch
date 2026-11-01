@@ -72,6 +72,7 @@
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "home_match.h"
 #include "freertos/FreeRTOS.h"
 #include "features.h"
 #include "freertos/task.h"
@@ -90,6 +91,9 @@ constexpr int kMicSeconds = 4;
 
 const char *const kVocabulary[] = {
 #include "vocabulary.inc"
+};
+const home_match::Phrase kHomePhrases[] = {
+#include "home_phrases.inc"
 };
 
 // Boot lines are kept so "INFO" can repeat them: USB-Serial/JTAG output is lost until the host opens the port.
@@ -522,6 +526,14 @@ public:
     // Steps encoded into the decoder arena this utterance; -1 once a chunk could not be.
     int layer_steps() const { return m_layer_steps; }
     int64_t encode_us() const { return m_encode_us; }
+    void set_home_match(home_match::Matcher *matcher) { m_home_match = matcher; }
+    int64_t match_us() const { return m_match_us; }
+    home_match::Result match_result() {
+        const int64_t start = esp_timer_get_time();
+        const auto result = m_home_match->result();
+        m_match_us += esp_timer_get_time() - start;
+        return result;
+    }
 
     void reset()
     {
@@ -532,6 +544,11 @@ public:
         m_run_us = 0;
         m_layer_steps = 0;
         m_encode_us = 0;
+        m_match_us = 0;
+        if (m_home_match) {
+            const int64_t start = esp_timer_get_time();
+            m_home_match->reset(); m_match_us += esp_timer_get_time() - start;
+        }
     }
 
     // Run one chunk of at most chunk_frames() frames (zero-padded) and keep its frames / 4 steps.
@@ -543,6 +560,19 @@ public:
         const int n = frames / kSubsampling;
         if (m_logits->get_dtype() == dl::DATA_TYPE_INT8) { append_argmax<int8_t>(m_logits, n, m_argmax); }
         else { append_argmax<int16_t>(m_logits, n, m_argmax); }
+        if (m_home_match) {
+            const int64_t started = esp_timer_get_time();
+            const int vocabulary = m_logits->shape.back();
+            const float scale = std::ldexp(1.0f, m_logits->get_exponent());
+            if (m_logits->get_dtype() == dl::DATA_TYPE_INT8) {
+                const auto *data = m_logits->get_element_ptr<int8_t>();
+                for (int i = 0; i < n; ++i) m_home_match->feed(data + i * vocabulary, vocabulary, scale);
+            } else {
+                const auto *data = m_logits->get_element_ptr<int16_t>();
+                for (int i = 0; i < n; ++i) m_home_match->feed(data + i * vocabulary, vocabulary, scale);
+            }
+            m_match_us += esp_timer_get_time() - started;
+        }
         if (has_layers() && m_layer_steps >= 0) {
             // Encode this chunk right away, as KoeAct's CoreS3 firmware does, so only the greedy
             // decoding is left after the last chunk.
@@ -598,6 +628,8 @@ private:
     std::vector<State> m_states;
     std::vector<int> m_argmax;
     int64_t m_run_us = 0;
+    home_match::Matcher *m_home_match = nullptr;
+    int64_t m_match_us = 0;
 };
 
 void benchmark(Recognizer &recognizer)
@@ -1182,6 +1214,12 @@ ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples,
     recognizer.run_all(features.data(), frames);
     Recognition kana = finish(recognizer, frames);
     out.kana = kana.text;
+    const auto match = recognizer.match_result();
+    const auto rule = home::parse(out.kana);
+    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi negative=%d\n",
+           match.best ? match.best->text : "none", match.score, match.second ? match.second->text : "none", match.score2,
+           match.score - match.score2, (long long)recognizer.match_us(), out.kana.c_str(), int(rule.kind), rule.device, rule.value,
+           match.best && match.best->negative);
     int64_t generate_us = -1;
     a2_result result{};
     if (g_a2_ready && recognizer.layer_steps() > 0) {
@@ -1478,6 +1516,21 @@ void serve_action(Recognizer &recognizer)
     g_listen.written = 0;
     g_listen.active = true;
     if (!voice_screen::start_characters()) { printf("ERROR characters_start\n"); vTaskDelete(nullptr); return; }
+    constexpr size_t phrase_count = sizeof(kHomePhrases) / sizeof(kHomePhrases[0]);
+    constexpr size_t vocab_count = sizeof(kVocabulary) / sizeof(kVocabulary[0]);
+    const size_t match_bytes = home_match::Matcher::bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
+    const size_t free_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    auto match_memory = std::unique_ptr<void, decltype(&heap_caps_free)>(
+        match_bytes ? heap_caps_malloc(match_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
+    home_match::Matcher matcher;
+    if (!match_memory || !matcher.init(match_memory.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
+        printf("ERROR HOME_MATCH allocation bytes=%u psram_free=%u\n", unsigned(match_bytes), unsigned(free_before));
+        vTaskDelete(nullptr); return;
+    }
+    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
+           unsigned(match_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
+           unsigned(free_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), unsigned(phrase_count));
+    recognizer.set_home_match(&matcher);
     if (!start_listening()) {
         printf("ERROR MIC listen_start\n");
         voice_screen::failure("録音に失敗しました");
