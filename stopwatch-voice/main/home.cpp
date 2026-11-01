@@ -131,7 +131,9 @@ Command parse(const std::string &kana)
     Command c;
     if (has(kana, {"ないで", "なくて"})) { return c; }  // "テレビを消さないで" asks for nothing
     const size_t channel = kana.find("ちゃんねる");
-    if (channel != std::string::npos && has(kana, {"にして", "にかえて", "にきりかえて"})) {
+    if (channel != std::string::npos && has(kana, {"あげて", "さげて"})) {
+        c = {Kind::tv_channel_step, 0, has(kana, {"さげて"}) ? -1 : 1};
+    } else if (channel != std::string::npos && has(kana, {"にして", "にかえて", "にきりかえて"})) {
         size_t pos = channel + std::strlen("ちゃんねる");
         const int value = number_at(kana, pos);
         if (value >= 0) c = {Kind::tv_channel, 0, value};
@@ -179,7 +181,8 @@ bool perform(const Command &command, const std::string &kana, bool *sent)
         fflush(stdout); if (g_speaker) g_speaker(caption); return true;
     }
     if ((command.kind == Kind::tv_volume && (command.value == 0 || std::abs(command.value) > 10)) ||
-        (command.kind == Kind::tv_channel && (command.value < 1 || command.value > 8))) {
+        (command.kind == Kind::tv_channel && (command.value < 1 || command.value > 9)) ||
+        (command.kind == Kind::tv_channel_step && command.value != 1 && command.value != -1)) {
         g_focus = command.device; draw("できなかったよ", kana);
         printf("HOME_ACTION {\"device\":\"tv\",\"refused\":true,\"reason\":\"out_of_range\"} caption=できなかったよ\n");
         fflush(stdout); if (g_speaker) g_speaker("できなかったよ"); return true;
@@ -236,6 +239,10 @@ bool perform(const Command &command, const std::string &kana, bool *sent)
     case Kind::tv_channel:
         snprintf(caption, sizeof(caption), "チャンネル%dにしたよ", command.value);
         snprintf(detail, sizeof(detail), "\"command\":\"channel\",\"value\":%d", command.value);
+        break;
+    case Kind::tv_channel_step:
+        snprintf(caption, sizeof(caption), "%s", command.value > 0 ? "チャンネルをあげたよ" : "チャンネルをさげたよ");
+        snprintf(detail, sizeof(detail), "\"command\":\"channel_step\",\"step\":%d", command.value);
         break;
     case Kind::light_mode:
         snprintf(caption, sizeof(caption), "でんきを切り替えたよ");

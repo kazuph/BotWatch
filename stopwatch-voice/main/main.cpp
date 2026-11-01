@@ -1330,9 +1330,13 @@ home::SendResult send_home(const home::Command &command)
     if (command.device == 0 && command.kind == Kind::power)
         return {ir_home::send_tv(ir_codes::TvKey::power), 0, "transmit_failed"};
     if (command.kind == Kind::tv_channel) {
-        if (command.value < 1 || command.value > 8) return {false, 0, "out_of_range"};
+        if (command.value < 1 || command.value > 9) return {false, 0, "out_of_range"};
         const auto key = static_cast<ir_codes::TvKey>(static_cast<int>(ir_codes::TvKey::channel_1) + command.value - 1);
         return {ir_home::send_tv(key), 0, "transmit_failed"};
+    }
+    if (command.kind == Kind::tv_channel_step) {
+        if (command.value != 1 && command.value != -1) return {false, 0, "out_of_range"};
+        return {ir_home::send_tv(command.value > 0 ? ir_codes::TvKey::channel_up : ir_codes::TvKey::channel_down), 0, "transmit_failed"};
     }
     if (command.kind == Kind::tv_volume) {
         const int count = std::abs(command.value);
@@ -1668,7 +1672,25 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0] == 'I' && read_exact(header + 1, 3)) {
-            if (!std::memcmp(header,"ITUP",4) || !std::memcmp(header,"ITDN",4) ||
+            if (!std::memcmp(header,"ICTV",4) || !std::memcmp(header,"ICTR",4) ||
+                !std::memcmp(header,"ICFL",4) || !std::memcmp(header,"ICLV",4)) {
+                const bool tv = header[2] == 'T' && header[3] == 'V';
+                const bool radio = header[2] == 'T' && header[3] == 'R';
+                const bool flashback = header[2] == 'F';
+                const char *name = tv ? "IR_KEY_TV" : radio ? "IR_KEY_TV_RADIO" : flashback ? "IR_KEY_FLASHBACK" : "IR_KEY_LIVETV";
+                const auto key = tv ? ir_codes::TvKey::candidate_tv : radio ? ir_codes::TvKey::candidate_tv_radio :
+                                 flashback ? ir_codes::TvKey::candidate_flashback : ir_codes::TvKey::candidate_livetv;
+                const bool ok = ir_home::send_tv(key);
+                voice_screen::ir_candidate(name, ok);
+                printf("IR_CANDIDATE name=%s success=%d\n", name, ok); fflush(stdout);
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (!std::memcmp(header,"ICUP",4) || !std::memcmp(header,"ICDN",4)) {
+                const home::Command command{home::Command::Kind::tv_channel_step, 0, header[2] == 'U' ? 1 : -1};
+                bool success = false;
+                home::perform(command, "", &success);
+                printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (!std::memcmp(header,"ITUP",4) || !std::memcmp(header,"ITDN",4) ||
                 !std::memcmp(header,"ITPW",4) || !std::memcmp(header,"IAON",4) || !std::memcmp(header,"IAOF",4)) {
                 using Kind = home::Command::Kind;
                 const home::Command command = header[1] == 'T'

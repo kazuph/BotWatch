@@ -1063,6 +1063,14 @@ void ir_prompt(const char *line1, const char *line2, const char *line3, const ch
     present();
 }
 
+void ir_candidate(const char *name, bool success)
+{
+    Lock lock; background();
+    text_at(name, 24, 233, 220, kInk);
+    text_at(success ? "おくったよ" : "できなかったよ", 24, 233, 280, kInk);
+    present();
+}
+
 void voice_prompt(const char *line1, const char *line2, const std::string &heard)
 {
     Lock lock;normal_screen=NormalScreen::voice_prompt;character_caption=line1;character_kana=line2;source=heard; background(); roles("", "やめる");

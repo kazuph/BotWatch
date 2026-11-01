@@ -8,7 +8,7 @@ namespace home {
 using Speaker = void (*)(const char *caption);
 void set_speaker(Speaker speaker);
 struct Command {
-    enum class Kind { none, power, aircon_mode, temperature, tv_volume, tv_band, tv_channel, light_mode } kind = Kind::none;
+    enum class Kind { none, power, aircon_mode, temperature, tv_volume, tv_band, tv_channel, tv_channel_step, light_mode } kind = Kind::none;
     int device = 0;  // 0 TV, 1 air conditioner, 2 light
     int value = 0;   // power 0/1, mode 0 cool 1 heat 2 dry, degrees, volume step (+/-), band 0..2
 };
