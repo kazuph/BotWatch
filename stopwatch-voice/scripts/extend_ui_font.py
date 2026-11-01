@@ -65,14 +65,15 @@ def extend(font_size,weight,required):
 
 def main():
     # Dynamic app values: numeric time/date, octave, Hz and cents.
-    for size,chars in {17:"0123456789%",20:"ラップリセットとめるはじめる",24:"0123456789:.+-/Hzcentむせんさがしていますつながりましたはなしていますきいていますむせんをはじめられません",32:"0123456789.Hz",40:"0123456789:.",56:"0123456789"}.items():
+    for size,chars in {17:"0123456789%",20:"ラップリセットとめるはじめる",24:"0123456789:.+-/HzcentむせんさがしていますつながりましたはなしていますきいていますむせんをはじめられませんボタンをおしてねよこスワイプでえらぶBでやめるタップでうけとるおぼえたよできなかったよ",32:"0123456789.Hz",40:"0123456789:.",56:"0123456789"}.items():
         extend(size,700 if size<=24 else 800,chars)
+    extend(56,800,'これからリモコンを読ませてねエアコン冷房26度風量自動運転エアコン温度27度上げるエアコン停止テレビ電源テレビ音量上テレビ音量下テレビチャンネル1テレビ地上波テレビBS/CS電気オン電気オフ電気オレンジ電気保安灯電気白オーケーもう一度押してねとばすね')
     sample_names="".join(re.findall(r'"([^"\n]+)"',(ROOT / "main/presets_local.example.h").read_text()))
     # Local display names use kana; keep a general kana alphabet in the small UI sizes.
     kana="".join(chr(c) for c in range(0x3041,0x3097))+"".join(chr(c) for c in range(0x30a1,0x30f7))
     for size in (15,17):extend(size,700,sample_names+kana)
     replies="".join(re.findall(r'\{"[^"\n]+", "([^"\n]+)"\}', (ROOT / "main/talk_commands.h").read_text()))
-    extend(32,800,"ジャンプ！あそぼう！うしろをむいたよ背景をかえたよ"+sample_names+replies)
+    extend(32,800,"ジャンプ！あそぼう！うしろをむいたよ背景をかえたよ切替"+sample_names+replies)
 
 
 if __name__=="__main__": main()

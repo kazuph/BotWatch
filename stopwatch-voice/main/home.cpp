@@ -10,13 +10,14 @@
 namespace home {
 namespace {
 Speaker g_speaker = nullptr;
+Sender g_sender = nullptr;
 using Kind = Command::Kind;
 
 // The panel's state (only on the screen: there are no real appliances behind it).
 struct State {
     bool tv = false, aircon = false, light = false;
-    int band = 0, volume = 20;   // TV: 0 地上波 1 BS 2 CS
-    int mode = 0, degrees = 26;  // air conditioner: 0 cool 1 heat 2 dry
+    int band = 0, volume = 0;   // TV: 0 地上波 1 BS 2 CS; volume is a relative step
+    int mode = 0, degrees = 27;  // captured air conditioner template
 } g_state;
 int g_focus = 0;
 
@@ -111,10 +112,10 @@ void draw(const char *caption, const std::string &kana,bool quote=true)
 {
     const State &s = g_state;
     char tv[48], aircon[48];
-    snprintf(tv, sizeof(tv), "%s %d", kBands[s.band], s.volume);
+    snprintf(tv, sizeof(tv), "電源切替 %d", s.volume);
     snprintf(aircon, sizeof(aircon), "%s%d℃", kModes[s.mode], s.degrees);  // "ドライ26℃" fits the tile
     const voice_screen::Tile tiles[] = {
-        {voice_screen::Appliance::tv, "テレビ", s.tv ? tv : "オフ", s.tv, 0x5EB1EF},
+        {voice_screen::Appliance::tv, "テレビ", tv, true, 0x5EB1EF},
         {voice_screen::Appliance::aircon, "エアコン", s.aircon ? aircon : "オフ", s.aircon, kModeColours[s.mode]},
         {voice_screen::Appliance::light, "でんき", s.light ? "オン" : "オフ", s.light, 0xF2C14E},
     };
@@ -123,12 +124,22 @@ void draw(const char *caption, const std::string &kana,bool quote=true)
 }  // namespace
 
 void set_speaker(Speaker speaker) { g_speaker = speaker; }
+void set_sender(Sender sender) { g_sender = sender; }
 
 Command parse(const std::string &kana)
 {
     Command c;
     if (has(kana, {"ないで", "なくて"})) { return c; }  // "テレビを消さないで" asks for nothing
-    if (has(kana, {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ"})) { c = {Kind::tv_band, 0, 0}; }
+    const size_t channel = kana.find("ちゃんねる");
+    if (channel != std::string::npos && has(kana, {"にして", "にかえて", "にきりかえて"})) {
+        size_t pos = channel + std::strlen("ちゃんねる");
+        const int value = number_at(kana, pos);
+        if (value >= 0) c = {Kind::tv_channel, 0, value};
+    }
+    else if (has(kana, {"おれんじ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 0}; }
+    else if (has(kana, {"ほあんとー", "ほあんとう"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 1}; }
+    else if (has(kana, {"しろ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 2}; }
+    else if (has(kana, {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ"})) { c = {Kind::tv_band, 0, 0}; }
     else if (satellite_band(kana) > 0 && (has(kana, {"にして", "にかえて", "にきりかえて"}) || has(kana, {"てれび"}))) {
         c = {Kind::tv_band, 0, satellite_band(kana)};
     }
@@ -158,6 +169,30 @@ bool perform(const Command &command, const std::string &kana)
 {
     State &s = g_state;
     char caption[96], detail[96];
+    if (command.kind == Kind::none) return false;
+    if (command.device < 0 || command.device > 2) return false;
+    if (command.kind == Kind::temperature && (command.value < 16 || command.value > 31)) {
+        snprintf(caption, sizeof(caption), "%d℃はむりだよ", command.value);
+        g_focus = command.device; draw(caption, kana);
+        printf("HOME_ACTION {\"device\":\"aircon\",\"command\":\"temperature\",\"value\":%d,\"refused\":true} caption=%s\n", command.value, caption);
+        fflush(stdout); if (g_speaker) g_speaker(caption); return true;
+    }
+    if ((command.kind == Kind::tv_volume && (command.value == 0 || std::abs(command.value) > 10)) ||
+        (command.kind == Kind::tv_channel && (command.value < 1 || command.value > 8))) {
+        g_focus = command.device; draw("できなかったよ", kana);
+        printf("HOME_ACTION {\"device\":\"tv\",\"refused\":true,\"reason\":\"out_of_range\"} caption=できなかったよ\n");
+        fflush(stdout); if (g_speaker) g_speaker("できなかったよ"); return true;
+    }
+    const SendResult result = g_sender ? g_sender(command) : SendResult{false, 0, "sender_unavailable"};
+    if (!result.ok) {
+        if (command.kind == Kind::tv_volume && result.sent > 0)
+            snprintf(caption, sizeof(caption), "音量%d段で失敗", result.sent);
+        else snprintf(caption, sizeof(caption), "できなかったよ");
+        g_focus = command.device; draw(caption, kana);
+        printf("HOME_ACTION {\"device\":\"%s\",\"sent\":%d,\"success\":false,\"reason\":\"%s\"} caption=できなかったよ\n",
+               kDeviceIds[command.device], result.sent, result.reason ? result.reason : "send_failed");
+        fflush(stdout); if (g_speaker) g_speaker("できなかったよ"); return true;
+    }
     switch (command.kind) {
     case Kind::none:
         return false;
@@ -165,9 +200,9 @@ bool perform(const Command &command, const std::string &kana)
         static const char *const kOn[] = {"テレビをつけたよ", "エアコンをつけたよ", "でんきをつけたよ"};
         static const char *const kOff[] = {"テレビをけしたよ", "エアコンをけしたよ", "でんきをけしたよ"};
         bool *power[] = {&s.tv, &s.aircon, &s.light};
-        *power[command.device] = command.value != 0;
-        snprintf(caption, sizeof(caption), "%s", command.value ? kOn[command.device] : kOff[command.device]);
-        snprintf(detail, sizeof(detail), "\"command\":\"power\",\"value\":\"%s\"", command.value ? "on" : "off");
+        if (command.device != 0) *power[command.device] = command.value != 0;
+        snprintf(caption, sizeof(caption), "%s", command.device == 0 ? "テレビの電源を切り替えたよ" : command.value ? kOn[command.device] : kOff[command.device]);
+        snprintf(detail, sizeof(detail), "\"command\":\"power\",\"value\":\"%s\"", command.device == 0 ? "toggle" : command.value ? "on" : "off");
         break;
     }
     case Kind::aircon_mode:
@@ -186,15 +221,23 @@ bool perform(const Command &command, const std::string &kana)
         }
         break;
     case Kind::tv_volume:
-        s.tv = true; s.volume = std::clamp(s.volume + command.value, 0, 100);
+        s.volume = command.value;
         snprintf(caption, sizeof(caption), command.value > 0 ? "おとを%dあげたよ" : "おとを%dさげたよ",
                  std::abs(command.value));
         snprintf(detail, sizeof(detail), "\"command\":\"volume\",\"step\":%d,\"value\":%d", command.value, s.volume);
         break;
     case Kind::tv_band:
-        s.tv = true; s.band = command.value;
-        snprintf(caption, sizeof(caption), "%sにしたよ", kBands[s.band]);
-        snprintf(detail, sizeof(detail), "\"command\":\"band\",\"value\":\"%s\"", kBandIds[s.band]);
+        if (command.value == 0) s.band = 0;
+        snprintf(caption, sizeof(caption), "%s", command.value == 0 ? "地上波にしたよ" : "BS/CSを切り替えたよ");
+        snprintf(detail, sizeof(detail), "\"command\":\"band\",\"value\":\"%s\"", command.value == 0 ? kBandIds[0] : "satellite_toggle");
+        break;
+    case Kind::tv_channel:
+        snprintf(caption, sizeof(caption), "チャンネル%dにしたよ", command.value);
+        snprintf(detail, sizeof(detail), "\"command\":\"channel\",\"value\":%d", command.value);
+        break;
+    case Kind::light_mode:
+        snprintf(caption, sizeof(caption), "でんきを切り替えたよ");
+        snprintf(detail, sizeof(detail), "\"command\":\"light_mode\",\"value\":%d", command.value);
         break;
     }
     g_focus = command.device;

@@ -398,7 +398,24 @@ void serial_receiver(void *)
             printf("TTS_RESTORE_FAULT armed=1\n");fflush(stdout);continue;
         }
         if (length == 4 && !memcmp(header, "IRRX", 4)) { ir_home::receive_diagnostic(); continue; }
+        if (length == 4 && !memcmp(header, "IRRW", 4)) { ir_home::receive_session(); continue; }
+        if (length == 4 && !memcmp(header, "IRGT", 4)) { ir_home::session_result(); continue; }
+        if (length == 4 && !memcmp(header, "IRSK", 4)) { ir_home::skip_session(); continue; }
+        if (length == 4 && !memcmp(header, "ILPB", 4)) { ir_home::loopback_probe(); continue; }
         if (length == 4 && !memcmp(header, "IRTX", 4)) { ir_home::transmit_diagnostic(); continue; }
+        if (length == 4 && (!memcmp(header, "ITUP", 4) || !memcmp(header, "ITDN", 4) ||
+                            !memcmp(header, "ITPW", 4) || !memcmp(header, "IAON", 4) || !memcmp(header, "IAOF", 4))) {
+            bool ok;
+            if (header[1] == 'T') {
+                const auto key = header[2] == 'U' ? ir_codes::TvKey::volume_up :
+                                 header[2] == 'D' ? ir_codes::TvKey::volume_down : ir_codes::TvKey::power;
+                ok = ir_home::send_tv(key);
+            } else {
+                ok = ir_home::send_aircon_power(header[2] == 'O' && header[3] == 'N');
+            }
+            printf("IR_COMMAND %.4s success=%d\n", header, ok); fflush(stdout);
+            continue;
+        }
         forward(header, length);
         size_t bytes = 0;
         if (memcmp(header, "RLMA", 4) == 0) {
@@ -415,6 +432,7 @@ void serial_receiver(void *)
             const unsigned count=size[0]|unsigned(size[1])<<8;
             if(count<=tuner::PitchDetector::frameSize)bytes=count*sizeof(int16_t);
         }
+        else if (memcmp(header,"IRDS",4)==0 || memcmp(header,"IRSP",4)==0 || memcmp(header,"ISCP",4)==0 || memcmp(header,"ILPT",4)==0) { bytes=1; }
         else if (memcmp(header,"WSET",4)==0) { bytes=7; }
         else if (memcmp(header,"TCAL",4)==0) { bytes=2; }
         else if (memcmp(header,"EGAM",4)==0 || memcmp(header,"EANS",4)==0 || memcmp(header,"TNAM",4)==0 || memcmp(header,"ASEL",4)==0 || memcmp(header,"RKEY",4)==0) { bytes=1; }
@@ -1318,6 +1336,44 @@ void speak_response(const char *caption)
     fflush(stdout);
 }
 
+home::SendResult send_home(const home::Command &command)
+{
+    using Kind = home::Command::Kind;
+    if (command.device == 0 && command.kind == Kind::power)
+        return {ir_home::send_tv(ir_codes::TvKey::power), 0, "transmit_failed"};
+    if (command.kind == Kind::tv_channel) {
+        if (command.value < 1 || command.value > 8) return {false, 0, "out_of_range"};
+        const auto key = static_cast<ir_codes::TvKey>(static_cast<int>(ir_codes::TvKey::channel_1) + command.value - 1);
+        return {ir_home::send_tv(key), 0, "transmit_failed"};
+    }
+    if (command.kind == Kind::tv_volume) {
+        const int count = std::abs(command.value);
+        if (count == 0 || count > 10) return {false, 0, "out_of_range"};
+        const auto key = command.value > 0 ? ir_codes::TvKey::volume_up : ir_codes::TvKey::volume_down;
+        int sent = 0;
+        for (; sent < count; ++sent) {
+            if (sent) vTaskDelay(pdMS_TO_TICKS(250));
+            if (!ir_home::send_tv(key)) return {false, sent, "transmit_failed"};
+        }
+        return {true, sent, ""};
+    }
+    if (command.device == 1 && command.kind == Kind::power)
+        return {ir_home::send_aircon_power(command.value != 0), 0, "transmit_failed"};
+    if (command.kind == Kind::tv_band || command.device == 2) {
+        ir_home::Learned slot;
+        if (command.kind == Kind::tv_band)
+            slot = command.value == 0 ? ir_home::Learned::terrestrial : ir_home::Learned::satellite;
+        else if (command.kind == Kind::power)
+            slot = command.value ? ir_home::Learned::light_on : ir_home::Learned::light_off;
+        else if (command.kind == Kind::light_mode && command.value >= 0 && command.value <= 2)
+            slot = static_cast<ir_home::Learned>(static_cast<int>(ir_home::Learned::light_orange) + command.value);
+        else return {false, 0, "unsupported"};
+        if (!ir_home::has_learned(slot)) return {false, 0, "not_learned"};
+        return {ir_home::send_learned(slot), 0, "transmit_failed"};
+    }
+    return {false, 0, "unsupported"};
+}
+
 // Diagnostic "LPCM": after the header, uint32 samples | int16 PCM fed to the listening ring in
 // place of the microphone, hop by hop, calling `pump` after each so the cutting and everything after
 // it run as live. The host sends the next 0.5 s only after "LPCM_ACK": the USB receive buffers hold
@@ -1502,12 +1558,27 @@ void serve_action(Recognizer &recognizer)
     };
 
     bool release_barrier = false, held = false;
+    bool scope_pending = false, scope_paused = false, scope_active_before = false;
+    bool scope_resume = false, scope_mic = false, scope_held_before = false, scope_muted_before = false;
     int touch_x=0,touch_y=0;
     int progress = 0;
     uint8_t header[4] = {};
     if(g_apps_return){g_apps_return=false;open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;release_barrier=true;}
     while (true) {
         M5.update();apps::tick();
+        if (scope_pending && !ir_home::edge_scope_active()) {
+            tts::diagnostic(scope_muted_before);
+            if (scope_paused) {
+                bool restored = !scope_mic || restore_microphone(false);
+                g_listen.active = scope_active_before;
+                if (scope_resume && restored) restored = start_listening();
+                if (!restored) g_listen.failed = true;
+                held = scope_held_before;
+                printf("IRSCOPE microphone_restored=%d\n", restored); fflush(stdout);
+            }
+            scope_pending = false;
+            scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+        }
         if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed()) {
             printf("BUTTON A=%d B=%d\n", M5.BtnA.wasPressed(), M5.BtnB.wasPressed());
         }
@@ -1516,7 +1587,11 @@ void serve_action(Recognizer &recognizer)
             const auto &point=M5.Touch.getDetail(0);
             touch_x=point.x;touch_y=point.y;touch_down=point.isPressed();
         }
-        if(phase!=Phase::button && !release_barrier &&
+        if(held && ir_home::session_active() && M5.BtnB.wasPressed()) {
+            ir_home::skip_session();
+            release_barrier = true;
+        }
+        if(!(held && ir_home::session_active()) && phase!=Phase::button && !release_barrier &&
            voice_screen::character_touch(touch_down,touch_x,touch_y,uint32_t(esp_timer_get_time()/1000))) {
             open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             release_barrier=true;continue;
@@ -1544,7 +1619,7 @@ void serve_action(Recognizer &recognizer)
         if (release_barrier && !M5.BtnA.isPressed() && !M5.BtnB.isPressed() && M5.Touch.getCount() == 0) {
             release_barrier = false;
         }
-        if (!release_barrier && phase != Phase::button) {
+        if (!(held && ir_home::session_active()) && !release_barrier && phase != Phase::button) {
             if (M5.BtnA.wasPressed()) {
                 phase = Phase::button;
                 start = std::max<int64_t>(0, g_listen.written.load() - (int64_t)kPrerollHops * ralomi::kHop);
@@ -1604,9 +1679,107 @@ void serve_action(Recognizer &recognizer)
             if (std::memcmp(header, "MOD", 3) == 0 && read_exact(header + 3, 1) && header[3] == 'E') { switch_mode(); }
             continue;
         }
-        if (header[0] == 'I' && read_exact(header + 1, 3) && std::memcmp(header, "INFO", 4) == 0) {
-            printf("BOOT_REPORT_BEGIN\n%sBOOT_REPORT_END\n", g_boot_report.c_str());
-            log_memory("serving", false);
+        if (header[0] == 'I' && read_exact(header + 1, 3)) {
+            if (std::memcmp(header, "ILPT", 4) == 0) {
+                uint8_t flags = 0;
+                if (!read_exact(&flags, 1) || (flags & ~7U)) { printf("IR_TRIAL error=flags\n"); continue; }
+                const bool active = g_listen.active.load(), resume = g_listen.mic_on.load();
+                const bool microphone = M5.Mic.isRunning();
+                if (flags & 1) { pause_listening(); g_listen.active = false; M5.Mic.end(); }
+                printf("IR_TRIAL microphone_stopped=%d\n", bool(flags & 1)); fflush(stdout);
+                ir_home::loopback_trials(flags & 4, flags & 2);
+                if (flags & 1) {
+                    bool restored = !microphone || restore_microphone(false);
+                    g_listen.active = active;
+                    if (resume && restored) restored = start_listening();
+                    if (!restored) g_listen.failed = true;
+                    printf("IR_TRIAL microphone_restored=%d\n", restored); fflush(stdout);
+                }
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (std::memcmp(header, "INFO", 4) == 0) {
+                printf("BOOT_REPORT_BEGIN\n%sBOOT_REPORT_END\n", g_boot_report.c_str());
+                log_memory("serving", false);
+            } else if (std::memcmp(header, "ISCP", 4) == 0) {
+                uint8_t flags = 0;
+                if (!read_exact(&flags, 1) || (flags & ~3U)) { printf("IRSCOPE error=flags\n"); continue; }
+                if (scope_pending) { printf("IRSCOPE error=busy\n"); continue; }
+                scope_paused = flags & 1; scope_active_before = g_listen.active.load();
+                scope_resume = g_listen.mic_on.load(); scope_mic = M5.Mic.isRunning(); scope_held_before = held;
+                scope_muted_before = tts::is_muted(); tts::diagnostic(true);
+                if (scope_paused) { held = true; pause_listening(); g_listen.active = false; M5.Mic.end(); }
+                scope_pending = true;
+                if (!ir_home::start_edge_scope(flags & 2)) printf("IRSCOPE error=task_start\n");
+                printf("IRSCOPE microphone_stopped=%d\n", scope_paused); fflush(stdout);
+            } else if (std::memcmp(header, "IRBP", 4) == 0) {
+                const bool active = g_listen.active.load(), resume = g_listen.mic_on.load();
+                const bool microphone = M5.Mic.isRunning();
+                const auto volume = M5.Speaker.getVolume();
+                pause_listening(); g_listen.active = false; M5.Mic.end();
+                M5.Speaker.setVolume(255);
+                const bool ready = M5.Speaker.begin();
+                if (ready) { M5.Speaker.tone(2000, 100); while (M5.Speaker.isPlaying()) vTaskDelay(1); M5.Speaker.end(); }
+                M5.Speaker.setVolume(volume);
+                bool restored = !microphone || restore_microphone(false);
+                g_listen.active = active;
+                if (resume && restored) restored = start_listening();
+                if (!restored) g_listen.failed = true;
+                printf("IR_BEEP ready=%d restored=%d\n", ready, restored); fflush(stdout);
+            } else if (std::memcmp(header, "IRSP", 4) == 0 || std::memcmp(header, "IRDS", 4) == 0) {
+                static const char *const phrases[] = {
+                    "これからリモコンを読ませてね",
+                    "エアコンのリモコンを冷房26度風量自動にして、運転を押してね",
+                    "エアコンの温度を27度に上げるボタンを押してね",
+                    "エアコンの停止ボタンを押してね",
+                    "テレビの電源ボタンを押してね",
+                    "テレビの音量上ボタンを押してね",
+                    "テレビの音量下ボタンを押してね",
+                    "テレビのチャンネル1を押してね",
+                    "テレビの地上波ボタンを押してね",
+                    "テレビのBSボタンを押してね",
+                    "テレビのCSボタンを押してね",
+                    "電気のオンボタンを押してね",
+                    "電気のオフボタンを押してね",
+                    "電気のオレンジボタンを押してね",
+                    "電気の保安灯ボタンを押してね",
+                    "電気の白ボタンを押してね",
+                    "オーケー",
+                    "もう一度押してね",
+                    "とばすね",
+                };
+                uint8_t index = 0;
+                if (read_exact(&index, 1) && index < sizeof(phrases) / sizeof(phrases[0])) {
+                    static const char *const lines[][4] = {
+                        {"これから", "リモコンを", "読ませてね", ""},
+                        {"エアコン", "冷房26度", "風量自動", "運転"},
+                        {"エアコン", "温度27度", "上げる", ""},
+                        {"エアコン", "停止", "", ""},
+                        {"テレビ", "電源", "", ""},
+                        {"テレビ", "音量上", "", ""},
+                        {"テレビ", "音量下", "", ""},
+                        {"テレビ", "チャンネル", "1", ""},
+                        {"テレビ", "地上波", "", ""},
+                        {"テレビ", "BS", "", ""},
+                        {"テレビ", "CS", "", ""},
+                        {"電気", "オン", "", ""},
+                        {"電気", "オフ", "", ""},
+                        {"電気", "オレンジ", "", ""},
+                        {"電気", "保安灯", "", ""},
+                        {"電気", "白", "", ""},
+                        {"オーケー", "", "", ""},
+                        {"もう一度", "押してね", "", ""},
+                        {"とばすね", "", "", ""},
+                    };
+                    voice_screen::ir_prompt(lines[index][0], lines[index][1], lines[index][2], lines[index][3]);
+                    if (std::memcmp(header, "IRSP", 4) == 0) {
+                        const auto saved_volume = M5.Speaker.getVolume();
+                        M5.Speaker.setVolume(255);
+                        speak_response(phrases[index]);
+                        M5.Speaker.setVolume(saved_volume);
+                    }
+                    scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+                    printf("IR_SPEAK done=%u\n", unsigned(index)); fflush(stdout);
+                }
+            }
             continue;
         }
         if (header[0] == 'S' && read_exact(header + 1, 3) && std::memcmp(header, "SHOT", 4) == 0) {
@@ -2165,6 +2338,7 @@ void recognition_task(void *)
     ralomi::features_init();
     if (!tts::begin()) { report("ERROR TTS init"); }
     home::set_speaker(speak_response);
+    home::set_sender(send_home);
     action::set_speaker(speak_response);
     const bool action_mode = g_mode == Mode::action;
     report("MODE %s partition=%s", action_mode ? "action" : "kana", action_mode ? "koeact" : "model");
