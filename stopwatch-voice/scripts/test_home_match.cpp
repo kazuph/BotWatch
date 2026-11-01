@@ -46,7 +46,7 @@ int main() {
         }
         const auto word_result = word_matcher.result(target == 0 ? 0 : 1);
         assert(word_result.best && !std::strcmp(word_result.best->text, full_phrases[target].text));
-        assert(word_result.score >= broadcast_voice::kScoreThreshold);
+        assert(word_result.score >= broadcast_voice::kWakeScoreThreshold);
     }
     const char *vocab[] = {"<blank>", "<unk>", "あ", "い"};
     const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
@@ -70,17 +70,33 @@ int main() {
     assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
     using namespace broadcast_voice;
     State state;
-    assert(state.wake("てれび", -2.0f) == Decision::wake);
-    assert(state.wake("てれび", -2.01f) == Decision::none);
-    assert(state.wake("ちでじ", -0.1f) == Decision::none);
+    struct WakeCase { const char *kana; float score, margin; Decision expected; };
+    const WakeCase wakes[] = {{"てれび", -.021f, .936f, Decision::wake}, {"えれび", -.038f, .755f, Decision::wake},
+        {"かせんご", -.588f, .040f, Decision::none}, {"いとし", -.664f, .026f, Decision::none},
+        {"そこで", -.497f, .069f, Decision::none}, {"", -.510f, .5f, Decision::none},
+        {"てれび", -.2f, .3f, Decision::wake}, {"てれび", -.201f, .4f, Decision::none},
+        {"てれび", -.1f, .299f, Decision::none}, {"", -.01f, .9f, Decision::none}};
+    for (const auto &c : wakes) assert(state.wake("てれび", c.score, c.margin, c.kana).decision == c.expected);
+    assert(state.wake("ちでじ", -.1f, .9f, "てれび").decision == Decision::none);
+    assert(!std::strcmp(state.wake("てれび", -.1f, .2f, "てれび").reason, "margin_below"));
+    assert(state.wake("てれび", -.1f, std::numeric_limits<float>::quiet_NaN(), "てれび").decision == Decision::none);
+    assert(!std::strcmp(state.wake("てれび", -.1f, .9f, "").reason, "empty_kana"));
     state.arm(1000, 16000);
-    assert(state.command("ちでじ", -2.01f, 1001) == Decision::none && !state.waiting(1001));
+    assert(state.command("ちでじ", -.401f, "ちでじ", 1001).decision == Decision::none && !state.waiting(1001));
     state.arm(1000, 16000);
-    assert(state.command("ちじょーは", -2.0f, 81000) == Decision::terrestrial);
+    assert(state.command("ちじょーは", -.4f, "ちじょーは", 81000).decision == Decision::terrestrial);
     state.arm(1000, 16000);
-    assert(state.command("びーえす", -1.0f, 81001) == Decision::none && !state.waiting(81001));
+    assert(state.command("びーえす", -.1f, "びーえす", 81001).decision == Decision::none && !state.waiting(81001));
     state.arm(1000, 16000);
-    assert(state.command("しーえす", -1.0f, 1001) == Decision::satellite);
+    assert(state.command("しーえす", -.1f, "しーえす", 1001).decision == Decision::satellite);
+    struct CommandCase { const char *word, *kana; float score; Decision expected; };
+    const CommandCase commands[] = {{"びーえす", "すぴーえす", -.223f, Decision::satellite},
+        {"ちじょーは", "じょーは", -.316f, Decision::terrestrial},
+        {"びーえす", "りょーをごあげて", -.745f, Decision::none},
+        {"ちでじ", "ながいぶん", -.937f, Decision::none},
+        {"ちでじ", "", -.495f, Decision::none}, {"ちでじ", "", -.01f, Decision::none}};
+    for (const auto &c : commands) { state.arm(1000, 16000); assert(state.command(c.word, c.score, c.kana, 1001).decision == c.expected); }
+    state.arm(1000, 16000); assert(!std::strcmp(state.command("ちでじ", -.1f, "", 1001).reason, "empty_kana"));
     const home_match::Phrase bad[] = {{"未登録", false}};
     assert(home_match::Matcher::bytes(bad, 1, vocab, 4) == 0);
     puts("PASS full CTC scores, ranking, threshold, timeout, vocabulary");

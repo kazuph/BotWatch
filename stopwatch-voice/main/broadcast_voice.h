@@ -3,9 +3,12 @@
 #include <cstring>
 
 namespace broadcast_voice {
-constexpr float kScoreThreshold = -2.0f;
+constexpr float kWakeScoreThreshold = -0.2f;
+constexpr float kWakeMarginThreshold = 0.3f;
+constexpr float kCommandScoreThreshold = -0.4f;
 constexpr int kWaitSeconds = 5;
 enum class Decision { none, wake, terrestrial, satellite };
+struct Result { Decision decision; const char *reason; };
 
 class State {
 public:
@@ -16,16 +19,22 @@ public:
     void arm(int64_t listening_start, int sample_rate) {
         deadline_ = listening_start + int64_t(kWaitSeconds) * sample_rate; armed_ = true;
     }
-    Decision wake(const char *word, float score) const {
-        return word && std::strcmp(word, "てれび") == 0 && score >= kScoreThreshold ? Decision::wake : Decision::none;
+    Result wake(const char *word, float score, float margin, const char *kana) const {
+        if (!kana || !*kana) return {Decision::none, "empty_kana"};
+        if (!word || std::strcmp(word, "てれび") != 0) return {Decision::none, "not_tv"};
+        if (!(score >= kWakeScoreThreshold)) return {Decision::none, "score_below"};
+        if (!(margin >= kWakeMarginThreshold)) return {Decision::none, "margin_below"};
+        return {Decision::wake, "accepted"};
     }
-    Decision command(const char *word, float score, int64_t onset) {
-        if (!waiting(onset)) return Decision::none;
+    Result command(const char *word, float score, const char *kana, int64_t onset) {
+        if (!waiting(onset)) return {Decision::none, "expired"};
         armed_ = false;
-        if (!word || !(score >= kScoreThreshold)) return Decision::none;
-        if (!std::strcmp(word, "ちじょーは") || !std::strcmp(word, "ちでじ")) return Decision::terrestrial;
-        if (!std::strcmp(word, "びーえす") || !std::strcmp(word, "しーえす")) return Decision::satellite;
-        return Decision::none;
+        if (!kana || !*kana) return {Decision::none, "empty_kana"};
+        if (!word) return {Decision::none, "no_match"};
+        if (!(score >= kCommandScoreThreshold)) return {Decision::none, "score_below"};
+        if (!std::strcmp(word, "ちじょーは") || !std::strcmp(word, "ちでじ")) return {Decision::terrestrial, "accepted"};
+        if (!std::strcmp(word, "びーえす") || !std::strcmp(word, "しーえす")) return {Decision::satellite, "accepted"};
+        return {Decision::none, "not_command"};
     }
 private:
     bool armed_ = false;

@@ -1574,11 +1574,15 @@ void serve_action(Recognizer &recognizer)
     broadcast_voice::State broadcast;
     auto handle_broadcast = [&](const ActionResult &result, bool command_stage, int64_t onset) {
         const char *word = result.match.best ? result.match.best->text : nullptr;
-        const auto decision = command_stage ? broadcast.command(word, result.match.score, onset)
-                                            : broadcast.wake(word, result.match.score);
-        printf("BROADCAST phase=%s best=%s score=%.6f threshold=%.1f accepted=%d\n",
+        const float margin = result.match.second ? result.match.score - result.match.score2
+                                                 : std::numeric_limits<float>::quiet_NaN();
+        const auto outcome = command_stage ? broadcast.command(word, result.match.score, result.kana.c_str(), onset)
+                                           : broadcast.wake(word, result.match.score, margin, result.kana.c_str());
+        const auto decision = outcome.decision;
+        printf("BROADCAST phase=%s best=%s score=%.6f margin=%.6f threshold=%.1f accepted=%d reason=%s\n",
                command_stage ? "command" : "wake", word ? word : "none", result.match.score,
-               broadcast_voice::kScoreThreshold, decision != broadcast_voice::Decision::none);
+               margin, command_stage ? broadcast_voice::kCommandScoreThreshold : broadcast_voice::kWakeScoreThreshold,
+               decision != broadcast_voice::Decision::none, outcome.reason);
         if (decision == broadcast_voice::Decision::wake) {
             if (broadcast_beep()) broadcast.arm(g_listen.written.load(), ralomi::kSampleRate);
             return true;
