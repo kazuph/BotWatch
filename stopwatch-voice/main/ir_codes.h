@@ -6,12 +6,14 @@
 namespace ir_codes {
 enum class TvKey { power, volume_up, volume_down, channel_1, channel_2, channel_3,
                    channel_4, channel_5, channel_6, channel_7, channel_8, channel_9,
-                   channel_up, channel_down, candidate_tv, candidate_tv_radio, candidate_flashback, candidate_livetv };
+                   channel_up, channel_down, candidate_tv, candidate_tv_radio, candidate_flashback, candidate_livetv,
+                   candidate_japan_display, candidate_prlist, candidate_3digit_input };
 constexpr uint32_t tv_code(TvKey key)
 {
     constexpr uint32_t codes[] = {0x20DF10EF, 0x20DF40BF, 0x20DFC03F, 0x20DF8877,
         0x20DF48B7, 0x20DFC837, 0x20DF28D7, 0x20DFA857, 0x20DF6897, 0x20DFE817, 0x20DF18E7,
-        0x20DF9867, 0x20DF00FF, 0x20DF807F, 0x20DFF00F, 0x20DF0FF0, 0x20DF58A7, 0x20DF7986};
+        0x20DF9867, 0x20DF00FF, 0x20DF807F, 0x20DFF00F, 0x20DF0FF0, 0x20DF58A7, 0x20DF7986,
+        0x20DF35CA, 0x20DFCA35, 0x20DFC43B};
     return codes[static_cast<unsigned>(key)];
 }
 

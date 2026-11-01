@@ -67,7 +67,7 @@ def main():
     # Dynamic app values: numeric time/date, octave, Hz and cents.
     for size,chars in {17:"0123456789%",20:"ラップリセットとめるはじめる",24:"0123456789:.+-/HzcentむせんさがしていますつながりましたはなしていますきいていますむせんをはじめられませんボタンをおしてねよこスワイプでえらぶBでやめるタップでうけとるおぼえたよできなかったよ",32:"0123456789.Hz",40:"0123456789:.",56:"0123456789"}.items():
         extend(size,700 if size<=24 else 800,chars)
-    extend(24,700,'IR_KEY_TV_RADIOFLASHBCKLIVETVおくったよできなかったよ')
+    extend(24,700,'IR_KEY_TV_RADIOFLASHBCKLIVETVJAPAN_DISPLAYPRLIST3DIGIT_INPUTおくったよできなかったよ')
     extend(56,800,'これからリモコンを読ませてねエアコン冷房26度風量自動運転エアコン温度27度上げるエアコン停止テレビ電源テレビ音量上テレビ音量下テレビチャンネル1テレビ地上波テレビBS/CS電気オン電気オフ電気オレンジ電気保安灯電気白オーケーもう一度押してねとばすね')
     sample_names="".join(re.findall(r'"([^"\n]+)"',(ROOT / "main/presets_local.example.h").read_text()))
     # Local display names use kana; keep a general kana alphabet in the small UI sizes.

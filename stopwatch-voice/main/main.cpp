@@ -1703,13 +1703,17 @@ void serve_action(Recognizer &recognizer)
                 }
                 scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
             } else if (!std::memcmp(header,"ICTV",4) || !std::memcmp(header,"ICTR",4) ||
-                !std::memcmp(header,"ICFL",4) || !std::memcmp(header,"ICLV",4)) {
+                !std::memcmp(header,"ICFL",4) || !std::memcmp(header,"ICLV",4) ||
+                !std::memcmp(header,"ICJD",4) || !std::memcmp(header,"ICPL",4) || !std::memcmp(header,"IC3D",4)) {
                 const bool tv = header[2] == 'T' && header[3] == 'V';
                 const bool radio = header[2] == 'T' && header[3] == 'R';
                 const bool flashback = header[2] == 'F';
-                const char *name = tv ? "IR_KEY_TV" : radio ? "IR_KEY_TV_RADIO" : flashback ? "IR_KEY_FLASHBACK" : "IR_KEY_LIVETV";
+                const bool live = header[2] == 'L', japan = header[2] == 'J', list = header[2] == 'P';
+                const char *name = tv ? "IR_KEY_TV" : radio ? "IR_KEY_TV_RADIO" : flashback ? "IR_KEY_FLASHBACK" :
+                                   live ? "IR_KEY_LIVETV" : japan ? "IR_KEY_JAPAN_DISPLAY" : list ? "IR_KEY_PRLIST" : "IR_KEY_3DIGIT_INPUT";
                 const auto key = tv ? ir_codes::TvKey::candidate_tv : radio ? ir_codes::TvKey::candidate_tv_radio :
-                                 flashback ? ir_codes::TvKey::candidate_flashback : ir_codes::TvKey::candidate_livetv;
+                                 flashback ? ir_codes::TvKey::candidate_flashback : live ? ir_codes::TvKey::candidate_livetv :
+                                 japan ? ir_codes::TvKey::candidate_japan_display : list ? ir_codes::TvKey::candidate_prlist : ir_codes::TvKey::candidate_3digit_input;
                 const bool ok = ir_home::send_tv(key);
                 voice_screen::ir_candidate(name, ok);
                 printf("IR_CANDIDATE name=%s success=%d\n", name, ok); fflush(stdout);

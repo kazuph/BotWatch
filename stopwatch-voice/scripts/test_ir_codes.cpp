@@ -8,7 +8,8 @@ int main()
 {
     constexpr uint32_t expected[] = {0x20DF10EF, 0x20DF40BF, 0x20DFC03F, 0x20DF8877,
         0x20DF48B7, 0x20DFC837, 0x20DF28D7, 0x20DFA857, 0x20DF6897, 0x20DFE817, 0x20DF18E7,
-        0x20DF9867, 0x20DF00FF, 0x20DF807F, 0x20DFF00F, 0x20DF0FF0, 0x20DF58A7, 0x20DF7986};
+        0x20DF9867, 0x20DF00FF, 0x20DF807F, 0x20DFF00F, 0x20DF0FF0, 0x20DF58A7, 0x20DF7986,
+        0x20DF35CA, 0x20DFCA35, 0x20DFC43B};
     int failed = 0;
     for (unsigned i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
         const auto key = static_cast<ir_codes::TvKey>(i);
