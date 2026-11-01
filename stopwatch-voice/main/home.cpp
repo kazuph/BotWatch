@@ -43,6 +43,18 @@ bool at(const std::string &text, size_t pos, const char *word)
     return text.compare(pos, std::strlen(word), word) == 0;
 }
 
+bool terrestrial_request(const std::string &text)
+{
+    for (const char *stem : {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ", "ちでじ",
+                             "ちだじ", "ちでつ", "ちだず", "ひじょーはん", "ひじょーは"}) {
+        for (size_t pos = text.find(stem); pos != std::string::npos; pos = text.find(stem, pos + 1)) {
+            const size_t end = pos + std::strlen(stem);
+            if (at(text, end, "にして") || at(text, end, "にかえて") || at(text, end, "にきりかえて")) return true;
+        }
+    }
+    return false;
+}
+
 // A kana number read greedily at `pos` ("にじゅーはち" -> 28, "ひゃくご" -> 105); returns the
 // value and moves `pos` past it, or -1 when no number starts there.
 int number_at(const std::string &text, size_t &pos)
@@ -141,7 +153,7 @@ Command parse(const std::string &kana)
     else if (has(kana, {"おれんじ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 0}; }
     else if (has(kana, {"ほあんとー", "ほあんとう"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 1}; }
     else if (has(kana, {"しろ"}) && has(kana, {"にして"})) { c = {Kind::light_mode, 2, 2}; }
-    else if (has(kana, {"ちじょーは", "ちじょは", "ちじょーわ", "ちじょわ", "ちでじ"})) { c = {Kind::tv_band, 0, 0}; }
+    else if (terrestrial_request(kana)) { c = {Kind::tv_band, 0, 0}; }
     else if (satellite_band(kana) > 0 && (kana == "びーえす" || kana == "しーえす" ||
              has(kana, {"にして", "にかえて", "にきりかえて"}) || has(kana, {"てれび"}))) {
         c = {Kind::tv_band, 0, satellite_band(kana)};
