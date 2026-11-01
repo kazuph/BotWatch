@@ -48,6 +48,26 @@ int main() {
         assert(word_result.best && !std::strcmp(word_result.best->text, full_phrases[target].text));
         assert(word_result.score >= voice_control::kWakeScore);
     }
+    const auto tv = voice_catalog::group(voice_catalog::k_tv);
+    const size_t tv_bytes = home_match::Matcher::bytes(tv.phrases, tv.count, full_vocab, vocab_count);
+    std::vector<std::max_align_t> tv_storage((tv_bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+    home_match::Matcher tv_matcher;
+    assert(tv_matcher.init(tv_storage.data(), tv.phrases, tv.count, full_vocab, vocab_count));
+    const char *short_word = "さん";
+    while (*short_word) {
+        size_t best = 0, length = 0;
+        for (size_t i = 2; i < vocab_count; ++i) {
+            const size_t n = std::strlen(full_vocab[i]);
+            if (n > length && std::strncmp(short_word, full_vocab[i], n) == 0) { best = i; length = n; }
+        }
+        assert(best);
+        std::vector<float> logits(vocab_count, -8.0f); logits[best] = 5.0f;
+        tv_matcher.feed(logits.data(), vocab_count, 1.0f); short_word += length;
+    }
+    const auto short_result = tv_matcher.result();
+    assert(short_result.best && !std::strcmp(short_result.best->text, "さん"));
+    assert(voice_control::decide(short_result, "さん", voice_control::Target::tv).accepted);
+    assert(short_result.best->kind == int(voice_catalog::Kind::tv_channel) && short_result.best->value == 3);
     const char *vocab[] = {"<blank>", "<unk>", "あ", "い"};
     const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
     const size_t bytes = home_match::Matcher::bytes(phrases, 2, vocab, 4);

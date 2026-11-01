@@ -66,6 +66,18 @@ int main() {
     assert(caption(Display::shown) == nullptr && caption(Display::fallback) == nullptr);
     state.arm(Target::tv, 1000, 16000);
     assert(!state.expire(81000)); assert(state.expire(81001)); assert(!state.expire(81002));
+    home_match::Candidate long_volume{"おんりょーをごあげて", 0, 1, int8_t(Kind::tv_volume), 5, false, true};
+    m = {&long_volume, &second, -.027f, -.030f};
+    assert(!decide(m, "おんりょーをごあげて").accepted);
+    assert(decide(m, "おんりょーをごあげて", Target::tv).accepted);
+    m.score = -1.1f; assert(!decide(m, "おんりょーをごあげて", Target::tv).accepted);
+    state.arm(Target::tv, 1000, 16000);
+    assert(route(m, "おんりょーをごあげて", Target::tv) == Route::suppress);
+    assert(state.active(Target::tv, 80000));
+    state.arm(Target::tv, 80000, 16000);
+    assert(state.active(Target::tv, 160000)); assert(!state.active(Target::tv, 160001));
+    assert(minimum_voiced_hops(false, 15, 3) == 15);
+    assert(minimum_voiced_hops(true, 15, 3) == 3);
     static_assert(ir_codes::tv_code(ir_codes::tv_band_key(0)) == 0x20DFDB0C);
     static_assert(ir_codes::tv_code(ir_codes::tv_band_key(1)) == 0x20DFF00F);
     std::puts("PASS vocabulary, all operation types, allowed numbers, thresholds, negatives, wake timeout, IR codes");

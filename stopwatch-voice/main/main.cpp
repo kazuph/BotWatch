@@ -1479,7 +1479,7 @@ void open_apps() {
 struct Cutter {
     enum class Event { none, segment, dropped };
     bool speaking = false;
-    int onset = 0, voiced = 0;
+    int onset = 0, voiced = 0, minimum_voiced = kMinVoicedHops;
     double noise = -60, peak = -120;
     int64_t start = 0, last_voiced = 0, end = 0;
 
@@ -1487,13 +1487,14 @@ struct Cutter {
 
     // One hop whose first sample is `hop`; `next` is the sample after it. On Event::segment the
     // utterance is [start, end) and `voiced` still counts its voiced hops until reset().
-    Event step(double level, int64_t hop, int64_t next)
+    Event step(double level, int64_t hop, int64_t next, int minimum = kMinVoicedHops)
     {
         if (!speaking) {
             noise += (level < noise + 3 ? 0.05 : 0.002) * (level - noise);
             onset = level > std::max(noise + kOnsetOverNoiseDb, kOnsetFloorDb) ? onset + 1 : 0;
             if (onset >= kOnsetHops) {
                 speaking = true;
+                minimum_voiced = minimum;
                 start = std::max<int64_t>(0, hop - (int64_t)(kOnsetHops + kPrerollHops) * ralomi::kHop);
                 last_voiced = hop;
                 voiced = onset;
@@ -1507,7 +1508,7 @@ struct Cutter {
         const bool full = next - start >= kListenSamples;
         if (!silent && !full) { return Event::none; }
         speaking = false; onset = 0;
-        if (voiced < kMinVoicedHops) { voiced = 0; return Event::dropped; }
+        if (voiced < minimum_voiced) { voiced = 0; return Event::dropped; }
         end = full ? next : std::min(next, last_voiced + (int64_t)(kTailHops + 1) * ralomi::kHop);
         return Event::segment;
     }
@@ -1583,13 +1584,14 @@ void serve_action(Recognizer &recognizer)
         using K = voice_catalog::Kind;
         using D = voice_control::Display;
         const auto *candidate = result.match.best;
-        const auto outcome = voice_control::decide(result.match, result.kana.c_str());
+        const auto outcome = voice_control::decide(result.match, result.kana.c_str(), target);
         printf("VOICE_MATCH target=%d best=%s score=%.6f margin=%.6f accepted=%d reason=%s\n", int(target),
                candidate ? candidate->text : "none", result.match.score, result.match.score - result.match.score2,
                outcome.accepted, outcome.reason);
-        if (target != voice_control::Target::none) voice_state.clear();
+        if (target != voice_control::Target::none && target != voice_control::Target::tv) voice_state.clear();
         const auto route = voice_control::route(result.match, result.kana.c_str(), target);
-        if (route == voice_control::Route::suppress) return D::idle;
+        if (route == voice_control::Route::suppress)
+            return target == voice_control::Target::tv && voice_state.active(target, g_listen.written.load()) ? D::prompt : D::idle;
         if (route == voice_control::Route::fallback) return D::fallback;
         const auto kind = static_cast<K>(candidate->kind);
         if (voice_control::is_wake(kind)) {
@@ -1606,7 +1608,12 @@ void serve_action(Recognizer &recognizer)
             const H action = kind == K::power ? H::power : kind == K::tv_band ? H::tv_band : kind == K::tv_volume ? H::tv_volume :
                 kind == K::tv_channel ? H::tv_channel : kind == K::tv_channel_step ? H::tv_channel_step : kind == K::aircon_mode ? H::aircon_mode :
                 kind == K::temperature ? H::temperature : kind == K::light_mode ? H::light_mode : H::none;
-            if (action != H::none) { home::perform({action, device, candidate->value}, result.kana); return D::shown; }
+            if (action != H::none) {
+                bool sent = false;
+                home::perform({action, device, candidate->value}, result.kana, &sent);
+                if (target == voice_control::Target::tv && sent) voice_state.arm(target, g_listen.written.load(), ralomi::kSampleRate);
+                return D::shown;
+            }
             return D::idle;
         }
         if (kind == K::character) return action::perform_extra(static_cast<characters::Command>(candidate->value), result.kana) ? D::shown : D::fallback;
@@ -1662,8 +1669,10 @@ void serve_action(Recognizer &recognizer)
             const int64_t hop = scan;
             scan += ralomi::kHop;
             if (phase == Phase::button) { continue; }
-            const Cutter::Event event = cutter.step(level, hop, scan);
-            if (cutter.speaking && !listening_drawn && cutter.voiced >= kMinVoicedHops) {
+            const bool tv_waiting = voice_state.active(voice_control::Target::tv, hop);
+            const int minimum = voice_control::minimum_voiced_hops(tv_waiting, kMinVoicedHops, kOnsetHops);
+            const Cutter::Event event = cutter.step(level, hop, scan, minimum);
+            if (cutter.speaking && !listening_drawn && cutter.voiced >= cutter.minimum_voiced) {
                 action::idle("きいてるよ…");
                 listening_drawn = true;
             }
