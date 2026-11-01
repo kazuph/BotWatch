@@ -32,9 +32,9 @@ portMUX_TYPE scope_mux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint32_t scope_edges = 0;
 volatile int64_t scope_last = 0, scope_min = INT64_MAX, scope_max = 0;
 
-bool send_timings(const uint32_t *timings, size_t count)
+bool send_timings(const uint32_t *timings, size_t count, bool diagnostic = false)
 {
-    if (!timings || !count || rx || scope_running) return false;
+    if (!timings || !count || (rx && !diagnostic) || scope_running) return false;
     M5.Power.setExtOutput(true);
     if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) return false;
     M5.Ex_I2C.release();
@@ -269,10 +269,41 @@ bool start_edge_scope(bool tx_low)
 
 bool edge_scope_active() { return scope_running; }
 
-bool send_tv(ir_codes::TvKey key)
+bool send_tv(ir_codes::TvKey key, bool diagnostic)
 {
     const auto timings = ir_codes::nec(ir_codes::tv_code(key));
-    return send_timings(timings.data(), timings.size());
+    return send_timings(timings.data(), timings.size(), diagnostic);
+}
+
+void compare_tv_loopback()
+{
+    if (rx || scope_running) { printf("TVLOOP error=busy\n"); fflush(stdout); return; }
+    M5.Power.setExtOutput(true);
+    if (M5.Ex_I2C.getPort() == M5.In_I2C.getPort()) { printf("TVLOOP error=shared_i2c\n"); fflush(stdout); return; }
+    M5.Ex_I2C.release();
+    queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    rmt_rx_channel_config_t config{}; config.gpio_num = GPIO_NUM_11; config.clk_src = RMT_CLK_SRC_DEFAULT;
+    config.resolution_hz = kRxResolution; config.mem_block_symbols = 128;
+    esp_err_t err = queue ? rmt_new_rx_channel(&config, &rx) : ESP_ERR_NO_MEM;
+    rmt_rx_event_callbacks_t callbacks{}; callbacks.on_recv_done = received;
+    if (err == ESP_OK) err = rmt_rx_register_event_callbacks(rx, &callbacks, queue);
+    bool enabled = false;
+    if (err == ESP_OK) { err = rmt_enable(rx); enabled = err == ESP_OK; }
+    rmt_receive_config_t receive{}; receive.signal_range_min_ns = 2000; receive.signal_range_max_ns = 60000000;
+    if (err == ESP_OK) err = rmt_receive(rx, capture, sizeof(capture), &receive);
+    const bool sent = err == ESP_OK && send_tv(ir_codes::TvKey::volume_up, true);
+    rmt_rx_done_event_data_t event{};
+    const bool observed = sent && xQueueReceive(queue, &event, pdMS_TO_TICKS(1000)) == pdTRUE;
+    printf("TVLOOP sent=%d observed=%d error=%s raw=", sent, observed, esp_err_to_name(err));
+    if (observed) for (size_t i = 0; i < event.num_symbols; ++i) {
+        const auto &s = capture[i];
+        if (s.duration0) printf("%u:%u,", unsigned(s.level0), unsigned(s.duration0) * kRxTickUs);
+        if (s.duration1) printf("%u:%u,", unsigned(s.level1), unsigned(s.duration1) * kRxTickUs);
+    }
+    printf("\n"); fflush(stdout);
+    if (enabled) rmt_disable(rx);
+    if (rx) { rmt_del_channel(rx); rx = nullptr; }
+    if (queue) { vQueueDelete(queue); queue = nullptr; }
 }
 
 bool send_aircon_power(bool on)
