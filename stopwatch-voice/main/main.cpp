@@ -1216,10 +1216,10 @@ ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples,
     out.kana = kana.text;
     const auto match = recognizer.match_result();
     const auto rule = home::parse(out.kana);
-    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi negative=%d\n",
+    printf("HOME_MATCH best=%s score=%.6f second=%s score2=%.6f margin=%.6f us=%lld kana=%s text_rule=%d:%d:%d method=viterbi negative=%d start=%u end=%u\n",
            match.best ? match.best->text : "none", match.score, match.second ? match.second->text : "none", match.score2,
            match.score - match.score2, (long long)recognizer.match_us(), out.kana.c_str(), int(rule.kind), rule.device, rule.value,
-           match.best && match.best->negative);
+           match.best && match.best->negative, unsigned(match.start), unsigned(match.end));
     int64_t generate_us = -1;
     a2_result result{};
     if (g_a2_ready && recognizer.layer_steps() > 0) {

@@ -22,26 +22,47 @@ int main() {
         assert(found);
     }
     const char *vocab[] = {"<blank>", "<unk>", "あ", "い"};
-    const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}, {"い", false}};
-    const size_t bytes = home_match::Matcher::bytes(phrases, 3, vocab, 4);
+    const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
+    const size_t bytes = home_match::Matcher::bytes(phrases, 2, vocab, 4);
     std::vector<std::max_align_t> storage((bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
     home_match::Matcher matcher;
-    assert(matcher.init(storage.data(), phrases, 3, vocab, 4));
+    assert(matcher.init(storage.data(), phrases, 2, vocab, 4));
     const float rows[][4] = {{std::log(.1f),std::log(.1f),std::log(.7f),std::log(.1f)},
                              {std::log(.7f),std::log(.1f),std::log(.1f),std::log(.1f)},
                              {std::log(.1f),std::log(.1f),std::log(.1f),std::log(.7f)}};
     for (const auto &row : rows) matcher.feed(row, 4, 1.0f);
     auto result = matcher.result();
     assert(std::strcmp(result.best->text, "あい") == 0);
-    assert(std::fabs(result.score - 3 * std::log(.7f) / 2) < 1e-5f);
+    assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
+    assert(result.start == 0 && result.end == 3);
     assert(std::strcmp(result.second->text, "ああ") == 0 && result.second->negative);
-    assert(std::fabs(result.score2 - (2 * std::log(.7f) + std::log(.1f)) / 2) < 1e-5f);
+    assert(std::fabs(result.score2 - (2 * std::log(.7f) + std::log(.1f)) / 3) < 1e-5f);
     matcher.reset();
     matcher.feed(rows[0], 4, 1.0f); matcher.feed(rows[1], 4, 1.0f); matcher.feed(rows[0], 4, 1.0f);
     result = matcher.result();
     assert(std::strcmp(result.best->text, "ああ") == 0 && result.best->negative);
-    assert(std::fabs(result.score - 3 * std::log(.7f) / 2) < 1e-5f);
+    assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
+    const float before_after[] = {std::log(.1f), std::log(.7f), std::log(.1f), std::log(.1f)};
+    matcher.reset(); matcher.feed(before_after, 4, 1.0f);
+    for (const auto &row : rows) matcher.feed(row, 4, 1.0f);
+    matcher.feed(before_after, 4, 1.0f);
+    result = matcher.result();
+    assert(std::strcmp(result.best->text, "あい") == 0 && result.start == 1 && result.end == 4);
+    assert(std::fabs(result.score - std::log(.7f)) < 1e-5f);
+    // Per-token normalization penalizes the two-token path for its required blank;
+    // per-frame normalization gives equal scores for equal per-frame confidence.
+    const float short_per_token = std::log(.7f);
+    const float long_per_token = 3 * std::log(.7f) / 2;
+    assert(short_per_token > long_per_token);
+    assert(std::fabs(result.score - short_per_token) < 1e-5f);
+    const home_match::Phrase short_phrase[] = {{"い", false}};
+    const size_t short_bytes = home_match::Matcher::bytes(short_phrase, 1, vocab, 4);
+    std::vector<std::max_align_t> short_storage((short_bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+    home_match::Matcher short_matcher;
+    assert(short_matcher.init(short_storage.data(), short_phrase, 1, vocab, 4));
+    short_matcher.feed(rows[2], 4, 1.0f);
+    assert(std::fabs(short_matcher.result().score - result.score) < 1e-5f);
     const home_match::Phrase bad[] = {{"未登録", false}};
     assert(home_match::Matcher::bytes(bad, 1, vocab, 4) == 0);
-    puts("PASS Viterbi scores, ranking, repeated token, negative, vocabulary");
+    puts("PASS local CTC scores, ranking, boundaries, normalization, repeated token, vocabulary");
 }
