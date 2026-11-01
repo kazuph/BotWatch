@@ -12,6 +12,7 @@ bool edge_scope_active();
 bool start_monitor();
 void stop_monitor();
 bool monitor_active();
+void monitor_probe();
 void loopback_probe();
 void loopback_trials(bool reuse, bool tx_low);
 bool send_tv(ir_codes::TvKey key, bool diagnostic = false);

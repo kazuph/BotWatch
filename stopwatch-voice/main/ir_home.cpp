@@ -391,6 +391,14 @@ bool start_monitor()
 void stop_monitor() { if (monitor_running) { gpio_intr_disable(GPIO_NUM_11); monitor_stop = true; } }
 bool monitor_active() { return monitor_running; }
 
+void monitor_probe()
+{
+    if (!monitor_running) { printf("IRMN_PROBE error=monitor_not_running\n"); fflush(stdout); return; }
+    const auto timings = ir_codes::nec(0x00000000);
+    const bool sent = send_timings(timings.data(), timings.size());
+    printf("IRMN_PROBE sent=%d code=00000000 invalid_complements=1\n", sent); fflush(stdout);
+}
+
 bool send_tv(ir_codes::TvKey key, bool diagnostic)
 {
     const auto timings = ir_codes::nec(ir_codes::tv_code(key));

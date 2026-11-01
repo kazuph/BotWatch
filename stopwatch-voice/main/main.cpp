@@ -402,6 +402,7 @@ void serial_receiver(void *)
         if (length == 4 && !memcmp(header, "IRGT", 4)) { ir_home::session_result(); continue; }
         if (length == 4 && !memcmp(header, "IRSK", 4)) { ir_home::skip_session(); continue; }
         if (length == 4 && !memcmp(header, "IRMS", 4)) { ir_home::stop_monitor(); continue; }
+        if (length == 4 && !memcmp(header, "ILMN", 4)) { ir_home::monitor_probe(); continue; }
         if (length == 4 && !memcmp(header, "ILPB", 4)) { ir_home::loopback_probe(); continue; }
         if (length == 4 && !memcmp(header, "ITCP", 4)) { ir_home::compare_tv_loopback(); continue; }
         if (length == 4 && !memcmp(header, "IRTX", 4)) { ir_home::transmit_diagnostic(); continue; }
