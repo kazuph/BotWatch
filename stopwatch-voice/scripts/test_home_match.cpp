@@ -25,8 +25,10 @@ int main() {
     const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
     const size_t bytes = home_match::Matcher::bytes(phrases, 2, vocab, 4);
     std::vector<std::max_align_t> storage((bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+    const size_t extra = home_match::Matcher::extra_bytes(phrases, 2, vocab, 4);
+    std::vector<std::max_align_t> extra_storage((extra + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
     home_match::Matcher matcher;
-    assert(matcher.init(storage.data(), phrases, 2, vocab, 4));
+    assert(matcher.init(storage.data(), extra_storage.data(), phrases, 2, vocab, 4));
     const float rows[][4] = {{std::log(.1f),std::log(.1f),std::log(.7f),std::log(.1f)},
                              {std::log(.7f),std::log(.1f),std::log(.1f),std::log(.1f)},
                              {std::log(.1f),std::log(.1f),std::log(.1f),std::log(.7f)}};
@@ -58,8 +60,10 @@ int main() {
     const home_match::Phrase short_phrase[] = {{"い", false}};
     const size_t short_bytes = home_match::Matcher::bytes(short_phrase, 1, vocab, 4);
     std::vector<std::max_align_t> short_storage((short_bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+    const size_t short_extra = home_match::Matcher::extra_bytes(short_phrase, 1, vocab, 4);
+    std::vector<std::max_align_t> short_extra_storage((short_extra + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
     home_match::Matcher short_matcher;
-    assert(short_matcher.init(short_storage.data(), short_phrase, 1, vocab, 4));
+    assert(short_matcher.init(short_storage.data(), short_extra_storage.data(), short_phrase, 1, vocab, 4));
     short_matcher.feed(rows[2], 4, 1.0f);
     assert(std::fabs(short_matcher.result().score - result.score) < 1e-5f);
     const home_match::Phrase bad[] = {{"未登録", false}};

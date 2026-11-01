@@ -1519,16 +1519,19 @@ void serve_action(Recognizer &recognizer)
     constexpr size_t phrase_count = sizeof(kHomePhrases) / sizeof(kHomePhrases[0]);
     constexpr size_t vocab_count = sizeof(kVocabulary) / sizeof(kVocabulary[0]);
     const size_t match_bytes = home_match::Matcher::bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
+    const size_t extra_bytes = home_match::Matcher::extra_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count);
     const size_t free_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     auto match_memory = std::unique_ptr<void, decltype(&heap_caps_free)>(
         match_bytes ? heap_caps_malloc(match_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
+    auto match_extra = std::unique_ptr<void, decltype(&heap_caps_free)>(
+        extra_bytes ? heap_caps_malloc(extra_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : nullptr, heap_caps_free);
     home_match::Matcher matcher;
-    if (!match_memory || !matcher.init(match_memory.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
-        printf("ERROR HOME_MATCH allocation bytes=%u psram_free=%u\n", unsigned(match_bytes), unsigned(free_before));
+    if (!match_memory || !match_extra || !matcher.init(match_memory.get(), match_extra.get(), kHomePhrases, phrase_count, kVocabulary, vocab_count)) {
+        printf("ERROR HOME_MATCH allocation bytes=%u extra=%u psram_free=%u\n", unsigned(match_bytes), unsigned(extra_bytes), unsigned(free_before));
         vTaskDelete(nullptr); return;
     }
-    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
-           unsigned(match_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
+    printf("HOME_MATCH_MEMORY method=viterbi bytes=%u extra=%u state_bytes=%u psram_before=%u psram_after=%u phrases=%u\n",
+           unsigned(match_bytes + extra_bytes), unsigned(extra_bytes), unsigned(home_match::Matcher::state_bytes(kHomePhrases, phrase_count, kVocabulary, vocab_count)),
            unsigned(free_before), unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)), unsigned(phrase_count));
     recognizer.set_home_match(&matcher);
     if (!start_listening()) {
