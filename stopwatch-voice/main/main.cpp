@@ -403,19 +403,6 @@ void serial_receiver(void *)
         if (length == 4 && !memcmp(header, "IRSK", 4)) { ir_home::skip_session(); continue; }
         if (length == 4 && !memcmp(header, "ILPB", 4)) { ir_home::loopback_probe(); continue; }
         if (length == 4 && !memcmp(header, "IRTX", 4)) { ir_home::transmit_diagnostic(); continue; }
-        if (length == 4 && (!memcmp(header, "ITUP", 4) || !memcmp(header, "ITDN", 4) ||
-                            !memcmp(header, "ITPW", 4) || !memcmp(header, "IAON", 4) || !memcmp(header, "IAOF", 4))) {
-            bool ok;
-            if (header[1] == 'T') {
-                const auto key = header[2] == 'U' ? ir_codes::TvKey::volume_up :
-                                 header[2] == 'D' ? ir_codes::TvKey::volume_down : ir_codes::TvKey::power;
-                ok = ir_home::send_tv(key);
-            } else {
-                ok = ir_home::send_aircon_power(header[2] == 'O' && header[3] == 'N');
-            }
-            printf("IR_COMMAND %.4s success=%d\n", header, ok); fflush(stdout);
-            continue;
-        }
         forward(header, length);
         size_t bytes = 0;
         if (memcmp(header, "RLMA", 4) == 0) {
@@ -1680,7 +1667,17 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0] == 'I' && read_exact(header + 1, 3)) {
-            if (std::memcmp(header, "ILPT", 4) == 0) {
+            if (!std::memcmp(header,"ITUP",4) || !std::memcmp(header,"ITDN",4) ||
+                !std::memcmp(header,"ITPW",4) || !std::memcmp(header,"IAON",4) || !std::memcmp(header,"IAOF",4)) {
+                using Kind = home::Command::Kind;
+                const home::Command command = header[1] == 'T'
+                    ? home::Command{header[2] == 'P' ? Kind::power : Kind::tv_volume, 0, header[2] == 'D' ? -1 : 1}
+                    : home::Command{Kind::power, 1, header[3] == 'N' ? 1 : 0};
+                bool success = false;
+                home::perform(command, "", &success);
+                printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (std::memcmp(header, "ILPT", 4) == 0) {
                 uint8_t flags = 0;
                 if (!read_exact(&flags, 1) || (flags & ~7U)) { printf("IR_TRIAL error=flags\n"); continue; }
                 const bool active = g_listen.active.load(), resume = g_listen.mic_on.load();

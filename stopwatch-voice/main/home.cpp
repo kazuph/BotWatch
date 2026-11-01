@@ -165,8 +165,9 @@ Command parse(const std::string &kana)
     return c;
 }
 
-bool perform(const Command &command, const std::string &kana)
+bool perform(const Command &command, const std::string &kana, bool *sent)
 {
+    if (sent) *sent = false;
     State &s = g_state;
     char caption[96], detail[96];
     if (command.kind == Kind::none) return false;
@@ -193,6 +194,7 @@ bool perform(const Command &command, const std::string &kana)
                kDeviceIds[command.device], result.sent, result.reason ? result.reason : "send_failed");
         fflush(stdout); if (g_speaker) g_speaker("できなかったよ"); return true;
     }
+    if (sent) *sent = true;
     switch (command.kind) {
     case Kind::none:
         return false;
