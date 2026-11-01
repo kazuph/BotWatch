@@ -869,7 +869,6 @@ void draw_avatar()
         use_font(32);
         for(int baseline:{kCaptionBaseline-2*kCaptionStep,kDetailBaseline-2*kCaptionStep,kCaptionBaseline,kDetailBaseline})
             clear(0,baseline+origin()-font(32).ascent-kScale,width,canvas.fontHeight()+2*kScale);
-        clear(233+origin()-100,390,200,10);
     }
     const auto drawing=characters::draw(canvas, character_avatar,character_view,character_background_invalid);
     character_background_invalid=false;
@@ -879,10 +878,6 @@ void draw_avatar()
     const uint16_t ink = a.background==0 ? TFT_WHITE : kInk;
     draw_caption(character_caption,character_text[0],ink,!character_kana.empty());
     draw_caption(character_kana,character_text[1],ink,true);
-    if(a.gauge>=0) {
-        canvas.fillRoundRect(cx-100,390,200,10,5,kOutline);
-        canvas.fillRoundRect(cx-100,390,std::max(10,200*std::min(a.gauge,100)/100),10,5,kOlive);
-    }
     present(started,drawing);
 }
 void animation_loop(void *)

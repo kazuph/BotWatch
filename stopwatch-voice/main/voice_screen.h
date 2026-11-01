@@ -57,7 +57,6 @@ struct Avatar {
     bool eyes_closed = false;
     bool ring = false;              // the "light" around the bezel
     uint32_t ring_rgb = 0;
-    int gauge = -1;                 // 0..100 shown under the caption, -1 for none
     bool back = false;
     characters::Move move = characters::Move::rest;
     unsigned movement = 0;          // a new command restarts its timeline

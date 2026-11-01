@@ -133,7 +133,6 @@ bool play(const cJSON *call, const std::string &kana)
     const cJSON *arguments = cJSON_GetObjectItemCaseSensitive(call, "arguments");
     if (!name || !cJSON_IsObject(arguments)) { return false; }
     char caption[96];
-    g_avatar.gauge = -1;
     g_avatar.move = characters::Move::rest;
     if (std::strcmp(name, "look") == 0 || std::strcmp(name, "turn") == 0) {
         const Direction *d = direction_of(string_of(arguments, "direction"));
@@ -202,7 +201,7 @@ bool play(const cJSON *call, const std::string &kana)
         }
         M5.Speaker.setVolume(g_volume * 255 / 100);
         snprintf(caption, sizeof(caption), "おとのおおきさ %d", g_volume);
-        g_avatar.gauge = g_volume; frame(caption, kana, 0);
+        frame(caption, kana, 0);
     } else if (std::strcmp(name, "set_brightness") == 0 || std::strcmp(name, "adjust_brightness") == 0) {
         int level = brightness_percent();
         if (name[0] == 's') { level = std::clamp(number_of(arguments, "level", level), 0, 100); }
@@ -213,7 +212,7 @@ bool play(const cJSON *call, const std::string &kana)
         }
         set_brightness(level);
         snprintf(caption, sizeof(caption), "あかるさ %d", level);
-        g_avatar.gauge = level; frame(caption, kana, 0);
+        frame(caption, kana, 0);
     } else {
         return false;
     }
@@ -249,7 +248,6 @@ bool perform_extra(const std::string &kana)
     using C=characters::Command;
     const C command=characters::parse(kana);
     if(command==C::none) return false;
-    g_avatar.gauge=-1;
     const char *caption="話しかけてね";
     if(command==C::jump || command==C::play) {
         g_avatar.move=command==C::jump?characters::Move::jump:characters::Move::play;
@@ -274,7 +272,7 @@ bool perform_talk(const std::string &kana)
     const char *caption=talk::parse(kana);
     if(!caption) return false;
     g_avatar.expression=Expression::happy;
-    g_avatar.back=false;g_avatar.move=characters::Move::rest;g_avatar.gauge=-1;
+    g_avatar.back=false;g_avatar.move=characters::Move::rest;
     frame(caption,kana,0);
     printf("TALK_REPLY kana=%s caption=%s expression=happy selected=%u\n",kana.c_str(),caption,voice_screen::selected_character());
     if(g_speaker) g_speaker(caption);
@@ -284,7 +282,6 @@ bool perform_talk(const std::string &kana)
 
 int perform(const std::string &json, const std::string &kana, bool accepted)
 {
-    g_avatar.gauge = -1;
     if (!accepted) {
         // Not a request (p_act under the threshold): a puzzled look, nothing else changes.
         const Expression before = g_avatar.expression;
