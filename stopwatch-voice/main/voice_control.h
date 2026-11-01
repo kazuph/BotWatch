@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include "voice_catalog.h"
 
 namespace voice_control {
@@ -17,20 +18,32 @@ inline bool is_wake(voice_catalog::Kind kind) {
 inline Result decide(const home_match::Result &match, const char *kana) {
     if (!kana || !*kana) return {false, "empty_kana"};
     if (!match.best) return {false, "no_match"};
-    if (match.best->negative) return {false, "negative"};
     const auto kind = static_cast<voice_catalog::Kind>(match.best->kind);
     const bool wake = is_wake(kind);
     const float threshold = wake ? kWakeScore : match.best->long_form ? kLongScore : kShortScore;
     if (!(match.score >= threshold)) return {false, "score_below"};
+    if (match.best->negative) return {false, "negative"};
     if (wake || match.best->long_form) {
         const float required = wake ? kWakeMargin : kLongMargin;
         if (!match.second || !(match.score - match.score2 >= required)) return {false, "margin_below"};
     }
     return {true, "accepted"};
 }
+enum class Display { fallback, shown, idle, prompt };
+inline const char *caption(Display display) {
+    return display == Display::idle ? "話しかけてね" : display == Display::prompt ? "どうぞ" : nullptr;
+}
+enum class Route { fallback, suppress, matched };
+inline Route route(const home_match::Result &match, const char *kana, Target target) {
+    const Result result = decide(match, kana);
+    if (result.accepted) return Route::matched;
+    if (std::strcmp(result.reason, "negative") == 0 || target != Target::none) return Route::suppress;
+    return Route::fallback;
+}
 class State {
 public:
-    Target target(int64_t onset) { if (target_ != Target::none && onset > deadline_) target_ = Target::none; return target_; }
+    bool expire(int64_t now) { if (target_ == Target::none || now <= deadline_) return false; target_ = Target::none; return true; }
+    Target target(int64_t onset) { expire(onset); return target_; }
     void arm(Target target, int64_t listening_start, int sample_rate) {
         target_ = target; deadline_ = listening_start + int64_t(kWaitSeconds) * sample_rate;
     }

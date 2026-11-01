@@ -1237,16 +1237,17 @@ ActionResult run_koeact(Recognizer &recognizer, const int16_t *raw, int samples,
     return out;
 }
 
-void show_action(const ActionResult &result)
+bool show_action(const ActionResult &result)
 {
     if (!result.decoded) {
         action::idle("デコーダが使えません");
         printf("ERROR koeact_decoder ready=%d\n", g_a2_ready);
-        return;
+        return true;
     }
     const int played = action::perform(result.json, result.kana, result.accepted);
     printf("ACTION_DONE played=%d accepted=%d json=%s\n", played, result.accepted, result.json.c_str());
     fflush(stdout);
+    return played > 0;
 }
 
 // --- Always listening (action mode) -------------------------------------------------------------
@@ -1580,19 +1581,24 @@ void serve_action(Recognizer &recognizer)
     voice_control::State voice_state;
     auto handle_voice = [&](const ActionResult &result, voice_control::Target target) {
         using K = voice_catalog::Kind;
+        using D = voice_control::Display;
         const auto *candidate = result.match.best;
         const auto outcome = voice_control::decide(result.match, result.kana.c_str());
         printf("VOICE_MATCH target=%d best=%s score=%.6f margin=%.6f accepted=%d reason=%s\n", int(target),
                candidate ? candidate->text : "none", result.match.score, result.match.score - result.match.score2,
                outcome.accepted, outcome.reason);
         if (target != voice_control::Target::none) voice_state.clear();
-        if (candidate && candidate->negative) return true;
-        if (!outcome.accepted) return target != voice_control::Target::none;
+        const auto route = voice_control::route(result.match, result.kana.c_str(), target);
+        if (route == voice_control::Route::suppress) return D::idle;
+        if (route == voice_control::Route::fallback) return D::fallback;
         const auto kind = static_cast<K>(candidate->kind);
         if (voice_control::is_wake(kind)) {
             const auto next = kind == K::wake_tv ? voice_control::Target::tv : kind == K::wake_aircon ? voice_control::Target::aircon : voice_control::Target::light;
-            if (broadcast_beep()) voice_state.arm(next, g_listen.written.load(), ralomi::kSampleRate);
-            return true;
+            if (broadcast_beep()) {
+                voice_state.arm(next, g_listen.written.load(), ralomi::kSampleRate);
+                return D::prompt;
+            }
+            return D::idle;
         }
         if (target != voice_control::Target::none) {
             using H = home::Command::Kind;
@@ -1600,14 +1606,21 @@ void serve_action(Recognizer &recognizer)
             const H action = kind == K::power ? H::power : kind == K::tv_band ? H::tv_band : kind == K::tv_volume ? H::tv_volume :
                 kind == K::tv_channel ? H::tv_channel : kind == K::tv_channel_step ? H::tv_channel_step : kind == K::aircon_mode ? H::aircon_mode :
                 kind == K::temperature ? H::temperature : kind == K::light_mode ? H::light_mode : H::none;
-            if (action != H::none) home::perform({action, device, candidate->value}, result.kana);
-            return true;
+            if (action != H::none) { home::perform({action, device, candidate->value}, result.kana); return D::shown; }
+            return D::idle;
         }
-        if (kind == K::character) return action::perform_extra(static_cast<characters::Command>(candidate->value), result.kana);
+        if (kind == K::character) return action::perform_extra(static_cast<characters::Command>(candidate->value), result.kana) ? D::shown : D::fallback;
         if (kind == K::talk && candidate->value >= 0 && size_t(candidate->value) < sizeof(talk::kReplies) / sizeof(talk::kReplies[0]))
-            return action::perform_talk(talk::kReplies[candidate->value].caption, result.kana);
-        if (kind == K::print_start) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); return true; }
-        return false;
+            return action::perform_talk(talk::kReplies[candidate->value].caption, result.kana) ? D::shown : D::fallback;
+        if (kind == K::print_start) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); }
+        return D::fallback;
+    };
+    auto finish_voice = [&](const ActionResult &result, voice_control::Target target) {
+        auto display = handle_voice(result, target);
+        const bool handled = display != voice_control::Display::fallback;
+        if (!handled && !show_action(result)) display = voice_control::Display::idle;
+        if (const char *text = voice_control::caption(display)) action::idle(text);
+        return handled;
     };
 
     // Copy [begin, end) out of the ring and run it; a VAD utterance that is not a request leaves
@@ -1625,18 +1638,16 @@ void serve_action(Recognizer &recognizer)
         if (!by_button) { action::idle("かんがえ中…"); }
         const int64_t onset = std::min(end, begin + int64_t(kPrerollHops) * ralomi::kHop);
         const auto target = voice_state.target(onset);
-        if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); return; }
+        if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); action::idle("話しかけてね"); return; }
         const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features);
-        if (handle_voice(result, target)) {
+        if (finish_voice(result, target)) {
             ++stats.accepted;
         } else if (result.decoded && !result.accepted && !by_button) {
             ++stats.rejected;
-            action::idle("話しかけてね");
             printf("LISTEN_IGNORED p_act=%.6f kana=%s\n", result.p_act, result.kana.c_str());
         } else {
             stats.accepted += result.accepted;
             stats.rejected += !result.accepted;
-            show_action(result);
         }
         stats.max_us = std::max(stats.max_us, esp_timer_get_time() - started);
         // Skip what arrived while busy: an old command must not fire late.
@@ -1751,7 +1762,7 @@ void serve_action(Recognizer &recognizer)
         }
         if (held) { scan = g_listen.written.load(); }
         else { pump(g_listen.written.load()); }
-        if (!cutter.speaking && phase != Phase::button) voice_state.target(g_listen.written.load());
+        if (!cutter.speaking && phase != Phase::button && voice_state.expire(g_listen.written.load())) action::idle("話しかけてね");
         if (esp_timer_get_time() >= next_stat) {
             next_stat += 60 * 1000000LL;
             printf("LISTEN_STAT segments=%d accepted=%d rejected=%d dropped=%d button=%d max_us=%" PRId64
@@ -1989,9 +2000,9 @@ void serve_action(Recognizer &recognizer)
             action::idle("かんがえ中…");
             const int64_t onset = g_listen.written.load();
             const auto target = voice_state.target(onset);
-            if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); continue; }
+            if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); action::idle("話しかけてね"); continue; }
             const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features);
-            if (!handle_voice(result, target)) show_action(result);
+            finish_voice(result, target);
             scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
         }
     }
