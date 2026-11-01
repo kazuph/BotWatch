@@ -4,6 +4,12 @@
 #include <cstdint>
 
 namespace ir_codes {
+enum class LightKey { power, orange, night, white };
+constexpr uint32_t light_code(LightKey key)
+{
+    constexpr uint32_t codes[] = {0x0176F00F, 0x017642BD, 0x0176D02F, 0x0176827D};
+    return codes[static_cast<unsigned>(key)];
+}
 enum class TvKey { power, volume_up, volume_down, channel_1, channel_2, channel_3,
                    channel_4, channel_5, channel_6, channel_7, channel_8, channel_9,
                    channel_up, channel_down, candidate_tv, candidate_tv_radio, candidate_flashback, candidate_livetv,

@@ -1444,14 +1444,13 @@ home::SendResult send_home(const home::Command &command)
         return {ir_home::send_tv(key), 0, "transmit_failed"};
     }
     if (command.device == 2) {
-        ir_home::Learned slot;
+        ir_codes::LightKey key;
         if (command.kind == Kind::power)
-            slot = command.value ? ir_home::Learned::light_on : ir_home::Learned::light_off;
+            key = ir_codes::LightKey::power;
         else if (command.kind == Kind::light_mode && command.value >= 0 && command.value <= 2)
-            slot = static_cast<ir_home::Learned>(static_cast<int>(ir_home::Learned::light_orange) + command.value);
+            key = static_cast<ir_codes::LightKey>(static_cast<int>(ir_codes::LightKey::orange) + command.value);
         else return {false, 0, "unsupported"};
-        if (!ir_home::has_learned(slot)) return {false, 0, "not_learned"};
-        return {ir_home::send_learned(slot), 0, "transmit_failed"};
+        return {ir_home::send_light(key), 0, "transmit_failed"};
     }
     return {false, 0, "unsupported"};
 }
@@ -1851,7 +1850,15 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0] == 'I' && read_exact(header + 1, 3)) {
-            if (!std::memcmp(header,"IBST",4) || !std::memcmp(header,"ITDT",4)) {
+            if (!std::memcmp(header,"ILPW",4) || !std::memcmp(header,"ILOR",4) || !std::memcmp(header,"ILSC",4) || !std::memcmp(header,"ILWH",4)) {
+                using Kind = home::Command::Kind;
+                const bool power = !std::memcmp(header,"ILPW",4);
+                const int value = !std::memcmp(header,"ILOR",4) ? 0 : !std::memcmp(header,"ILSC",4) ? 1 : 2;
+                bool success = false;
+                home::perform({power ? Kind::power : Kind::light_mode, 2, power ? 1 : value}, "", &success);
+                printf("IR_COMMAND %.4s success=%d\n", header, success); fflush(stdout);
+                scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
+            } else if (!std::memcmp(header,"IBST",4) || !std::memcmp(header,"ITDT",4)) {
                 const home::Command command{home::Command::Kind::tv_band, 0, header[1] == 'B' ? 1 : 0};
                 bool success = false;
                 home::perform(command, "", &success);

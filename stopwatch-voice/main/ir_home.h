@@ -16,6 +16,7 @@ void monitor_probe();
 void loopback_probe();
 void loopback_trials(bool reuse, bool tx_low);
 bool send_tv(ir_codes::TvKey key, bool diagnostic = false);
+bool send_light(ir_codes::LightKey key);
 void compare_tv_loopback();
 bool send_aircon(bool on, int mode, int temperature);
 enum class Learned { terrestrial, satellite, light_on, light_off, light_orange, light_night, light_white };

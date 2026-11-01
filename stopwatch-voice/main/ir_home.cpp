@@ -405,6 +405,12 @@ bool send_tv(ir_codes::TvKey key, bool diagnostic)
     return send_timings(timings.data(), timings.size(), diagnostic);
 }
 
+bool send_light(ir_codes::LightKey key)
+{
+    const auto timings = ir_codes::nec(ir_codes::light_code(key));
+    return send_timings(timings.data(), timings.size());
+}
+
 void compare_tv_loopback()
 {
     if (rx || scope_running || monitor_running) { printf("TVLOOP error=busy\n"); fflush(stdout); return; }

@@ -37,7 +37,7 @@ void draw(const char *caption, const std::string &kana,bool quote=true)
     const voice_screen::Tile tiles[] = {
         {voice_screen::Appliance::tv, "テレビ", tv, true, 0x5EB1EF},
         {voice_screen::Appliance::aircon, "エアコン", s.aircon ? aircon : "オフ", s.aircon, kModeColours[s.mode]},
-        {voice_screen::Appliance::light, "でんき", s.light ? "オン" : "オフ", s.light, 0xF2C14E},
+        {voice_screen::Appliance::light, "でんき", "電源切替", false, 0xF2C14E},
     };
     voice_screen::home_panel(tiles, 3, g_focus, caption, !quote || kana.empty() ? kana : "「" + kana + "」");
 }
@@ -85,9 +85,9 @@ bool perform(const Command &command, const std::string &kana, bool *sent)
         static const char *const kOn[] = {"テレビをつけたよ", "エアコンをつけたよ", "でんきをつけたよ"};
         static const char *const kOff[] = {"テレビをけしたよ", "エアコンをけしたよ", "でんきをけしたよ"};
         bool *power[] = {&s.tv, &s.aircon, &s.light};
-        if (command.device != 0) *power[command.device] = command.value != 0;
-        snprintf(caption, sizeof(caption), "%s", command.device == 0 ? "テレビの電源を切り替えたよ" : command.value ? kOn[command.device] : kOff[command.device]);
-        snprintf(detail, sizeof(detail), "\"command\":\"power\",\"value\":\"%s\"", command.device == 0 ? "toggle" : command.value ? "on" : "off");
+        if (command.device == 1) *power[command.device] = command.value != 0;
+        snprintf(caption, sizeof(caption), "%s", command.device == 0 ? "テレビの電源を切り替えたよ" : command.device == 2 ? "でんきの電源を切り替えたよ" : command.value ? kOn[command.device] : kOff[command.device]);
+        snprintf(detail, sizeof(detail), "\"command\":\"power\",\"value\":\"%s\"", command.device != 1 ? "toggle" : command.value ? "on" : "off");
         break;
     }
     case Kind::aircon_mode:
@@ -125,7 +125,8 @@ bool perform(const Command &command, const std::string &kana, bool *sent)
         snprintf(detail, sizeof(detail), "\"command\":\"channel_step\",\"step\":%d", command.value);
         break;
     case Kind::light_mode:
-        snprintf(caption, sizeof(caption), "でんきを切り替えたよ");
+        { const char *const names[] = {"オレンジ", "ほあんとー", "白"};
+          snprintf(caption, sizeof(caption), "%sにしたよ", names[command.value]); }
         snprintf(detail, sizeof(detail), "\"command\":\"light_mode\",\"value\":%d", command.value);
         break;
     }
