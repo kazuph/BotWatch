@@ -1384,29 +1384,35 @@ void load_aircon_settings()
 {
     nvs_handle_t handle;
     if (nvs_open("aircon", NVS_READONLY, &handle) == ESP_OK) {
-        uint8_t mode = 1, temperature = 24;
-        nvs_get_u8(handle, "mode", &mode); nvs_get_u8(handle, "temperature", &temperature); nvs_close(handle);
-        if (mode <= 2) g_aircon_mode = mode;
-        if (temperature >= 16 && temperature <= 31) g_aircon_temperature = temperature;
+        uint8_t pair[2] = {1, 24}; size_t length = sizeof(pair);
+        if (nvs_get_blob(handle, "settings", pair, &length) != ESP_OK || length != sizeof(pair)) {
+            nvs_get_u8(handle, "mode", &pair[0]); nvs_get_u8(handle, "temperature", &pair[1]);
+        }
+        nvs_close(handle);
+        if (pair[0] <= 2 && pair[1] >= 16 && pair[1] <= 31) { g_aircon_mode = pair[0]; g_aircon_temperature = pair[1]; }
     }
     home::set_aircon_settings(g_aircon_mode, g_aircon_temperature);
 }
-void save_aircon_settings()
+bool save_aircon_settings()
 {
     nvs_handle_t handle;
     esp_err_t error = nvs_open("aircon", NVS_READWRITE, &handle);
     if (error == ESP_OK) {
-        error = nvs_set_u8(handle, "mode", g_aircon_mode);
-        if (error == ESP_OK) error = nvs_set_u8(handle, "temperature", g_aircon_temperature);
+        const uint8_t pair[] = {uint8_t(g_aircon_mode), uint8_t(g_aircon_temperature)};
+        error = nvs_set_blob(handle, "settings", pair, sizeof(pair));
         if (error == ESP_OK) error = nvs_commit(handle);
         nvs_close(handle);
     }
     printf("AIRCON_SETTINGS mode=%d temperature=%d saved=%s\n", g_aircon_mode, g_aircon_temperature, esp_err_to_name(error));
+    return error == ESP_OK;
 }
 
 home::SendResult send_home(const home::Command &command)
 {
     using Kind = home::Command::Kind;
+    ir_home::Learned slot;
+    if (ir_home::learned_slot(command, slot) && ir_home::has_learned(slot))
+        return {ir_home::send_learned(slot), 0, "learned_transmit_failed"};
     if (command.device == 0 && command.kind == Kind::power)
         return {ir_home::send_tv(ir_codes::TvKey::power), 0, "transmit_failed"};
     if (command.kind == Kind::tv_channel) {
@@ -1435,8 +1441,9 @@ home::SendResult send_home(const home::Command &command)
         if (mode < 0 || mode > 2 || temperature < 16 || temperature > 31) return {false, 0, "out_of_range"};
         const bool on = command.kind != Kind::power || command.value != 0;
         if (!ir_home::send_aircon(on, mode, temperature)) return {false, 0, "transmit_failed"};
-        if (command.kind != Kind::power) { g_aircon_mode = mode; g_aircon_temperature = temperature; save_aircon_settings(); }
-        return {true, 0, ""};
+        bool saved = true;
+        if (command.kind != Kind::power) { g_aircon_mode = mode; g_aircon_temperature = temperature; saved = save_aircon_settings(); }
+        return {true, 0, "", saved};
     }
     if (command.kind == Kind::tv_band) {
         if (command.value < 0 || command.value > 2) return {false, 0, "out_of_range"};
@@ -1611,6 +1618,7 @@ void serve_action(Recognizer &recognizer)
     ListenStats stats;
     int64_t next_stat = esp_timer_get_time() + 60 * 1000000LL;
     voice_control::State voice_state;
+    auto open_voice_apps = [&] { voice_state.clear(); open_apps(); };
     auto handle_voice = [&](const ActionResult &result, voice_control::Target target) {
         using K = voice_catalog::Kind;
         using D = voice_control::Display;
@@ -1619,7 +1627,7 @@ void serve_action(Recognizer &recognizer)
         printf("VOICE_MATCH target=%d best=%s score=%.6f margin=%.6f accepted=%d reason=%s\n", int(target),
                candidate ? candidate->text : "none", result.match.score, result.match.score - result.match.score2,
                outcome.accepted, outcome.reason);
-        if (target != voice_control::Target::none && target != voice_control::Target::tv) voice_state.clear();
+        voice_state.command_begin(target);
         const auto route = voice_control::route(result.match, result.kana.c_str(), target);
         if (route == voice_control::Route::suppress)
             return target == voice_control::Target::tv && voice_state.active(target, g_listen.written.load()) ? D::prompt : D::idle;
@@ -1642,7 +1650,7 @@ void serve_action(Recognizer &recognizer)
             if (action != H::none) {
                 bool sent = false;
                 home::perform({action, device, candidate->value}, result.kana, &sent);
-                if (target == voice_control::Target::tv && sent) voice_state.arm(target, g_listen.written.load(), ralomi::kSampleRate);
+                voice_state.command_sent(target, sent, g_listen.written.load(), ralomi::kSampleRate);
                 return D::shown;
             }
             return D::idle;
@@ -1653,10 +1661,10 @@ void serve_action(Recognizer &recognizer)
         if (kind == K::print_start) { pause_listening(); speak_response("ラベルをいんさつするよ"); reboot_into(Mode::kana, true); }
         return D::fallback;
     };
-    auto finish_voice = [&](const ActionResult &result, voice_control::Target target) {
+    auto finish_voice = [&](const ActionResult &result, voice_control::Target target, bool by_button) {
         auto display = handle_voice(result, target);
         const bool handled = display != voice_control::Display::fallback;
-        if (!handled && !show_action(result)) display = voice_control::Display::idle;
+        if (!handled && (!voice_control::show_koeact(result.decoded, result.accepted, by_button) || !show_action(result))) display = voice_control::Display::idle;
         if (const char *text = voice_control::caption(display)) action::idle(text);
         return handled;
     };
@@ -1678,7 +1686,7 @@ void serve_action(Recognizer &recognizer)
         const auto target = voice_state.target(onset);
         if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); action::idle("話しかけてね"); return; }
         const ActionResult result = run_koeact(recognizer, segment.get(), samples, pcm, features);
-        if (finish_voice(result, target)) {
+        if (finish_voice(result, target, by_button)) {
             ++stats.accepted;
         } else if (result.decoded && !result.accepted && !by_button) {
             ++stats.rejected;
@@ -1719,7 +1727,7 @@ void serve_action(Recognizer &recognizer)
     int touch_x=0,touch_y=0;
     int progress = 0;
     uint8_t header[4] = {};
-    if(g_apps_return){g_apps_return=false;open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;release_barrier=true;}
+    if(g_apps_return){g_apps_return=false;open_voice_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;release_barrier=true;}
     while (true) {
         M5.update();apps::tick();
         if (monitor_pending && ir_home::monitor_active() && M5.BtnB.wasPressed()) {
@@ -1762,7 +1770,7 @@ void serve_action(Recognizer &recognizer)
         }
         if(!monitor_pending && !(held && ir_home::session_active()) && phase!=Phase::button && !release_barrier &&
            voice_screen::character_touch(touch_down,touch_x,touch_y,uint32_t(esp_timer_get_time()/1000))) {
-            open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
+            open_voice_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             release_barrier=true;continue;
         }
         recover_listening();
@@ -1798,7 +1806,7 @@ void serve_action(Recognizer &recognizer)
                 printf("UI_STATE action_recording\n");
                 continue;
             }
-            if (M5.BtnB.wasPressed()) { action::reset(); printf("UI_STATE action_reset\n"); release_barrier = true; continue; }
+            if (M5.BtnB.wasPressed()) { voice_state.clear(); action::reset(); printf("UI_STATE action_reset\n"); release_barrier = true; continue; }
         }
         if (held) { scan = g_listen.written.load(); }
         else { pump(g_listen.written.load()); }
@@ -1821,7 +1829,7 @@ void serve_action(Recognizer &recognizer)
             if(!read_exact(packet,sizeof(packet))) { printf("ERROR CHARACTER_DIAG short\n");continue; }
             auto number=[&](int offset) { return int16_t(packet[offset] | (packet[offset+1]<<8)); };
             if(voice_screen::diagnostic_touch(packet[0],number(1),number(3),number(5),number(7),uint16_t(number(9)))) {
-                open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
+                open_voice_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             }
             continue;
         }
@@ -1842,7 +1850,7 @@ void serve_action(Recognizer &recognizer)
             continue;
         }
         if (header[0]=='A' && read_exact(header+1,3) && std::memcmp(header,"APPS",4)==0) {
-            open_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
+            open_voice_apps();scan=g_listen.written.load();cutter.reset();phase=Phase::idle;
             continue;
         }
         if (header[0] == 'M' && read_exact(header + 1, 2)) {
@@ -2050,7 +2058,7 @@ void serve_action(Recognizer &recognizer)
             const auto target = voice_state.target(onset);
             if (!configure_group(target)) { printf("ERROR HOME_MATCH group\n"); action::idle("話しかけてね"); continue; }
             const ActionResult result = run_koeact(recognizer, segment.get(), kept, pcm, features);
-            finish_voice(result, target);
+            finish_voice(result, target, true);
             scan = g_listen.written.load(); phase = Phase::idle; cutter.reset();
         }
     }

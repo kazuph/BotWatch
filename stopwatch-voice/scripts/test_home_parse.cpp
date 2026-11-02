@@ -4,6 +4,7 @@
 
 #include "home.h"
 #include "voice_catalog.h"
+#include "voice_control.h"
 
 int main()
 {
@@ -67,7 +68,13 @@ int main()
     };
     int failed = 0, checked = 0;
     for (const Case &c : cases) {
-        if (c.kind == K::none) continue;
+        if (c.kind == K::none) {
+            bool positive = false;
+            for (const auto &phrase : voice_catalog::k_idle)
+                if (!phrase.negative && voice_control::is_wake(static_cast<voice_catalog::Kind>(phrase.kind)) && std::string(phrase.text) == c.kana) positive = true;
+            ++checked;
+            if (positive) { ++failed; printf("FAIL negative %s\n", c.kana); }
+        } else {
         using V = voice_catalog::Kind;
         const V kind = c.kind == K::power ? V::power : c.kind == K::aircon_mode ? V::aircon_mode :
             c.kind == K::temperature ? V::temperature : c.kind == K::tv_volume ? V::tv_volume :
@@ -81,6 +88,7 @@ int main()
         if (!found) {
             ++failed;
             printf("FAIL %s kind=%d device=%d value=%d\n", c.kana, int(c.kind), c.device, c.value);
+        }
         }
     }
     printf("%s prior operation mappings %d/%d\n", failed ? "FAIL" : "PASS", checked - failed, checked);

@@ -39,11 +39,13 @@ int main()
         {"はいけいをくろにしてみたい",Command::none},{"じゃんぷしてね",Command::jump},
     };
     for(const auto &c:commands) {
-        if(c.command==Command::none) continue;
         bool found=false;
         for(const auto &phrase:voice_catalog::k_idle)
             if(!std::strcmp(phrase.text,c.kana) && phrase.kind==int(voice_catalog::Kind::character) && phrase.value==int(c.command)) found=true;
-        assert(found);
+        if (c.command == Command::none) {
+            for(const auto &phrase:voice_catalog::k_idle)
+                assert(std::strcmp(phrase.text,c.kana) || phrase.kind!=int(voice_catalog::Kind::character));
+        } else assert(found);
     }
     const double initial=0,target=1,dt=.02;
     double repeated=initial;

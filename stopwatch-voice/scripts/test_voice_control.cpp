@@ -5,6 +5,7 @@
 #include <vector>
 #include "voice_control.h"
 #include "ir_codes.h"
+#include "ir_home.h"
 
 int main() {
     using namespace voice_catalog;
@@ -78,6 +79,20 @@ int main() {
     assert(state.active(Target::tv, 160000)); assert(!state.active(Target::tv, 160001));
     assert(minimum_voiced_hops(false, 15, 3) == 15);
     assert(minimum_voiced_hops(true, 15, 3) == 3);
+    state.arm(Target::tv, 0, 16000); state.command_begin(Target::tv); state.command_sent(Target::tv, false, 100, 16000);
+    assert(state.active(Target::tv, 80000)); state.command_sent(Target::tv, true, 1000, 16000);
+    assert(state.active(Target::tv, 81000)); state.clear(); assert(!state.active(Target::tv, 1));
+    state.arm(Target::aircon, 0, 16000); state.command_begin(Target::aircon); assert(!state.active(Target::aircon, 1));
+    assert(!show_koeact(true, false, false)); assert(show_koeact(true, false, true)); assert(show_koeact(true, true, false));
+    using K = home::Command::Kind; ir_home::Learned slot;
+    assert(ir_home::learned_slot({K::tv_band, 0, 0}, slot) && slot == ir_home::Learned::terrestrial);
+    assert(ir_home::learned_slot({K::tv_band, 0, 1}, slot) && slot == ir_home::Learned::satellite);
+    assert(ir_home::learned_slot({K::power, 2, 1}, slot) && slot == ir_home::Learned::light_on);
+    assert(ir_home::learned_slot({K::power, 2, 0}, slot) && slot == ir_home::Learned::light_off);
+    assert(ir_home::learned_slot({K::light_mode, 2, 0}, slot) && slot == ir_home::Learned::light_orange);
+    assert(ir_home::learned_slot({K::light_mode, 2, 1}, slot) && slot == ir_home::Learned::light_night);
+    assert(ir_home::learned_slot({K::light_mode, 2, 2}, slot) && slot == ir_home::Learned::light_white);
+    assert(!ir_home::learned_slot({K::power, 1, 1}, slot));
     static_assert(ir_codes::tv_code(ir_codes::tv_band_key(0)) == 0x20DFDB0C);
     static_assert(ir_codes::tv_code(ir_codes::tv_band_key(1)) == 0x20DFF00F);
     std::puts("PASS vocabulary, all operation types, allowed numbers, thresholds, negatives, wake timeout, IR codes");

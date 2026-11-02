@@ -130,6 +130,10 @@ bool perform(const Command &command, const std::string &kana, bool *sent)
         snprintf(detail, sizeof(detail), "\"command\":\"light_mode\",\"value\":%d", command.value);
         break;
     }
+    if (!result.saved) {
+        std::strncat(caption, "、ほぞんできなかったよ", sizeof(caption) - std::strlen(caption) - 1);
+        std::strncat(detail, ",\"saved\":false", sizeof(detail) - std::strlen(detail) - 1);
+    }
     g_focus = command.device;
     draw(caption, kana);
     printf("HOME_ACTION {\"device\":\"%s\",%s} caption=%s\n", kDeviceIds[command.device], detail, caption);

@@ -12,7 +12,7 @@ struct Command {
     int device = 0;  // 0 TV, 1 air conditioner, 2 light
     int value = 0;   // power 0/1, mode 0 cool 1 heat 2 dry, degrees, volume step (+/-), band 0..2
 };
-struct SendResult { bool ok; int sent; const char *reason; };
+struct SendResult { bool ok; int sent; const char *reason; bool saved = true; };
 using Sender = SendResult (*)(const Command &command);
 void set_sender(Sender sender);
 void set_aircon_settings(int mode, int temperature);

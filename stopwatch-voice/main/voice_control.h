@@ -34,6 +34,7 @@ inline const char *caption(Display display) {
     return display == Display::idle ? "話しかけてね" : display == Display::prompt ? "どうぞ" : nullptr;
 }
 enum class Route { fallback, suppress, matched };
+inline bool show_koeact(bool decoded, bool accepted, bool by_button) { return by_button || !decoded || accepted; }
 inline Route route(const home_match::Result &match, const char *kana, Target target) {
     const Result result = decide(match, kana, target);
     if (result.accepted) return Route::matched;
@@ -49,6 +50,8 @@ public:
         target_ = target; deadline_ = listening_start + int64_t(kWaitSeconds) * sample_rate;
     }
     void clear() { target_ = Target::none; }
+    void command_begin(Target target) { if (target != Target::none && target != Target::tv) clear(); }
+    void command_sent(Target target, bool sent, int64_t now, int rate) { if (target == Target::tv && sent) arm(target, now, rate); }
 private:
     Target target_ = Target::none;
     int64_t deadline_ = 0;

@@ -68,6 +68,21 @@ int main() {
     assert(short_result.best && !std::strcmp(short_result.best->text, "さん"));
     assert(voice_control::decide(short_result, "さん", voice_control::Target::tv).accepted);
     assert(short_result.best->kind == int(voice_catalog::Kind::tv_channel) && short_result.best->value == 3);
+    tv_matcher.reset();
+    const char *negative_word = "つけないで";
+    while (*negative_word) {
+        size_t best = 0, length = 0;
+        for (size_t i = 2; i < vocab_count; ++i) {
+            const size_t n = std::strlen(full_vocab[i]);
+            if (n > length && std::strncmp(negative_word, full_vocab[i], n) == 0) { best = i; length = n; }
+        }
+        assert(best);
+        std::vector<float> logits(vocab_count, -8.0f); logits[best] = 5.0f;
+        tv_matcher.feed(logits.data(), vocab_count, 1.0f); negative_word += length;
+    }
+    const auto negative_result = tv_matcher.result();
+    assert(negative_result.best && negative_result.best->negative);
+    assert(voice_control::route(negative_result, "つけないで", voice_control::Target::tv) == voice_control::Route::suppress);
     const char *vocab[] = {"<blank>", "<unk>", "あ", "い"};
     const home_match::Phrase phrases[] = {{"あい", false}, {"ああ", true}};
     const size_t bytes = home_match::Matcher::bytes(phrases, 2, vocab, 4);
