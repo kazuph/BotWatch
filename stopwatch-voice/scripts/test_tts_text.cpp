@@ -29,6 +29,14 @@ int main() {
         check("みぎを" + std::to_string(n) + "ど見たよ");
     }
     check("テレビをつけたよ"); check("にっこり"); check("ラベルをいんさつするよ");
+    auto check_save_failure = [&](const std::string &s) {
+        const std::string caption = s + "、ほぞんできなかったよ";
+        float gain = 0;
+        assert(tts::intermediate(caption.c_str(), kana.data(), kana.size(), &gain) && gain > 0);
+        check(caption);
+    };
+    for (const char *s : {"冷房にしたよ", "暖房にしたよ", "ドライにしたよ"}) check_save_failure(s);
+    for (int n = 16; n <= 31; ++n) check_save_failure(std::to_string(n) + "℃にしたよ");
     assert(!tts::intermediate("未対応の文", kana.data(), kana.size()));
     assert(!tts::intermediate("にっこり", kana.data(), 2));
     printf("TTS_TEXT PASS cases=%d unsupported_and_overflow=2 kana_capacity=%zu\n", tested, kana.size());
