@@ -1,21 +1,21 @@
 #include "talk_commands.h"
+#include "voice_catalog.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 
 int main()
 {
-    for(const auto &reply:talk::kReplies) {
-        assert(std::strcmp(talk::parse(reply.word),reply.caption)==0);
-        assert(talk::parse(std::string(reply.word)+"だよね"));
-        assert(!talk::parse(std::string(reply.word)+"なんだけど"));
-        assert(!talk::parse(std::string(reply.word)+"ない"));
-        assert(!talk::parse("きょうは"+std::string(reply.word)));
+    for(size_t i=0;i<sizeof(talk::kReplies)/sizeof(talk::kReplies[0]);++i) {
+        const auto &reply=talk::kReplies[i]; bool found=false;
+        for(const auto &phrase:voice_catalog::k_idle)
+            if(!std::strcmp(phrase.text,reply.word) && phrase.kind==int(voice_catalog::Kind::talk) && phrase.value==int(i)) found=true;
+        assert(found && reply.caption && *reply.caption);
     }
-    for(const char *text:{"げんきがない","かわいくない","ありがとうじゃない","おはようと言わないで",
-            "おなかすいたけどまだたべられない","てれびをつけて","えあこんをけして",
-            "らべるをいんさつして","ちゃんぷして","みんなあつまって","はいけいをくろにして",
-            "みぎをむいて","わらって","おんりょうをごじゅーにして"}) assert(!talk::parse(text));
-    assert(talk::parse("おやすみなさい"));
-    std::puts("PASS talk=14 synonym=1 prefix_suffix_boundary=3 negatives=1 conversation=1 existing_commands=1");
+    for(const char *negative:{"げんきがない","かわいくない","ありがとうじゃない"}) {
+        bool found=false;
+        for(const auto &phrase:voice_catalog::k_idle) if(!std::strcmp(phrase.text,negative) && phrase.negative) found=true;
+        assert(found);
+    }
+    std::puts("PASS talk replies and negative candidate mappings");
 }

@@ -31,21 +31,4 @@ constexpr Reply kReplies[]={
     {"なまえわ", "ボットウォッチだよ"},
     {"わたね", "またね"},
 };
-inline size_t characters(std::string_view text)
-{
-    size_t count=0;
-    for(unsigned char c:text) if((c&0xc0)!=0x80) ++count;
-    return count;
-}
-inline const char *parse(const std::string &kana)
-{
-    // TALK-BRIEF: only a leading greeting with at most three following characters.
-    constexpr size_t kSuffixCharacters=3;
-    for(const char *negative:{"ない","ません","なくて"})
-        if(kana.find(negative)!=std::string::npos) return nullptr;
-    for(const auto &reply:kReplies)
-        if(kana.compare(0,std::strlen(reply.word),reply.word)==0
-           && characters(kana)<=characters(reply.word)+kSuffixCharacters) return reply.caption;
-    return nullptr;
-}
 }

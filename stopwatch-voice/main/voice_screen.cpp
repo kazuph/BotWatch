@@ -869,7 +869,6 @@ void draw_avatar()
         use_font(32);
         for(int baseline:{kCaptionBaseline-2*kCaptionStep,kDetailBaseline-2*kCaptionStep,kCaptionBaseline,kDetailBaseline})
             clear(0,baseline+origin()-font(32).ascent-kScale,width,canvas.fontHeight()+2*kScale);
-        clear(233+origin()-100,390,200,10);
     }
     const auto drawing=characters::draw(canvas, character_avatar,character_view,character_background_invalid);
     character_background_invalid=false;
@@ -879,10 +878,6 @@ void draw_avatar()
     const uint16_t ink = a.background==0 ? TFT_WHITE : kInk;
     draw_caption(character_caption,character_text[0],ink,!character_kana.empty());
     draw_caption(character_kana,character_text[1],ink,true);
-    if(a.gauge>=0) {
-        canvas.fillRoundRect(cx-100,390,200,10,5,kOutline);
-        canvas.fillRoundRect(cx-100,390,std::max(10,200*std::min(a.gauge,100)/100),10,5,kOlive);
-    }
     present(started,drawing);
 }
 void animation_loop(void *)
@@ -1049,6 +1044,40 @@ void home_panel(const Tile *tiles, int count, int focus, const std::string &capt
     present();
 }
 
+void ir_prompt(const char *line1, const char *line2, const char *line3, const char *line4)
+{
+    Lock lock; background();
+    use_font(56);
+    const char *lines[] = {line1, line2, line3, line4};
+    for (int i = 0; i < 4; ++i) {
+        const int baseline = 152 + i * 60;
+        printf("IR_LAYOUT line=%d width=%d baseline=%d ascent=%d\n", i, int(canvas.textWidth(lines[i])), baseline, font(56).ascent);
+        text_at(lines[i], 56, 233, baseline, kInk);
+    }
+    fflush(stdout);
+    present();
+}
+
+void ir_monitor(unsigned count, bool decoded, uint32_t code, unsigned edges)
+{
+    Lock lock; background();
+    char top[48], bottom[48];
+    std::snprintf(top, sizeof(top), "%u", count);
+    if (decoded) std::snprintf(bottom, sizeof(bottom), "%08lX", static_cast<unsigned long>(code));
+    else std::snprintf(bottom, sizeof(bottom), "%u EDGE", edges);
+    text_at(top, 56, 233, 190, kInk);
+    text_at(bottom, 32, 233, 270, kInk);
+    present();
+}
+
+void ir_candidate(const char *name, bool success)
+{
+    Lock lock; background();
+    text_at(name, 24, 233, 220, kInk);
+    text_at(success ? "おくったよ" : "できなかったよ", 24, 233, 280, kInk);
+    present();
+}
+
 void voice_prompt(const char *line1, const char *line2, const std::string &heard)
 {
     Lock lock;normal_screen=NormalScreen::voice_prompt;character_caption=line1;character_kana=line2;source=heard; background(); roles("", "やめる");
@@ -1078,9 +1107,9 @@ void voice_confirm(const uint8_t *bits, int rows, const std::string &text)
 namespace {
 constexpr const char *app_names[][2] = {
     {"はなしかけ", ""}, {"いんさつ", ""}, {"チューナー", ""}, {"おとのなみ", ""},
-    {"みみゲーム", ""}, {"ストップ", "ウォッチ"}, {"ポモドーロ", ""}, {"とけい", ""}, {"むせん", ""}
+    {"みみゲーム", ""}, {"ストップ", "ウォッチ"}, {"ポモドーロ", ""}, {"とけい", ""}, {"むせん", ""}, {"リモコン", ""}
 };
-constexpr int app_radius=145, app_button_radius=48;
+constexpr int app_radius=145, app_button_radius=44;
 void app_position(int index, int rotation, int &x, int &y) {
     const double angle=(index-rotation)*2*M_PI/std::size(app_names)-M_PI/2;
     x=233+std::lround(app_radius*std::cos(angle));
@@ -1143,6 +1172,18 @@ void end_overlay() {
     printf("APP_OVERLAY_RESTORE path=%s screen=%d\n",stored?"snapshot":"redraw",int(normal_screen));
 }
 int app_count() {return std::size(app_names);}
+void app_ir_learning(int index, bool waiting, const char *status) {
+    static const char *const first[] = {"テレビ", "テレビ", "電気", "電気", "電気", "電気", "電気"};
+    static const char *const second[] = {"地上波", "BS/CS", "オン", "オフ", "オレンジ", "保安灯", "白"};
+    if (index < 0 || index >= int(std::size(first))) return;
+    Lock lock; background(); roles("", "");
+    text_at(first[index], 56, 233, 172, kInk);
+    text_at(second[index], 56, 233, 240, kInk);
+    text_at(waiting ? "ボタンをおしてね" : "よこスワイプでえらぶ", 24, 233, 320, kInk);
+    text_at(waiting ? "Bでやめる" : "タップでうけとる", 24, 233, 360, kSub);
+    if (status && status[0]) text_at(status, 24, 233, 404, kOlive);
+    present();
+}
 void app_radio(const char *state,int volume) {
     Lock lock;background();roles("", "");
     text_at("むせん",24,233,95,kOlive);text_at(state,24,233,210,kInk);

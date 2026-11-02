@@ -13,6 +13,7 @@ import sys
 import time
 
 LOCK = "/tmp/stopwatch-usbmodem.lock"
+STOPWATCH_PORT = "/dev/cu.usbmodem1101"
 
 
 def main():
@@ -37,7 +38,9 @@ def main():
         handle.truncate()
         handle.write(f"pid={os.getpid()} cwd={os.getcwd()} since={time.strftime('%H:%M:%S')}\n")
         handle.flush()
-        sys.exit(subprocess.run(command).returncode)
+        env = os.environ.copy()
+        env["STOPWATCH_PORT"] = STOPWATCH_PORT
+        sys.exit(subprocess.run(command, env=env).returncode)
 
 
 if __name__ == "__main__":

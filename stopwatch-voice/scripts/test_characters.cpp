@@ -3,8 +3,10 @@
 #include "character_motion.h"
 #include "character_commands.h"
 #include "character_cloud.h"
+#include "voice_catalog.h"
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 
 int main()
 {
@@ -36,7 +38,15 @@ int main()
         {"みんなしゅーごーがすき",Command::none},{"うしろをむいた",Command::none},
         {"はいけいをくろにしてみたい",Command::none},{"じゃんぷしてね",Command::jump},
     };
-    for(const auto &c:commands) assert(parse(c.kana)==c.command);
+    for(const auto &c:commands) {
+        bool found=false;
+        for(const auto &phrase:voice_catalog::k_idle)
+            if(!std::strcmp(phrase.text,c.kana) && phrase.kind==int(voice_catalog::Kind::character) && phrase.value==int(c.command)) found=true;
+        if (c.command == Command::none) {
+            for(const auto &phrase:voice_catalog::k_idle)
+                assert(std::strcmp(phrase.text,c.kana) || phrase.kind!=int(voice_catalog::Kind::character));
+        } else assert(found);
+    }
     const double initial=0,target=1,dt=.02;
     double repeated=initial;
     for(int i=0;i<50;++i) repeated=follow(repeated,target,dt);

@@ -57,7 +57,6 @@ struct Avatar {
     bool eyes_closed = false;
     bool ring = false;              // the "light" around the bezel
     uint32_t ring_rgb = 0;
-    int gauge = -1;                 // 0..100 shown under the caption, -1 for none
     bool back = false;
     characters::Move move = characters::Move::rest;
     unsigned movement = 0;          // a new command restarts its timeline
@@ -77,6 +76,10 @@ void mode_switching(const char *next_mode);
 
 // Voice printing (kana mode entered from the action mode by voice).
 void voice_prompt(const char *line1, const char *line2, const std::string &heard);
+void ir_prompt(const char *line1, const char *line2, const char *line3, const char *line4);
+void ir_candidate(const char *name, bool success);
+void ir_monitor(unsigned count, bool decoded, uint32_t code, unsigned edges);
+void app_ir_learning(int index, bool waiting, const char *status);
 void voice_confirm(const uint8_t *bits, int rows, const std::string &text);
 
 // Action mode's home panel (TV, air conditioner, room light). Text comes from home.cpp so the

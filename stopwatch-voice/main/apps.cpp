@@ -12,6 +12,7 @@
 #include "pomodoro.h"
 #include "app_stopwatch.h"
 #include "app_volume.h"
+#include "ir_home.h"
 #include <ctime>
 #include <atomic>
 #include <M5Unified.h>
@@ -131,6 +132,7 @@ int run(StreamBufferHandle_t serial, const std::function<bool(uint8_t *, int)> &
     m5::rtc_datetime_t clock_value;
     int64_t last_time_view=-1;
     int rotation=0,current=-1,calibration=tuner::calibrationDefaultHz;
+    int learn_index=0; bool learn_waiting=false; const char *learn_status="";
     uint8_t japanese=1;
     int32_t ear_volume=80; // Original Hal::getSpeakerVolume default.
     nvs_handle_t audio_settings;
@@ -194,6 +196,7 @@ int run(StreamBufferHandle_t serial, const std::function<bool(uint8_t *, int)> &
         else if(current==3)voice_screen::app_spectrum(spectrum,peakHz);
         else if(current==4)voice_screen::app_ear(question,feedback,ear_volume);
         else if(current==8)voice_screen::app_radio(radio_app::status(),ear_volume);
+        else if(current==9)voice_screen::app_ir_learning(learn_index,learn_waiting,learn_status);
         else if(current==5) {
             const auto &laps=stopwatch.laps();std::string detail="ラップなし";
             if(!laps.empty()){lap_index=std::min(lap_index,laps.size()-1);detail="ラップ "+std::to_string(lap_index+1)+"/"+std::to_string(laps.size())+" "+elapsed_text(laps[lap_index]);}
@@ -211,6 +214,7 @@ int run(StreamBufferHandle_t serial, const std::function<bool(uint8_t *, int)> &
         }
     };
     auto leave=[&] {
+        if(current==9 && learn_waiting) { ir_home::skip_session(); learn_waiting=false; }
         if(current==8)radio_app::stop();
         const size_t before_bytes=audio_capture.ring.bytes()+window.bytes()+tracker.bytes()+fft_workspace.bytes()+playback[0].bytes()+playback[1].bytes()+playback[2].bytes();
         tones.stop();earFrames=0;stop_audio();recording=false;
@@ -338,6 +342,22 @@ int run(StreamBufferHandle_t serial, const std::function<bool(uint8_t *, int)> &
         }
         if(current==8 && M5.BtnA.wasPressed()){ear_volume=transceiver::volume::nextPreset(ear_volume);M5.Speaker.setVolume(ear_volume*255/100);draw();}
         if(current==8 && radio_app::update(M5.BtnB.isPressed(),ear_volume))draw();
+        if(current==9) {
+            if (learn_waiting && M5.BtnB.wasPressed()) ir_home::skip_session();
+            if (learn_waiting && !ir_home::session_active()) {
+                const bool saved = ir_home::save_session(static_cast<ir_home::Learned>(learn_index));
+                if (saved && !tts::is_muted() && M5.Speaker.begin()) M5.Speaker.tone(2000, 100);
+                learn_waiting = false; learn_status = saved ? "おぼえたよ" : "できなかったよ"; draw();
+            } else if (!learn_waiting && (event.kind==characters::TouchKind::swipe_left || event.kind==characters::TouchKind::swipe_right)) {
+                learn_index = (learn_index + (event.kind==characters::TouchKind::swipe_left ? 1 : 6)) % 7;
+                learn_status = ""; draw();
+            } else if (!learn_waiting && event.kind==characters::TouchKind::tap) {
+                if (ir_home::session_active()) { learn_status="まってね"; draw(); }
+                else { learn_status=""; ir_home::receive_session(); learn_waiting=ir_home::session_active();
+                       if(!learn_waiting)learn_status="できなかったよ";
+                       draw(); }
+            }
+        }
         if(current==4 && M5.BtnA.wasPressed()){change_volume();draw();}
         if(current==4 && M5.BtnB.wasPressed()){play();}
         if(current==4 && earFrame<earFrames && M5.Speaker.isPlaying(0)<2) {

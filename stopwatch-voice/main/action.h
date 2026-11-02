@@ -2,6 +2,7 @@
 // KoeAct-JP Action JSON on the StopWatch: the decoder's piece ids become the JSON of the 11-tool
 // schema v1, and each call moves the on-screen character (the board has no motors or LED).
 #include <string>
+#include "character_commands.h"
 
 namespace action {
 using Speaker = void (*)(const char *caption);
@@ -19,7 +20,7 @@ void reset();
 // Play the Action JSON (an array of calls) on the character; `kana` is what the model heard.
 // Returns the number of calls played, 0 for "[]" or a rejected utterance, -1 for unreadable JSON.
 int perform(const std::string &json, const std::string &kana, bool accepted);
-// Extra kana commands absent from KoeAct's fixed tool schema (like home::parse).
-bool perform_extra(const std::string &kana);
-bool perform_talk(const std::string &kana);
+// Extra commands absent from KoeAct's fixed tool schema, selected by CTC matching.
+bool perform_extra(characters::Command command, const std::string &kana);
+bool perform_talk(const char *caption, const std::string &kana);
 }
