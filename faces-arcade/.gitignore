@@ -1,0 +1,4 @@
+.pio/
+kana_voice.bin
+saanotts.bin
+tools/gen_kana
