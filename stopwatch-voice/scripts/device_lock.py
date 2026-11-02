@@ -13,7 +13,7 @@ import sys
 import time
 
 LOCK = "/tmp/stopwatch-usbmodem.lock"
-STOPWATCH_PORT = "/dev/cu.usbmodem11101"
+STOPWATCH_PORT = "/dev/cu.usbmodem1101"
 
 
 def main():
