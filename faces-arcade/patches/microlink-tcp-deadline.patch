@@ -2,22 +2,13 @@ diff --git a/components/microlink/src/ml_tcp.c b/components/microlink/src/ml_tcp
 index e65d72d..ea4f63b 100644
 --- a/components/microlink/src/ml_tcp.c
 +++ b/components/microlink/src/ml_tcp.c
-@@ -66,8 +66,9 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
-     bool tunnel_up = ml_wg_mgr_peer_is_up(ml, dest_ip);
- 
-     while (!tunnel_up && wait_ms < max_wait) {
+@@ -69,2 +69,3 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
 -        vTaskDelay(pdMS_TO_TICKS(500));
 -        wait_ms += 500;
 +        uint32_t step_ms = max_wait - wait_ms < 500 ? max_wait - wait_ms : 500;
 +        vTaskDelay(pdMS_TO_TICKS(step_ms));
 +        wait_ms += step_ms;
- 
-         tunnel_up = ml_wg_mgr_peer_is_up(ml, dest_ip);
- 
-@@ -83,8 +84,13 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
-     if (tunnel_up) {
-         ESP_LOGI(TAG, "WG tunnel up after %lums", (unsigned long)wait_ms);
-     } else {
+@@ -86,2 +87,7 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
 -        ESP_LOGW(TAG, "WG tunnel not up after %lums, attempting connect anyway",
 -                 (unsigned long)max_wait);
 +        ESP_LOGW(TAG, "WG tunnel not up after %lums", (unsigned long)max_wait);
@@ -27,22 +18,10 @@ index e65d72d..ea4f63b 100644
 +    if (wait_ms >= max_wait) {
 +        errno = ETIMEDOUT;
 +        return NULL;
-     }
- 
-     /* Create TCP socket */
-@@ -113,7 +119,7 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
-     }
- 
-     /* Set connect/send timeout */
+@@ -116 +122 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
 -    uint32_t remaining = (timeout_ms > wait_ms) ? (timeout_ms - wait_ms) : 10000;
 +    uint32_t remaining = max_wait - wait_ms;
-     struct timeval tv = {
-         .tv_sec = remaining / 1000,
-         .tv_usec = (remaining % 1000) * 1000,
-@@ -152,41 +158,9 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
-         int err = errno;
-         ESP_LOGE(TAG, "connect() to %s:%u failed: errno=%d", ip_str, dest_port, err);
- 
+@@ -155,35 +161,3 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
 -        /* If tunnel wasn't ready, retry once after triggering handshake again */
 -        if (err == EHOSTUNREACH || err == ENETUNREACH || err == ETIMEDOUT) {
 -            close(fd);
@@ -81,17 +60,8 @@ index e65d72d..ea4f63b 100644
 +        close(fd);
 +        errno = err;
 +        return NULL;
-     }
- 
-     int64_t t_end = esp_timer_get_time();
-@@ -216,10 +190,6 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
-     while (sent < len) {
-         int n = send(sock->fd, (const uint8_t *)data + sent, len - sent, 0);
-         if (n <= 0) {
+@@ -219,4 +192,0 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
 -            if (errno == EAGAIN || errno == EWOULDBLOCK) {
 -                vTaskDelay(pdMS_TO_TICKS(10));
 -                continue;
 -            }
-             ESP_LOGE(TAG, "TCP send failed: n=%d errno=%d (sent %d/%d)",
-                      n, errno, (int)sent, (int)len);
-             sock->connected = false;
