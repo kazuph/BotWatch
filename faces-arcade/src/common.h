@@ -3,6 +3,9 @@
 #pragma once
 #include <M5Unified.h>
 #include <M5Faces.h>
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "arcade_led.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -88,3 +91,6 @@ extern const Game kSpectrum;
 extern const Game kBlockDrop;
 extern const Game kSnake;
 extern const Game kFlappy;
+#if CONFIG_IDF_TARGET_ESP32S3
+extern const Game kCamera;
+#endif

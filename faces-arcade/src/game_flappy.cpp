@@ -23,6 +23,9 @@ const uint16_t kSky[6] = {rgb(70, 170, 235), rgb(90, 185, 240), rgb(115, 200, 24
 int randomGap() { return arcadeRandom(36, kPlayH - kGap - 30); }
 
 void resetRound() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
     birdY = kPlayH / 2 - 10;
     birdV = 0;
     score = 0;
@@ -119,6 +122,9 @@ void render() {
 }
 
 void gameOver() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::show(arcade_led::Color::red);
+#endif
     state  = OVER;
     overAt = lgfx::millis();
     const bool best = submitScore(kKey, score);
@@ -155,6 +161,9 @@ void stepPlay() {
         if (!pipeScored[i] && pipeX[i] + kPipeW < bx0) {
             pipeScored[i] = true;
             ++score;
+#if CONFIG_IDF_TARGET_ESP32S3
+            arcade_led::show(arcade_led::Color::green);
+#endif
             printf("FLAPPY score=%d\n", score);
         }
     }

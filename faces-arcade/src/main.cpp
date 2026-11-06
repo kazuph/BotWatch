@@ -8,8 +8,16 @@
 #if CONFIG_IDF_TARGET_ESP32S3
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
+#else
+#include "driver/uart.h"
+#include "driver/uart_vfs.h"
 #endif
 #include "common.h"
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "photo_storage.h"
+#include "network_serial.h"
+#include "network_settings.h"
+#endif
 
 namespace {
 M5Faces_Gamepad3 gamepad;
@@ -18,7 +26,11 @@ uint8_t pad_injected   = 0;  // set over serial for self tests
 bool tap_injected      = false;
 int injected_x = 0, injected_y = 0;
 
-const Game* const kGames[] = {&kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy};
+const Game* const kGames[] = {&kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy
+#if CONFIG_IDF_TARGET_ESP32S3
+    , &kCamera
+#endif
+};
 const int kGameCount       = sizeof(kGames) / sizeof(kGames[0]);
 const int kVisible         = 4;
 int cursor                 = 0;
@@ -93,7 +105,11 @@ void menuEnter() {
 
 void openCursor() {
     running = kGames[cursor];
-    printf("GAMES play=%s\n", running->scoreKey ? running->scoreKey : "spectrum");
+    const char* name = running->scoreKey ? running->scoreKey : "spectrum";
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (running == &kCamera) name = "camera";
+#endif
+    printf("GAMES play=%s\n", name);
     running->enter();
 }
 
@@ -138,14 +154,20 @@ void sendScreenshot() {
     for (int y = 0; y < 240; ++y) {
         M5.Display.readRectRGB(0, y, 320, 1, row);
         fwrite(row, 1, sizeof(row), stdout);
+        vTaskDelay(1);
     }
     puts("\nENDSHOT");
     fflush(stdout);
 }
 
 void handleSerial() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    static char line[1 + sizeof(network_settings::Credentials::ssid) + sizeof(network_settings::Credentials::password) + 1];
+#else
     static char line[10];
-    static int len = 0;
+#endif
+    static size_t len = 0;
+    static bool overflow = false;
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(STDIN_FILENO, &readfds);
@@ -153,14 +175,36 @@ void handleSerial() {
     while (select(STDIN_FILENO + 1, &readfds, nullptr, nullptr, &timeout) > 0) {
         char c;
         if (read(STDIN_FILENO, &c, 1) != 1) break;
+        if (c == '\r') continue;
         if (c != '\n') {
-            if (len < 9) line[len++] = c;
+            if (len + 1 < sizeof(line) && !overflow) line[len++] = c;
+            else overflow = true;
+            continue;
+        }
+        if (overflow) {
+#if CONFIG_IDF_TARGET_ESP32S3
+            network_settings::wipe(line, sizeof(line));
+#else
+            memset(line, 0, sizeof(line));
+#endif
+            len = 0;
+            overflow = false;
+            puts("入力が長すぎます");
             continue;
         }
         line[len] = 0;
-        len       = 0;
+        len = 0;
+#if CONFIG_IDF_TARGET_ESP32S3
+        network_serial_command(line);
+#endif
         if (line[0] == 'p') pad_injected = strtoul(line + 1, nullptr, 16);
         if (line[0] == 's') sendScreenshot();
+#if CONFIG_IDF_TARGET_ESP32S3
+        if (line[0] == 'j') {
+            char error[80];
+            if (!photo_storage::send_latest(error, sizeof(error))) printf("JPEG error: %s\n", error);
+        }
+#endif
         if (line[0] == 'f') test_tone_hz = atoi(line + 1);
         if (line[0] == 'l') test_mic_left = line[1] == '1';
         if (line[0] == 'r') {  // clears scores left behind by a self test
@@ -172,6 +216,11 @@ void handleSerial() {
             test_mute = line[1] == '1';
             M5.Speaker.setVolume(test_mute ? 0 : 200);
         }
+#if CONFIG_IDF_TARGET_ESP32S3
+        network_settings::wipe(line, sizeof(line));
+#else
+        memset(line, 0, sizeof(line));
+#endif
     }
 }
 }  // namespace
@@ -226,10 +275,24 @@ void setup() {
     usb_serial_jtag_driver_config_t serial = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(usb_serial_jtag_driver_install(&serial));
     usb_serial_jtag_vfs_use_driver();
+    usb_serial_jtag_vfs_set_tx_line_endings(ESP_LINE_ENDINGS_LF);
+#else
+    constexpr uart_port_t console = static_cast<uart_port_t>(CONFIG_ESP_CONSOLE_UART_NUM);
+    ESP_ERROR_CHECK(uart_driver_install(console, 2048, 2048, 0, nullptr, 0));
+    ESP_ERROR_CHECK(uart_set_baudrate(console, 460800));
+    uart_vfs_dev_use_driver(console);
+    uart_vfs_dev_port_set_tx_line_endings(console, ESP_LINE_ENDINGS_LF);
 #endif
     setvbuf(stdout, nullptr, _IONBF, 0);
     M5.Display.setBrightness(180);
     M5.Display.fillScreen(pal::kBg);
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (M5.getBoard() == m5::board_t::board_M5StackCoreS3 ||
+        M5.getBoard() == m5::board_t::board_M5StackCoreS3SE) {
+        esp_err_t led_result = arcade_led::begin();
+        if (led_result != ESP_OK) printf("LED init=%s\n", esp_err_to_name(led_result));
+    }
+#endif
     esp_err_t nvs = nvs_flash_init();
     if (nvs == ESP_OK) nvs = nvs_open("arcade", NVS_READWRITE, &prefs);
     if (nvs != ESP_OK) printf("GAMES nvs=%s\n", esp_err_to_name(nvs));
@@ -253,6 +316,9 @@ void loop() {
     } else if (pad_exit || request_menu) {
         request_menu = false;
         if (running->leave) running->leave();
+#if CONFIG_IDF_TARGET_ESP32S3
+        arcade_led::clear();
+#endif
         running = nullptr;
         menuEnter();
     } else {

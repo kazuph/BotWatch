@@ -2,4 +2,4 @@
 # Preserve the Core2 PlatformIO huge_app NVS and OTA-data locations.
 nvs, data, nvs, 0x9000, 0x5000,
 otadata, data, ota, 0xe000, 0x2000,
-factory, app, factory, 0x10000, 0x600000,
+factory, app, factory, 0x10000, 0xff0000,

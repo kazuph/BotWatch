@@ -1,0 +1,12 @@
+menu "FACES ARCADE"
+    config FACES_DESCRIPTION_HOST
+        string "Photo description server address"
+        default "100.80.152.112"
+    config FACES_DESCRIPTION_PORT
+        int "Photo description server port"
+        range 0 65535
+        default 8193
+    config FACES_DESCRIPTION_MODEL
+        string "Photo description model"
+        default "vision"
+endmenu

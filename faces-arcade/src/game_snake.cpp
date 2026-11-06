@@ -92,6 +92,9 @@ void drawAll() {
 }
 
 void startGame() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
     score    = 0;
     length   = 3;
     headIdx  = 2;
@@ -112,6 +115,9 @@ void startGame() {
 }
 
 void gameOver() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::show(arcade_led::Color::red);
+#endif
     state   = OVER;
     overAt  = lgfx::millis();
     const bool best = submitScore(kKey, score);
@@ -156,6 +162,9 @@ void step() {
     if (eating) {
         ++length;
         ++score;
+#if CONFIG_IDF_TARGET_ESP32S3
+        arcade_led::show(arcade_led::Color::green);
+#endif
         drawHud();
         printf("SNAKE score=%d\n", score);
         placeApple();

@@ -135,6 +135,14 @@ void analyze(const int16_t* samples) {
     }
     const float hz  = binPos * kRate / kN;
     const bool loud = peakMag / kN > 60.0f;
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!loud) arcade_led::clear();
+    else {
+        const float midi = 69 + 12 * log2f(hz / 440.0f);
+        const int cents = int(lroundf((midi - lroundf(midi)) * 100));
+        arcade_led::green_level(static_cast<uint8_t>(64 * (50 - std::min(50, abs(cents))) / 50));
+    }
+#endif
     drawReadout(hz, loud);
 
     bars.fillSprite(pal::kBg);

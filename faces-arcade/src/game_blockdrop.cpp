@@ -153,6 +153,9 @@ void drawFrame() {
 }
 
 void gameOver() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::show(arcade_led::Color::red);
+#endif
     state   = OVER;
     overAt  = lgfx::millis();
     newBest = submitScore(kKey, score);
@@ -191,6 +194,9 @@ void lockPiece() {
     if (cleared) {
         static const int kPoints[5] = {0, 100, 300, 500, 800};
         score += kPoints[cleared] * level;
+#if CONFIG_IDF_TARGET_ESP32S3
+        arcade_led::show(arcade_led::Color::green);
+#endif
         lines += cleared;
         level = lines / 10 + 1;
         state = CLEARING;
@@ -238,6 +244,9 @@ void tryRotate(int dir) {
 }
 
 void startGame() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
     memset(board, 0, sizeof(board));
     memset(fullRow, 0, sizeof(fullRow));
     score = lines = 0;
@@ -268,7 +277,13 @@ void tickPlay() {
     if (pad_just & kA) tryRotate(1);
     if (pad_just & kB) tryRotate(-1);
     if (pad_just & kUp) {
+        const int beforeDrop = score;
         while (fits(piece, rot, px, py + 1)) { ++py; score += 2; }
+#if CONFIG_IDF_TARGET_ESP32S3
+        if (score != beforeDrop) arcade_led::show(arcade_led::Color::green);
+#else
+        (void)beforeDrop;
+#endif
         hudDirty = true;
         lockPiece();
         return;
@@ -283,7 +298,12 @@ void tickPlay() {
         if (now - lastFall >= (soft ? 40 : fallMs())) {
             ++py;
             lastFall = now;
-            if (soft) { ++score; hudDirty = true; }
+            if (soft) {
+                ++score; hudDirty = true;
+#if CONFIG_IDF_TARGET_ESP32S3
+                arcade_led::show(arcade_led::Color::green);
+#endif
+            }
             fieldDirty = true;
         }
     }
