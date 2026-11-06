@@ -1,9 +1,10 @@
 // Shows microphone input as frequency: loudest pitch in Hz, its note, and log-spaced bars.
 #include "common.h"
+#include "ui_icons.h"
 
 namespace {
 const int kN = 1024, kRate = 16000;
-const int kBars = 32, kBarsTop = 96, kBarsH = 112;
+const int kBars = 32, kBarsH = 112;
 const int kSlots = 3;
 const float kMinHz = 80, kMaxHz = 8000;
 
@@ -11,12 +12,15 @@ int16_t* rec;           // kSlots * kN samples
 int slot = 0;
 float re[kN], im[kN], win[kN], smooth[kBars];
 M5Canvas bars(&M5.Display);
-int shownHz = -1;
+bool showBands = false;
+float needleCents = 0;
+uint16_t badgeFrom, badgeTo;
+uint32_t badgeAt;
 float testPhase = 0;
 uint32_t lastLog = 0;
 int flatBuffers = 0;
 bool noMicShown = false;
-void drawAxis();
+
 
 void fft() {
     for (int i = 1, j = 0; i < kN; ++i) {
@@ -49,30 +53,80 @@ void fft() {
     }
 }
 
-void drawReadout(float hz, bool loud) {
-    auto& d = M5.Display;
-    const int value = loud ? int(hz + 0.5f) : 0;
-    if (value == shownHz) return;
-    shownHz = value;
-    d.fillRect(0, 0, 320, kBarsTop, pal::kBg);
-    if (!loud) {
-        text(d, "声や音を", 160, 4, pal::kDim, F40, top_center);
-        text(d, "聞かせてね", 160, 50, pal::kDim, F40, top_center);
-        return;
+uint16_t badgeColor(uint16_t target, uint32_t now) {
+    const uint32_t elapsed = min(now - badgeAt, uint32_t(300));
+    const auto mix = [elapsed](int a, int b) { return (a * (300 - elapsed) + b * elapsed) / 300; };
+    const uint16_t current = (mix((badgeFrom >> 11) & 31, (badgeTo >> 11) & 31) << 11) |
+                             (mix((badgeFrom >> 5) & 63, (badgeTo >> 5) & 63) << 5) |
+                             mix(badgeFrom & 31, badgeTo & 31);
+    if (target != badgeTo) {
+        badgeFrom = current;
+        badgeTo = target;
+        badgeAt = now;
     }
-    char b[24];
-    snprintf(b, sizeof(b), "%d", value);
-    text(d, b, 8, 2, pal::kAccent, F40, top_left, 2.0f);
-    const int digitsW = d.textWidth(b, F40) * 2;
-    text(d, "Hz", 8 + digitsW + 4, 44, pal::kDim, F32);
+    return current;
+}
 
-    static const char* const kNames[12] = {"ド", "ド#", "レ", "レ#", "ミ", "ファ", "ファ#", "ソ", "ソ#", "ラ", "ラ#", "シ"};
-    const float midi  = 69 + 12 * log2f(hz / 440.0f);
-    const int nearest = int(lroundf(midi));
-    const int cents   = int(lroundf((midi - nearest) * 100));
-    text(d, kNames[(nearest % 12 + 12) % 12], 312, 2, pal::kCyan, F40, top_right);
-    snprintf(b, sizeof(b), "%+d", cents);
-    text(d, b, 312, 56, abs(cents) <= 10 ? pal::kGreen : pal::kText, F32, top_right);
+void drawReadout(float hz, bool loud) {
+    auto& d = uiFrame;
+    if (showBands) d.fillScreen(rgb(7, 9, 18));
+    else uiRadialBackground(rgb(15, 42, 34), rgb(7, 9, 18));
+    d.fillSmoothRoundRect(6, 6, 134, 32, 16, rgb(30, 75, 53));
+    text(d, showBands ? "周波数の帯" : "チューナー", 73, 10, pal::kGreen, F24, top_center);
+    ui_icon::buttonB(d, 22, showBands ? 58 : 130);
+    text(d, showBands ? "チューナー" : "帯", 42, showBands ? 46 : 118, pal::kText, F24);
+    static const char* const names[12] = {"ド", "ド#", "レ", "レ#", "ミ", "ファ", "ファ#", "ソ", "ソ#", "ラ", "ラ#", "シ"};
+    int nearest = 0, cents = 0;
+    char line[32];
+    if (loud) {
+        const float midi = 69 + 12 * log2f(hz / 440.0f);
+        nearest = int(lroundf(midi));
+        cents = int(lroundf((midi - nearest) * 100));
+        const char* name = names[(nearest % 12 + 12) % 12];
+        if (showBands) snprintf(line, sizeof(line), "%s %dHz", name, int(hz + 0.5f));
+        else snprintf(line, sizeof(line), "%dHz", int(hz + 0.5f));
+        text(d, line, 314, 8, pal::kText, F24, top_right);
+        if (!showBands) {
+            snprintf(line, sizeof(line), "%+d", cents);
+            d.fillSmoothRoundRect(246, 42, 68, 30, 15,
+                                  badgeColor(abs(cents) <= 10 ? pal::kGreen : pal::kDim, lgfx::millis()));
+            text(d, line, 280, 45, rgb(6, 33, 15), F24, top_center);
+            const int noteWidth = int(uiGlyph.textWidth(name, F40) * 1.8f + 0.5f);
+            const int noteCenter = min(152, 226 - noteWidth / 2);
+            uiGlyph.fillSprite(TFT_BLACK);
+            text(uiGlyph, name, 96, 24, pal::kText, F40, middle_center);
+            uiGlyph.pushRotateZoomWithAA(&d, noteCenter, 88, 0, 1.8f, 1.8f, TFT_BLACK);
+            snprintf(line, sizeof(line), "%d", nearest / 12 - 1);
+            text(d, line, noteCenter + noteWidth / 2 + 2, 84, pal::kDim, F32);
+        }
+    } else if (!showBands) {
+        text(d, "声や音を", 160, 46, pal::kDim, F32, top_center);
+        text(d, "聞かせてね", 160, 82, pal::kDim, F32, top_center);
+    }
+    if (showBands) {
+        for (int b = 0; b < kBars; ++b) {
+            const int h = int(smooth[b] * 116);
+            for (int y = 0; y < h; ++y) {
+                const float f = float(y) / 116;
+                d.drawFastHLine(10 + b * 304 / kBars, 199 - y, 7, rgb(31 + int(48 * f), 138 + int(71 * f), 106 + int(149 * f)));
+            }
+        }
+        text(d, "80", 8, 207, pal::kDim, F24);
+        text(d, "800", 160, 207, pal::kDim, F24, top_center);
+        text(d, "8k", 314, 207, pal::kDim, F24, top_right);
+    } else {
+        needleCents += (cents - needleCents) * 0.2f;
+        d.fillArc(160, 236, 108, 92, 180, 360, rgb(29, 42, 64));
+        d.fillArc(160, 236, 108, 92, 252, 288, pal::kGreen);
+        d.fillSmoothCircle(129, 141, 8, pal::kGreen);
+        d.fillSmoothCircle(191, 141, 8, pal::kGreen);
+        const float angle = (180 + (needleCents + 50) * 1.8f) * PI / 180;
+        d.drawLine(160, 236, 160 + int(90 * cosf(angle)), 236 + int(90 * sinf(angle)), pal::kText);
+        d.fillSmoothCircle(160, 236, 9, pal::kText);
+        text(d, "-50", 6, 211, pal::kDim, F24);
+        text(d, "+50", 314, 211, pal::kDim, F24, top_right);
+    }
+    d.pushSprite(0, 0);
 }
 
 void analyze(const int16_t* samples) {
@@ -99,21 +153,17 @@ void analyze(const int16_t* samples) {
     if (flatBuffers >= 8) {
         if (!noMicShown) {
             noMicShown = true;
-            M5.Display.fillScreen(pal::kBg);
-            text(M5.Display, "マイクなし", 160, 30, pal::kRed, F40, top_center);
-            text(M5.Display, "マイクは純正の底に", 160, 96, pal::kText, F24, top_center);
-            text(M5.Display, "入っています", 160, 126, pal::kText, F24, top_center);
-            text(M5.Display, "SELECT:もどる", 160, 186, pal::kDim, F24, top_center);
+            uiFrame.fillScreen(pal::kBg);
+            text(uiFrame, "マイクなし", 160, 30, pal::kRed, F40, top_center);
+            text(uiFrame, "マイクは純正の底に", 160, 96, pal::kText, F24, top_center);
+            text(uiFrame, "入っています", 160, 126, pal::kText, F24, top_center);
+            text(uiFrame, "SELECT:もどる", 160, 186, pal::kDim, F24, top_center);
+            uiFrame.pushSprite(0, 0);
             printf("MIC flat min=%d max=%d\n", lo, hi);
         }
         return;
     }
-    if (noMicShown) {
-        noMicShown = false;
-        shownHz    = -1;
-        M5.Display.fillScreen(pal::kBg);
-        drawAxis();
-    }
+    if (noMicShown) noMicShown = false;
     fft();
     // Peak search above the room-rumble range.
     const int firstBin = int(kMinHz * kN / kRate);
@@ -143,9 +193,7 @@ void analyze(const int16_t* samples) {
         arcade_led::green_level(static_cast<uint8_t>(64 * (50 - std::min(50, abs(cents))) / 50));
     }
 #endif
-    drawReadout(hz, loud);
 
-    bars.fillSprite(pal::kBg);
     for (int b = 0; b < kBars; ++b) {
         const float f0 = kMinHz * powf(kMaxHz / kMinHz, float(b) / kBars);
         const float f1 = kMinHz * powf(kMaxHz / kMinHz, float(b + 1) / kBars);
@@ -157,11 +205,8 @@ void analyze(const int16_t* samples) {
         float level = (20.0f * log10f(m / kN + 1.0f)) / 60.0f;
         level       = std::clamp(level, 0.0f, 1.0f);
         smooth[b]   = max(level, smooth[b] * 0.82f);
-        const int h = int(smooth[b] * kBarsH);
-        const uint16_t c = smooth[b] > 0.75f ? pal::kRed : smooth[b] > 0.5f ? pal::kAccent : pal::kCyan;
-        bars.fillRect(b * 10, kBarsH - h, 9, h, c);
     }
-    bars.pushSprite(0, kBarsTop);
+    drawReadout(hz, loud);
 
     if (lgfx::millis() - lastLog > 500) {
         lastLog = lgfx::millis();
@@ -177,18 +222,6 @@ void analyze(const int16_t* samples) {
     }
 }
 
-void drawAxis() {
-    auto& d = M5.Display;
-    d.fillRect(0, kBarsTop + kBarsH, 320, 240 - kBarsTop - kBarsH, pal::kPanel);
-    const auto label = [&](const char* s, float hz, textdatum_t datum) {
-        const int x = int(320 * log10f(hz / kMinHz) / log10f(kMaxHz / kMinHz));
-        text(d, s, x, kBarsTop + kBarsH + 4, pal::kText, F24, datum);
-    };
-    label("100", 100, top_left);
-    label("1k", 1000, top_center);
-    label("8k", kMaxHz, top_right);
-}
-
 void enter() {
     if (!rec) {
         rec = static_cast<int16_t*>(heap_caps_malloc(sizeof(int16_t) * kN * kSlots, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL));
@@ -200,7 +233,10 @@ void enter() {
     if (rec) memset(rec, 0, sizeof(int16_t) * kN * kSlots);
     flatBuffers = 0;
     noMicShown  = false;
-    shownHz = -1;
+    showBands = false;
+    needleCents = 0;
+    badgeFrom = badgeTo = pal::kDim;
+    badgeAt = lgfx::millis();
     M5.Speaker.end();
     auto cfg            = M5.Mic.config();
     cfg.sample_rate     = kRate;
@@ -208,17 +244,19 @@ void enter() {
     if (M5.getBoard() == m5::board_t::board_M5StackCore2) cfg.left_channel = test_mic_left;
     M5.Mic.config(cfg);
     const bool ok = rec && M5.Mic.begin();
-    M5.Display.fillScreen(pal::kBg);
+    uiFrame.fillScreen(pal::kBg);
     printf("MIC begin=%d\n", ok);
     if (!ok) {
-        text(M5.Display, "マイクが使えません", 160, 100, pal::kRed, F32, top_center);
+        text(uiFrame, "マイクが使えません", 160, 100, pal::kRed, F32, top_center);
+        uiFrame.pushSprite(0, 0);
         return;
     }
-    drawAxis();
+    drawReadout(0, false);
     slot = 0;
 }
 
 void tick() {
+    if (pad_just & kB) showBands = !showBands;
     if (!M5.Mic.isEnabled()) return;
     if (M5.Mic.isRecording() >= 2) return;
     if (!M5.Mic.record(&rec[slot * kN], kN, kRate)) return;
@@ -230,7 +268,7 @@ void tick() {
 void leave() { M5.Mic.end(); }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
     static const int8_t hs[6] = {10, 24, 32, 18, 26, 8};
     for (int i = 0; i < 6; ++i) d.fillRect(x + 3 + i * 6, y + 37 - hs[i], 4, hs[i], i == 2 ? pal::kAccent : pal::kCyan);

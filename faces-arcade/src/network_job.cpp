@@ -28,6 +28,8 @@ constexpr int64_t kDescribeUs = 180LL * 1000000;
 constexpr char kGpuAddress[] = "100.80.152.112";
 constexpr uint16_t kOcrPort = 8016;
 std::atomic<bool> active{false}, cancelled{false};
+std::atomic<bool> link_up{false};
+std::atomic<network_http::Phase> progress{network_http::Phase::connecting};
 std::atomic<uint32_t> visible_deadline_ms{0};
 QueueHandle_t results = nullptr;
 struct Work {
@@ -98,6 +100,7 @@ void do_work(void* argument) {
             vTaskDelay(pdMS_TO_TICKS(100));
         }
         puts("NETWORK tailnet connected");
+        link_up.store(true);
         log_memory("connected");
         if (work->kind == Kind::describe) {
             in_addr address = {};
@@ -127,7 +130,7 @@ void do_work(void* argument) {
         const int64_t duration = work->kind == Kind::ocr ? kOcrUs : kDescribeUs;
         auto response = network_http::request(link.get(), microlink_parse_ip(kGpuAddress), port, "POST", path,
                                               content_type, body, cancelled, connect_deadline, duration,
-                                              &visible_deadline_ms);
+                                              &visible_deadline_ms, &progress, &link_up);
         printf("NETWORK post error=%d status=%u\n", int(response.error), response.status);
         log_memory("post");
         if (response.error != network_http::Error::none) {
@@ -164,6 +167,7 @@ void do_work(void* argument) {
     perform();
     printf("NETWORK finished ok=%d cancelled=%d\n", int(output.ok), int(cancelled.load()));
     link.reset();
+    link_up.store(false);
     network_wifi::stop();
     network_settings::wipe(&credentials, sizeof(credentials));
     free(work->jpeg);
@@ -192,6 +196,7 @@ bool start(Kind kind, uint64_t photo, uint8_t* jpeg, size_t size,
     Result* stale = nullptr;
     while (xQueueReceive(results, &stale, 0) == pdTRUE) delete stale;
     cancelled.store(false);
+    progress.store(network_http::Phase::connecting);
     const int64_t started_us = esp_timer_get_time();
     visible_deadline_ms.store(uint32_t((started_us + kConnectUs) / 1000));
     auto* work = new(std::nothrow) Work{kind, photo, jpeg, size, host ? host : "", port, model ? model : "", started_us};
@@ -203,6 +208,8 @@ bool start(Kind kind, uint64_t photo, uint8_t* jpeg, size_t size,
 }
 void cancel() { cancelled.store(true); }
 bool busy() { return active.load(); }
+network_http::Phase phase() { return progress.load(); }
+bool link_connected() { return link_up.load(); }
 bool expired() {
     return active.load() && int32_t(uint32_t(esp_timer_get_time() / 1000) - visible_deadline_ms.load()) >= 0;
 }

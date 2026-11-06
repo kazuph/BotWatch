@@ -21,9 +21,9 @@ constexpr uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
-#define F24 (&fonts::lgfxJapanGothic_24)
-#define F32 (&fonts::lgfxJapanGothic_32)
-#define F40 (&fonts::lgfxJapanGothic_40)
+#define F24 (&fonts::lgfxJapanGothicP_24)
+#define F32 (&fonts::lgfxJapanGothicP_32)
+#define F40 (&fonts::lgfxJapanGothicP_40)
 
 namespace pal {
 constexpr uint16_t kBg      = rgb(14, 18, 38);
@@ -51,6 +51,11 @@ extern int tap_x, tap_y;
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
 extern bool test_mic_left; // self test: PDM channel used by the microphone
+extern M5Canvas uiFrame;  // Shared 320 x 240 UI frame allocated once in PSRAM.
+extern M5Canvas uiGlyph;  // Small sprite for antialiased enlarged text.
+void darkenRoundRect(int x, int y, int w, int h, int radius);
+void uiGradientCard(int x, int y, int w, int h, int radius, uint16_t top, uint16_t bottom);
+void uiRadialBackground(uint16_t center, uint16_t edge);
 
 int bestScore(const char* key);
 bool submitScore(const char* key, int score);  // true when it is a new best

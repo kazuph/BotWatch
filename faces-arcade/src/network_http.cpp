@@ -19,7 +19,8 @@ Error interrupted(std::atomic<bool>& cancelled, int64_t deadline) {
 Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* method,
                  const std::string& path, const std::string& content_type, const std::string& body,
                  std::atomic<bool>& cancelled, int64_t connect_deadline_us, int64_t request_duration_us,
-                 std::atomic<uint32_t>* visible_deadline_ms) {
+                 std::atomic<uint32_t>* visible_deadline_ms, std::atomic<Phase>* phase,
+                 std::atomic<bool>* link_state) {
     Response result{Error::none, 0, {}};
     result.error = interrupted(cancelled, connect_deadline_us);
     if (result.error != Error::none) return result;
@@ -31,6 +32,7 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
     result.error = interrupted(cancelled, connect_deadline_us);
     if (result.error != Error::none) return result;
     if (!socket) { result.error = connect_errno == ECONNREFUSED ? Error::refused : Error::connect; return result; }
+    if (phase) phase->store(Phase::sending);
     const int64_t request_deadline_us = esp_timer_get_time() + request_duration_us;
     if (visible_deadline_ms) visible_deadline_ms->store(uint32_t(request_deadline_us / 1000));
     char ip[16];
@@ -48,6 +50,7 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
         result.error = Error::send; return result;
     }
     for (size_t offset = 0; offset < body.size();) {
+        if (link_state) link_state->store(microlink_is_connected(ml));
         result.error = interrupted(cancelled, request_deadline_us);
         if (result.error != Error::none) return result;
         const size_t size = std::min(size_t(4096), body.size() - offset);
@@ -56,9 +59,11 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
         }
         offset += size;
     }
+    if (phase) phase->store(Phase::processing);
     HttpResponse response;
     char buffer[2048];
     while (!response.complete()) {
+        if (link_state) link_state->store(microlink_is_connected(ml));
         result.error = interrupted(cancelled, request_deadline_us);
         if (result.error != Error::none) return result;
         const int64_t remaining_us = request_deadline_us - esp_timer_get_time();

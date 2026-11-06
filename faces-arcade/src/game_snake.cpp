@@ -29,7 +29,7 @@ bool onSnake(int x, int y) {
 }
 
 void drawGround(int x, int y) {
-    M5.Display.fillRect(x * kCell, kTop + y * kCell, kCell, kCell, ((x + y) & 1) ? kBoardA : kBoardB);
+    uiFrame.fillRect(x * kCell, kTop + y * kCell, kCell, kCell, ((x + y) & 1) ? kBoardA : kBoardB);
 }
 
 uint16_t bodyColor(int i) {
@@ -38,11 +38,11 @@ uint16_t bodyColor(int i) {
 }
 
 void drawBody(P p, int i) {
-    M5.Display.fillRoundRect(p.x * kCell + 1, kTop + p.y * kCell + 1, kCell - 2, kCell - 2, 4, bodyColor(i));
+    uiFrame.fillRoundRect(p.x * kCell + 1, kTop + p.y * kCell + 1, kCell - 2, kCell - 2, 4, bodyColor(i));
 }
 
 void drawHead() {
-    auto& d       = M5.Display;
+    auto& d       = uiFrame;
     const P p     = at(0);
     const int x   = p.x * kCell, y = kTop + p.y * kCell;
     d.fillRoundRect(x, y, kCell, kCell, 5, rgb(150, 240, 130));
@@ -55,7 +55,7 @@ void drawHead() {
 }
 
 void drawApple() {
-    auto& d     = M5.Display;
+    auto& d     = uiFrame;
     const int x = apple.x * kCell, y = kTop + apple.y * kCell;
     d.fillCircle(x + 8, y + 9, 6, pal::kRed);
     d.fillCircle(x + 6, y + 7, 1, rgb(255, 190, 190));
@@ -72,7 +72,7 @@ void placeApple() {
 }
 
 void drawHud() {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillRect(0, 0, 320, kTop, pal::kPanel);
     d.drawFastHLine(0, kTop - 1, 320, pal::kLine);
     char b[24];
@@ -89,6 +89,7 @@ void drawAll() {
     drawHead();
     drawApple();
     drawHud();
+    uiFrame.pushSprite(0, 0);
 }
 
 void startGame() {
@@ -172,13 +173,14 @@ void step() {
     // Recolor the segments right behind the head; the rest keep a close shade.
     for (int i = min(length - 1, 3); i > 0; --i) drawBody(at(i), i);
     drawHead();
+    drawAll();
 }
 
 uint32_t stepMs() { return max(75, 170 - score * 4); }
 
 void enter() {
     state = TITLE;
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillScreen(kBoardA);
     for (int i = 0; i < 18; ++i) {
         const int x = 16 + i * 15;
@@ -193,6 +195,7 @@ void enter() {
     text(d, "A:はじめる", 160, 128, pal::kText, F32, top_center);
     text(d, "十字キーで動かす", 160, 172, pal::kDim, F24, top_center);
     text(d, "SELECT:もどる", 160, 206, pal::kDim, F24, top_center);
+    uiFrame.pushSprite(0, 0);
 }
 
 void tick() {
@@ -229,7 +232,7 @@ void tick() {
 }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, kBoardA);
     d.fillRoundRect(x + 5, y + 24, 8, 8, 2, bodyColor(6));
     d.fillRoundRect(x + 13, y + 24, 8, 8, 2, bodyColor(4));

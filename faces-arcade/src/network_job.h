@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include "network_http.h"
 namespace network_job {
 enum class Kind { ocr, describe };
 struct Result { uint64_t photo; bool ok; std::string text; };
@@ -12,4 +13,6 @@ void cancel();
 bool busy();
 bool expired();
 bool take(Result& result);
+network_http::Phase phase();
+bool link_connected();
 }

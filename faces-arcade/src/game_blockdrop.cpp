@@ -32,7 +32,7 @@ int score, lines, level, lockMoves;
 uint32_t lastFall, lockAt, clearAt, moveAt, overAt;
 bool newBest;
 bool fullRow[kRows];
-M5Canvas field(&M5.Display);
+M5Canvas field(&uiFrame);
 bool fieldDirty, hudDirty;
 
 inline bool cellOf(uint16_t mask, int cx, int cy) { return mask & (0x8000 >> (cy * 4 + cx)); }
@@ -80,9 +80,7 @@ void renderField() {
     for (int y = 1; y < kRows; ++y) field.drawFastHLine(0, y * kCell, kCols * kCell, rgb(20, 24, 46));
     for (int y = 0; y < kRows; ++y)
         for (int x = 0; x < kCols; ++x) {
-            if (state == CLEARING && fullRow[y]) {
-                field.fillRect(x * kCell, y * kCell, kCell, kCell, TFT_WHITE);
-            } else if (board[y][x]) {
+            if (board[y][x]) {
                 drawBlock(field, x * kCell, y * kCell, kCell, board[y][x]);
             }
         }
@@ -102,7 +100,7 @@ void renderField() {
 }
 
 void stat(int y, const char* label, int value, uint16_t color) {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillRect(2, y, 96, 56, pal::kBg);
     text(d, label, 4, y, pal::kDim, F24);
     char b[12];
@@ -111,7 +109,7 @@ void stat(int y, const char* label, int value, uint16_t color) {
 }
 
 void drawNext() {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     const int x = 226, y = 36, w = 88, h = 66;
     d.fillRoundRect(x, y, w, h, 6, pal::kPanel);
     const uint16_t m = kShapes[nextPiece][0];
@@ -139,7 +137,7 @@ void drawHud() {
 }
 
 void drawFrame() {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillScreen(pal::kBg);
     d.drawRoundRect(kFieldX - 3, kFieldY - 3, kCols * kCell + 6, kRows * kCell + 6, 3, pal::kLine);
     d.drawRoundRect(kFieldX - 2, kFieldY - 2, kCols * kCell + 4, kRows * kCell + 4, 2, pal::kLine);
@@ -159,6 +157,7 @@ void gameOver() {
     state   = OVER;
     overAt  = lgfx::millis();
     newBest = submitScore(kKey, score);
+    drawFrame();
     renderField();
     char b[24];
     snprintf(b, sizeof(b), "点数 %d", score);
@@ -264,6 +263,7 @@ void tickPlay() {
     if (pad_just & kStart) {
         state = PAUSE;
         fieldDirty = true;
+        drawFrame();
         renderField();
         dialog("一時停止", pal::kAccent, "START:つづける", "SELECT:もどる");
         return;
@@ -312,10 +312,15 @@ void tickPlay() {
 void enter() {
     if (!field.getBuffer()) {
         field.setColorDepth(16);
-        field.createSprite(kCols * kCell, kRows * kCell);
+        if (!field.createSprite(kCols * kCell, kRows * kCell)) {
+            uiFrame.fillScreen(pal::kBg);
+            text(uiFrame, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.pushSprite(0, 0);
+            return;
+        }
     }
     state = TITLE;
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillScreen(pal::kBg);
     text(d, "ブロック", 160, 6, pal::kAccent, F40, top_center);
     char b[20];
@@ -325,9 +330,11 @@ void enter() {
     text(d, "左右:移動 下:速く", 160, 142, pal::kDim, F24, top_center);
     text(d, "A/B:回す 上:一気に", 160, 172, pal::kDim, F24, top_center);
     text(d, "SELECT:もどる", 160, 206, pal::kDim, F24, top_center);
+    uiFrame.pushSprite(0, 0);
 }
 
 void tick() {
+    if (!field.getBuffer()) return;
     switch (state) {
         case TITLE:
             if ((pad_just & (kA | kStart)) || tap_just) startGame();
@@ -342,23 +349,34 @@ void tick() {
         case OVER:
             if (((pad_just & (kA | kStart)) || tap_just) && lgfx::millis() - overAt > 500) startGame();
             return;
-        case CLEARING:
-            if (fieldDirty) { renderField(); fieldDirty = false; }
-            if (hudDirty) { drawHud(); hudDirty = false; }
+        case CLEARING: {
+            const bool changed = fieldDirty || hudDirty;
+            if (changed) {
+                drawFrame();
+                renderField();
+                fieldDirty = hudDirty = false;
+                uiFrame.pushSprite(0, 0);
+            }
             if (lgfx::millis() - clearAt >= 180) collapse();
             return;
+        }
         case PLAY:
             tickPlay();
             break;
     }
     if (state == PLAY || state == CLEARING) {
-        if (fieldDirty) { renderField(); fieldDirty = false; }
-        if (hudDirty) { drawHud(); hudDirty = false; }
+        const bool changed = fieldDirty || hudDirty;
+        if (changed) {
+            drawFrame();
+            renderField();
+            fieldDirty = hudDirty = false;
+            uiFrame.pushSprite(0, 0);
+        }
     }
 }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
     static const int8_t cells[][3] = {{1, 1, 6}, {2, 1, 6}, {3, 1, 6}, {2, 2, 6}, {0, 3, 1}, {1, 3, 1}, {2, 3, 1}, {3, 3, 1}, {0, 2, 3}};
     for (auto& c : cells) drawBlock(d, x + 2 + c[0] * 9, y + 2 + c[1] * 9, 9, c[2]);

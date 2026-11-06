@@ -10,7 +10,7 @@ const char* const kKey = "flappy";
 
 enum State { TITLE, READY, PLAY, FALL, OVER };
 State state;
-M5Canvas frame(&M5.Display);
+M5Canvas frame(&uiFrame);
 float birdY, birdV, pipeX[kPipes], scrollX;
 int pipeGap[kPipes];
 bool pipeScored[kPipes];
@@ -85,7 +85,7 @@ void drawBird(int cx, int cy) {
     frame.fillEllipse(cx - 7, wy, 5, 3, rgb(255, 245, 200));
 }
 
-void render() {
+void render(bool present = true) {
     for (int i = 0; i < 6; ++i) frame.fillRect(0, i * (kPlayH / 6), kW, kPlayH / 6 + 1, kSky[i]);
     frame.fillRect(0, kPlayH - 4, kW, 4, kSky[5]);
     const int off = int(scrollX * 0.25f) % (kW + 90);
@@ -111,14 +111,15 @@ void render() {
     if (state == PLAY || state == FALL) {
         char b[8];
         snprintf(b, sizeof(b), "%d", score);
-        text(frame, b, kW / 2 + 2, 10, rgb(30, 50, 60), &fonts::FreeSansBold24pt7b, top_center);
-        text(frame, b, kW / 2, 8, TFT_WHITE, &fonts::FreeSansBold24pt7b, top_center);
+        text(frame, b, kW / 2 + 2, 10, rgb(30, 50, 60), F40, top_center);
+        text(frame, b, kW / 2, 8, TFT_WHITE, F40, top_center);
     }
     if (state == READY) {
         text(frame, "Aではばたく", kW / 2 + 1, 151, rgb(30, 50, 60), F32, top_center);
         text(frame, "Aではばたく", kW / 2, 150, TFT_WHITE, F32, top_center);
     }
     frame.pushSprite(0, 0);
+    if (present) uiFrame.pushSprite(0, 0);
 }
 
 void gameOver() {
@@ -180,7 +181,9 @@ void enter() {
         frame.setPsram(true);
         if (!frame.createSprite(kW, kH)) {
             puts("FLAPPY sprite=FAIL");
-            text(M5.Display, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.fillScreen(pal::kBg);
+            text(uiFrame, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.pushSprite(0, 0);
             state = TITLE;
             return;
         }
@@ -188,16 +191,18 @@ void enter() {
     resetRound();
     state = TITLE;
     wing  = 0;
-    render();
-    text(M5.Display, "ぱたぱた", 160, 10, TFT_WHITE, F40, top_center);
+    render(false);
+    text(uiFrame, "ぱたぱた", 160, 10, TFT_WHITE, F40, top_center);
     char b[20];
     snprintf(b, sizeof(b), "さいこう %d", bestScore(kKey));
-    text(M5.Display, b, 160, 134, rgb(20, 40, 90), F24, top_center);
-    text(M5.Display, "A:はじめる", 160, 160, rgb(20, 40, 90), F32, top_center);
-    text(M5.Display, "SELECT:もどる", 160, 212, rgb(70, 60, 30), F24, top_center);
+    text(uiFrame, b, 160, 134, rgb(20, 40, 90), F24, top_center);
+    text(uiFrame, "A:はじめる", 160, 160, rgb(20, 40, 90), F32, top_center);
+    text(uiFrame, "SELECT:もどる", 160, 212, rgb(70, 60, 30), F24, top_center);
+    uiFrame.pushSprite(0, 0);
 }
 
 void tick() {
+    if (!frame.getBuffer()) return;
     if (state == OVER) {
         if (((pad_just & (kA | kStart | kB)) || tap_just) && lgfx::millis() - overAt > 500) {
             resetRound();
@@ -235,7 +240,7 @@ void tick() {
             birdY += birdV;
             if (int(birdY) + 9 >= kPlayH) {
                 birdY = kPlayH - 9;
-                render();
+                render(false);
                 gameOver();
                 return;
             }
@@ -246,7 +251,7 @@ void tick() {
 }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, kSky[1]);
     d.fillRect(x + 28, y + 2, 9, 11, rgb(90, 190, 70));
     d.fillRect(x + 28, y + 26, 9, 12, rgb(90, 190, 70));

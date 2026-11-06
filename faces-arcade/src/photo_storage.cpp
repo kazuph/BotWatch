@@ -44,13 +44,14 @@ bool make_dir(const char* path, char* error, size_t size) {
     if (mkdir(path, 0775) == 0 || errno == EEXIST) return true;
     return fail(error, size, "mkdir", errno);
 }
-bool max_photo_number(int* result, char* error, size_t error_size) {
+bool max_photo_number(int* result, char* error, size_t error_size, unsigned* count = nullptr) {
     DIR* dir = opendir(kPhotoDir);
     if (!dir) {
-        if (errno == ENOENT) { *result = -1; return true; }
+        if (errno == ENOENT) { *result = -1; if (count) *count = 0; return true; }
         return fail(error, error_size, "opendir", errno);
     }
     int max_number = -1;
+    unsigned total = 0;
     int read_error = 0;
     for (;;) {
         errno = 0;
@@ -63,12 +64,14 @@ bool max_photo_number(int* result, char* error, size_t error_size) {
             continue;
         const int number = (name[4] - '0') * 1000 + (name[5] - '0') * 100 +
                                 (name[6] - '0') * 10 + (name[7] - '0');
+        ++total;
         max_number = std::max(max_number, number);
     }
     const int close_result = closedir(dir);
     if (read_error) return fail(error, error_size, "readdir", read_error);
     if (close_result != 0) return fail(error, error_size, "closedir", errno);
     *result = max_number;
+    if (count) *count = total;
     return true;
 }
 
@@ -92,6 +95,14 @@ static bool mount_sd(char* error, size_t error_size) {
 bool mount(char* error, size_t error_size) {
     SdBusGuard guard;
     return mount_sd(error, error_size);
+}
+
+bool count_photos(unsigned* count, char* error, size_t error_size) {
+    if (!count) return false;
+    SdBusGuard guard;
+    if (!mount_sd(error, error_size)) return false;
+    int latest = -1;
+    return max_photo_number(&latest, error, error_size, count);
 }
 
 static bool find_latest(char* path, size_t path_size, char* error, size_t error_size) {

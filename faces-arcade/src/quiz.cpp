@@ -2,12 +2,13 @@
 // Four choices in a 2x2 grid. Tap answers directly; the D-pad moves and A answers.
 // Ten correct answers in a row finish the quiz and return to the menu.
 #include "common.h"
+#include "ui_icons.h"
 
 namespace {
 enum Kind { NOTE, CHORD, KANA };
 enum State { MODE_SELECT, ASK, RIGHT, WRONG, DONE };
 const int kGoal = 10;
-const int kBarH = 34;
+const int kBarH = 42;
 const uint32_t kWrongShowMs = 2200;  // long enough to hear the question again
 
 Kind kind;
@@ -15,6 +16,12 @@ State state;
 int streak, selected, answer, choiceCount;
 int kanaMode;  // 0: hiragana, 1: katakana, 2: mixed
 uint32_t feedbackAt;
+bool colorsInitialized = false, colorsAnimating = false;
+bool renderedThisTick = false;
+uint32_t colorsAt;
+uint16_t fillsFrom[4], fillsTo[4], bordersFrom[4], bordersTo[4];
+uint16_t textFrom[4], textTo[4], subFrom[4], subTo[4];
+uint16_t dotsFrom[10], dotsTo[10];
 char choiceLabel[4][16];
 char choiceSub[4][16];
 int notes[3];
@@ -85,10 +92,10 @@ void pickChoices(int correct, int range, int n, int* out) {
 }
 
 void cellRect(int i, int& x, int& y, int& w, int& h) {
-    w = 154;
-    h = 98;
-    x = 4 + (i % 2) * 158;
-    y = kBarH + 4 + (i / 2) * 102;
+    w = 148;
+    h = 88;
+    x = 8 + (i % 2) * 156;
+    y = 46 + (i / 2) * 96;
 }
 
 int cellAt(int px, int py) {
@@ -100,44 +107,115 @@ int cellAt(int px, int py) {
     return -1;
 }
 
-void drawCell(int i, uint16_t fill, uint16_t border) {
-    auto& d = M5.Display;
+void drawLargeLabel(const char* label, int x, int y, uint16_t color, float scale) {
+    uiGlyph.fillSprite(TFT_BLACK);
+    text(uiGlyph, label, 96, 24, color, F40, middle_center);
+    uiGlyph.pushRotateZoomWithAA(&uiFrame, x, y, 0, scale, scale, TFT_BLACK);
+}
+
+void drawCell(int i, uint16_t fill, uint16_t border, uint16_t foreground, uint16_t subColor) {
+    auto& d = uiFrame;
     int x, y, w, h;
     cellRect(i, x, y, w, h);
-    d.fillRoundRect(x, y, w, h, 10, fill);
-    d.drawRoundRect(x, y, w, h, 10, border);
-    d.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 9, border);
-    d.drawRoundRect(x + 2, y + 2, w - 4, h - 4, 8, border);
+    d.fillSmoothRoundRect(x, y, w, h, 14, border);
+    d.fillSmoothRoundRect(x + 2, y + 2, w - 4, h - 4, 12, fill);
     const int cx = x + w / 2, cy = y + h / 2;
     if (state == MODE_SELECT) {
-        text(d, choiceLabel[i], cx, cy, pal::kText, F32, middle_center);
+        text(d, choiceLabel[i], cx, cy, foreground, F32, middle_center);
     } else if (kind == KANA) {
-        text(d, choiceLabel[i], cx, cy, pal::kText, F40, middle_center, 2.0f);
+        drawLargeLabel(choiceLabel[i], cx, cy, foreground, 2.0f);
     } else if (kind == NOTE) {
-        text(d, choiceLabel[i], cx, cy, pal::kText, F40, middle_center, 1.5f);
+        drawLargeLabel(choiceLabel[i], cx, cy, foreground, 1.5f);
     } else {
-        text(d, choiceLabel[i], cx, y + 32, pal::kText, F40, middle_center);
-        text(d, choiceSub[i], cx, y + 74, pal::kAccent, F24, middle_center);
+        text(d, choiceLabel[i], cx, y + 25, foreground, F40, middle_center);
+        text(d, choiceSub[i], cx, y + 64, subColor, F24, middle_center);
     }
 }
 
-void drawCells() {
+uint16_t blend565(uint16_t from, uint16_t to, uint32_t elapsed) {
+    elapsed = min(elapsed, uint32_t(300));
+    const auto mix = [elapsed](int a, int b) { return (a * (300 - elapsed) + b * elapsed) / 300; };
+    return (mix((from >> 11) & 31, (to >> 11) & 31) << 11) |
+           (mix((from >> 5) & 63, (to >> 5) & 63) << 5) | mix(from & 31, to & 31);
+}
+
+void drawAskBar(uint32_t elapsed);
+void drawModeBar();
+
+void renderCells(uint32_t now) {
+    const uint32_t elapsed = now - colorsAt;
+    uiRadialBackground(rgb(15, 47, 68), rgb(7, 9, 18));
+    if (state == MODE_SELECT) drawModeBar();
+    else drawAskBar(elapsed);
+    for (int i = 0; i < choiceCount; ++i)
+        drawCell(i, blend565(fillsFrom[i], fillsTo[i], elapsed),
+                 blend565(bordersFrom[i], bordersTo[i], elapsed),
+                 blend565(textFrom[i], textTo[i], elapsed), blend565(subFrom[i], subTo[i], elapsed));
+    uiFrame.pushSprite(0, 0);
+    renderedThisTick = true;
+    colorsAnimating = elapsed < 300;
+}
+
+void transitionCells() {
+    const uint32_t now = lgfx::millis();
+    const uint32_t elapsed = now - colorsAt;
+    bool changed = false;
     for (int i = 0; i < choiceCount; ++i) {
         const bool on = i == selected;
-        drawCell(i, on ? rgb(44, 62, 130) : pal::kPanel, on ? pal::kCyan : pal::kLine);
+        const bool back = state == MODE_SELECT && i == 3 && !on;
+        uint16_t fill = on ? rgb(79, 209, 255) : back ? rgb(14, 18, 38) : rgb(20, 50, 74);
+        uint16_t border = on ? rgb(79, 209, 255) : back ? rgb(58, 65, 128) : rgb(44, 90, 122);
+        if (state == RIGHT || state == WRONG) {
+            if (i == answer) fill = border = rgb(91, 227, 138);
+            else if (on && state == WRONG) fill = border = rgb(255, 157, 70);
+        }
+        const bool bright = on || ((state == RIGHT || state == WRONG) && i == answer);
+        const uint16_t foreground = back ? pal::kDim : bright ? rgb(3, 32, 43) : pal::kText;
+        const uint16_t subColor = bright ? rgb(3, 48, 74) : pal::kAccent;
+        fillsFrom[i] = colorsInitialized ? blend565(fillsFrom[i], fillsTo[i], elapsed) : fill;
+        bordersFrom[i] = colorsInitialized ? blend565(bordersFrom[i], bordersTo[i], elapsed) : border;
+        textFrom[i] = colorsInitialized ? blend565(textFrom[i], textTo[i], elapsed) : foreground;
+        subFrom[i] = colorsInitialized ? blend565(subFrom[i], subTo[i], elapsed) : subColor;
+        fillsTo[i] = fill;
+        bordersTo[i] = border;
+        textTo[i] = foreground;
+        subTo[i] = subColor;
+        changed |= fillsFrom[i] != fillsTo[i] || bordersFrom[i] != bordersTo[i] ||
+                   textFrom[i] != textTo[i] || subFrom[i] != subTo[i];
     }
+    for (int i = 0; i < kGoal; ++i) {
+        const uint16_t target = i < streak ? pal::kCyan : rgb(38, 57, 90);
+        dotsFrom[i] = colorsInitialized ? blend565(dotsFrom[i], dotsTo[i], elapsed) : target;
+        dotsTo[i] = target;
+        changed |= dotsFrom[i] != dotsTo[i];
+    }
+    colorsAt = now;
+    colorsInitialized = true;
+    renderCells(now);
+    colorsAnimating = changed;
 }
 
 void drawBar(uint16_t fill) {
-    M5.Display.fillRect(0, 0, 320, kBarH, fill);
+    uiFrame.fillRect(0, 0, 320, kBarH, fill);
 }
 
-void drawAskBar() {
-    drawBar(pal::kPanel);
-    char b[24];
-    snprintf(b, sizeof(b), "れんぞく %d/%d", streak, kGoal);
-    text(M5.Display, b, 6, 5, streak ? pal::kGreen : pal::kText, F24);
-    text(M5.Display, "もう一度", 314, 5, pal::kAccent, F24, top_right);
+void drawAskBar(uint32_t elapsed) {
+    drawBar(rgb(7, 9, 18));
+    const char* title = kind == NOTE ? "音あて" : kind == CHORD ? "和音あて" : "かな読み";
+    const int badgeWidth = kind == NOTE ? 96 : 120;
+    uiFrame.fillSmoothRoundRect(6, 6, badgeWidth, 32, 16, pal::kCyan);
+    uiFrame.fillSmoothRoundRect(7, 7, badgeWidth - 2, 30, 15, rgb(7, 9, 18));
+    text(uiFrame, title, 6 + badgeWidth / 2, 10, pal::kCyan, F24, top_center);
+    for (int i = 0; i < kGoal; ++i)
+        uiFrame.fillSmoothCircle(176 + i * 14, 22, 5, blend565(dotsFrom[i], dotsTo[i], elapsed));
+}
+
+void drawModeBar() {
+    drawBar(rgb(7, 9, 18));
+    uiFrame.fillSmoothRoundRect(6, 6, 120, 32, 16, pal::kCyan);
+    uiFrame.fillSmoothRoundRect(7, 7, 118, 30, 15, rgb(7, 9, 18));
+    text(uiFrame, "かな読み", 66, 10, pal::kCyan, F24, top_center);
+    text(uiFrame, "どれにする？", 314, 8, pal::kDim, F24, top_right);
 }
 
 void playQuestion() {
@@ -187,27 +265,21 @@ void askQuestion() {
         strlcpy(speakText, target == kKanaWo ? "お" : kKana[target].hira, sizeof(speakText));
     }
     state = ASK;
-    M5.Display.fillScreen(pal::kBg);
-    drawAskBar();
-    drawCells();
+    transitionCells();
     printf("QUIZ streak=%d answer=%d\n", streak, answer);
     playQuestion();
 }
 
 void drawDone() {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     state      = DONE;
     feedbackAt = lgfx::millis();
-    d.fillScreen(pal::kBg);
-    for (int i = 0; i < 26; ++i) {
-        static const uint16_t kColors[4] = {pal::kAccent, pal::kCyan, pal::kGreen, pal::kRed};
-        // Keep the confetti in the strips above and below the text.
-        const int y = (i % 2) ? arcadeRandom(0, 22) : arcadeRandom(200, 240);
-        d.fillCircle(arcadeRandom(320), y, arcadeRandom(3, 7), kColors[i % 4]);
-    }
-    text(d, "10もん", 160, 28, pal::kAccent, F40, top_center, 1.5f);
-    text(d, "れんぞく", 160, 92, pal::kText, F40, top_center);
-    text(d, "せいかい！", 160, 140, pal::kGreen, F40, top_center, 1.25f);
+    d.fillScreen(rgb(7, 9, 18));
+    uiGradientCard(24, 24, 272, 192, 20, rgb(79, 209, 255), rgb(20, 82, 122));
+    ui_icon::star(d, 160, 80, 38, pal::kAccent);
+    text(d, "クリア！", 160, 120, pal::kText, F40, top_center);
+    text(d, "10問 れんぞく正解", 160, 171, pal::kText, F24, top_center);
+    uiFrame.pushSprite(0, 0);
     puts("QUIZ done streak=10");
     soundStop();
     if (kind != KANA) {
@@ -224,28 +296,19 @@ void answerNow() {
     if (ok) {
         ++streak;
         submitScore(scoreKey, streak);
-        drawBar(rgb(30, 110, 60));
-        text(M5.Display, "せいかい！", 160, 5, TFT_WHITE, F24, top_center);
         state = RIGHT;
     } else {
         streak = 0;
-        drawCell(selected, rgb(130, 34, 44), pal::kRed);
-        drawBar(rgb(130, 34, 44));
-        text(M5.Display, "ちがうよ", 6, 5, TFT_WHITE, F24);
-        text(M5.Display, "こたえは緑", 314, 5, TFT_WHITE, F24, top_right);
         state = WRONG;
     }
-    drawCell(answer, rgb(30, 110, 60), pal::kGreen);
     if (!ok) playQuestion();  // Hear the right answer again.
     feedbackAt = lgfx::millis();
+    transitionCells();
     printf("QUIZ picked=%d ok=%d streak=%d\n", selected, ok, streak);
 }
 
 void drawModeSelect() {
     state = MODE_SELECT;
-    M5.Display.fillScreen(pal::kBg);
-    drawBar(pal::kPanel);
-    text(M5.Display, "どれであそぶ？", 160, 5, pal::kAccent, F24, top_center);
     choiceCount = 4;
     memset(choiceSub, 0, sizeof(choiceSub));
     strlcpy(choiceLabel[0], "ひらがな", sizeof(choiceLabel[0]));
@@ -253,7 +316,7 @@ void drawModeSelect() {
     strlcpy(choiceLabel[2], "まぜる", sizeof(choiceLabel[2]));
     strlcpy(choiceLabel[3], "もどる", sizeof(choiceLabel[3]));
     selected = kanaMode;
-    drawCells();
+    transitionCells();
 }
 
 void moveCursor() {
@@ -262,9 +325,8 @@ void moveCursor() {
     if (pad_just & kRight) next = selected % 2 ? selected - 1 : selected + 1;
     if (pad_just & (kUp | kDown)) next = (selected + 2) % 4;
     if (next == selected) return;
-    drawCell(selected, pal::kPanel, pal::kLine);
     selected = next;
-    drawCell(selected, rgb(44, 62, 130), pal::kCyan);
+    transitionCells();
 }
 
 void chooseMode() {
@@ -278,6 +340,7 @@ void chooseMode() {
 }
 
 void tick() {
+    renderedThisTick = false;
     switch (state) {
         case MODE_SELECT: {
             moveCursor();
@@ -292,7 +355,6 @@ void tick() {
             const int hit = tap_just ? cellAt(tap_x, tap_y) : -1;
             if (hit >= 0) {
                 if (hit != selected) {
-                    drawCell(selected, pal::kPanel, pal::kLine);
                     selected = hit;
                 }
             }
@@ -315,17 +377,21 @@ void tick() {
             if (lgfx::millis() - feedbackAt >= 4000 || ((pad_just || tap_just) && lgfx::millis() - feedbackAt >= 800)) request_menu = true;
             break;
     }
+    if (state != DONE && colorsAnimating && !renderedThisTick) renderCells(lgfx::millis());
 }
 
 void enterKind(Kind k, const char* key) {
     kind     = k;
+    colorsInitialized = false;
+    colorsAnimating = false;
     scoreKey = key;
     streak   = 0;
     soundBegin();
     if (k == KANA) {
         if (!ttsBegin()) {
-            M5.Display.fillScreen(pal::kBg);
-            text(M5.Display, "音声が使えません", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.fillScreen(pal::kBg);
+            text(uiFrame, "音声が使えません", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.pushSprite(0, 0);
             state = DONE;
             feedbackAt = lgfx::millis();
             return;
@@ -342,7 +408,7 @@ void enterKana() { enterKind(KANA, "kana"); }
 void leave() { soundEnd(); }
 
 void iconNote(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
     d.fillEllipse(x + 15, y + 30, 7, 5, pal::kCyan);
     d.fillRect(x + 20, y + 7, 3, 23, pal::kCyan);
@@ -350,7 +416,7 @@ void iconNote(int x, int y) {
 }
 
 void iconChord(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
     d.fillEllipse(x + 19, y + 32, 7, 4, pal::kAccent);
     d.fillEllipse(x + 19, y + 23, 7, 4, pal::kAccent);
@@ -359,8 +425,8 @@ void iconChord(int x, int y) {
 }
 
 void iconKana(int x, int y) {
-    M5.Display.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
-    text(M5.Display, "あ", x + 4, y + 4, pal::kText, F32);
+    uiGlyph.fillRoundRect(x, y, 40, 40, 6, pal::kBg);
+    text(uiGlyph, "あ", x + 4, y + 4, pal::kText, F32);
 }
 }  // namespace
 

@@ -4,6 +4,7 @@ saanotts.bin
 tools/gen_kana
 /build*/
 /managed_components/
+/.component_cache/
 /dependencies.lock
 /sdkconfig*
 !/sdkconfig.defaults

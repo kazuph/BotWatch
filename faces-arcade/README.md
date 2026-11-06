@@ -17,13 +17,19 @@ tools/gen_kana <モデルのbin> kana_voice.bin src/kana_voice.h あ い う …
 
 ## ビルド
 
-`faces-arcade` ディレクトリで実行します。機種ごとに設定とビルド先を分けます。
+`faces-arcade` ディレクトリで実行します。機種ごとに設定とビルド先を分け、CoreS3 の完了後に Core2 をビルドします。部品の取得結果は `.component_cache` に保存し、Git の取得には HTTP/1.1 を使います。
 
 ```sh
-docker run --rm -v "$PWD:/project" -w /project espressif/idf:v5.5.5 \
+docker run --rm -v "$PWD:/project" -w /project \
+  -e IDF_COMPONENT_CACHE_PATH=/project/.component_cache \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=http.version -e GIT_CONFIG_VALUE_0=HTTP/1.1 \
+  espressif/idf:v5.5.5 \
   idf.py -B build-cores3 -D SDKCONFIG=sdkconfig.cores3 -D IDF_TARGET=esp32s3 build
 
-docker run --rm -v "$PWD:/project" -w /project espressif/idf:v5.5.5 \
+docker run --rm -v "$PWD:/project" -w /project \
+  -e IDF_COMPONENT_CACHE_PATH=/project/.component_cache \
+  -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=http.version -e GIT_CONFIG_VALUE_0=HTTP/1.1 \
+  espressif/idf:v5.5.5 \
   idf.py -B build-core2 -D SDKCONFIG=sdkconfig.core2 -D IDF_TARGET=esp32 build
 ```
 
