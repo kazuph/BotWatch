@@ -132,19 +132,23 @@ bool send_latest(char* error, size_t error_size) {
         fclose(file);
         return fail(error, error_size, "stat", code);
     }
+    flockfile(stdout);
+    flockfile(stderr);
     printf("JPEG %ld\n", long(info.st_size));
     uint8_t buffer[1024];
     size_t left = size_t(info.st_size);
     while (left) {
         const size_t count = fread(buffer, 1, std::min(left, sizeof(buffer)), file);
-        if (!count) { fclose(file); return fail(error, error_size, "read", EIO); }
+        if (!count) { funlockfile(stderr); funlockfile(stdout); fclose(file); return fail(error, error_size, "read", EIO); }
         if (fwrite(buffer, 1, count, stdout) != count) {
-            fclose(file); return fail(error, error_size, "serial write", EIO);
+            funlockfile(stderr); funlockfile(stdout); fclose(file); return fail(error, error_size, "serial write", EIO);
         }
         left -= count;
     }
-    if (fclose(file) != 0) return fail(error, error_size, "close", errno);
     fflush(stdout);
+    funlockfile(stderr);
+    funlockfile(stdout);
+    if (fclose(file) != 0) return fail(error, error_size, "close", errno);
     return true;
 }
 

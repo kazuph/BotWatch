@@ -25,9 +25,11 @@ namespace {
 constexpr int64_t kConnectUs = 30LL * 1000000;
 constexpr int64_t kOcrUs = 60LL * 1000000;
 constexpr int64_t kDescribeUs = 180LL * 1000000;
+constexpr int64_t kCleanupUs = 120LL * 1000000;
 constexpr char kGpuAddress[] = "100.80.152.112";
 constexpr uint16_t kOcrPort = 8016;
 std::atomic<bool> active{false}, cancelled{false};
+std::atomic<int64_t> cancelled_at{0};
 std::atomic<bool> link_up{false};
 std::atomic<network_http::Phase> progress{network_http::Phase::connecting};
 std::atomic<uint32_t> visible_deadline_ms{0};
@@ -70,6 +72,13 @@ void do_work(void* argument) {
     Result output{work->photo, false, "通信に失敗"};
     network_settings::Credentials credentials{};
     Link link;
+    bool published = false;
+    auto publish = [&]() {
+        if (cancelled.load()) return;
+        Result* item = new(std::nothrow) Result(std::move(output));
+        if (item && xQueueSend(results, &item, 0) != pdTRUE) delete item;
+        else if (item) published = true;
+    };
     auto perform = [&]() {
         log_memory("start");
         if (work->kind == Kind::describe &&
@@ -130,10 +139,12 @@ void do_work(void* argument) {
         const int64_t duration = work->kind == Kind::ocr ? kOcrUs : kDescribeUs;
         auto response = network_http::request(link.get(), microlink_parse_ip(kGpuAddress), port, "POST", path,
                                               content_type, body, cancelled, connect_deadline, duration,
-                                              &visible_deadline_ms, &progress, &link_up);
+                                              &visible_deadline_ms, &progress, &link_up, work->kind == Kind::ocr, INT64_MAX, &cancelled_at);
         printf("NETWORK post error=%d status=%u\n", int(response.error), response.status);
         log_memory("post");
-        if (response.error != network_http::Error::none) {
+        if (response.error != network_http::Error::none && !response.cleanup_only) {
+            if (work->kind == Kind::ocr && progress.load() != network_http::Phase::connecting)
+                puts("NETWORK OCR 削除できなかった: ジョブ ID を取得できない");
             output.text = response.error == network_http::Error::http_status
                 ? std::string("HTTP エラー ") + std::to_string(response.status) : http_error(response);
             return;
@@ -149,14 +160,25 @@ void do_work(void* argument) {
             return;
         }
         auto parsed = network_result::parse_ocr(response.body);
+        if (!response.cleanup_only && parsed.error == network_result::Error::none) {
+            output.text = std::move(parsed.text);
+            output.ok = true;
+            publish();
+        }
         if (!parsed.job_id.empty()) {
             std::atomic<bool> cleanup_cancelled{false};
-            const int64_t cleanup_deadline = esp_timer_get_time() + kConnectUs;
+            const int64_t cleanup_deadline = response.cleanup_only ? response.cleanup_deadline_us : esp_timer_get_time() + kCleanupUs;
+            const int64_t cleanup_remaining = cleanup_deadline - esp_timer_get_time();
+            if (cleanup_remaining <= 0) { puts("NETWORK OCR 削除できなかった: 後片付けが時間切れ"); return; }
             auto cleanup = network_http::request(link.get(), microlink_parse_ip(kGpuAddress), kOcrPort, "DELETE",
-                "/v1/yomitoku/jobs/" + parsed.job_id, "", "", cleanup_cancelled, cleanup_deadline, kConnectUs);
+                "/v1/yomitoku/jobs/" + parsed.job_id, "", "", cleanup_cancelled, cleanup_deadline, cleanup_remaining,
+                nullptr, nullptr, nullptr, false, cleanup_deadline);
             printf("NETWORK delete error=%d status=%u\n", int(cleanup.error), cleanup.status);
-            if (cleanup.error != network_http::Error::none) { output.text = "サーバーの写真を消せません"; return; }
+            if (cleanup.error != network_http::Error::none) { puts("NETWORK OCR 削除できなかった: DELETE 失敗"); if (!published) output.text = "サーバーの写真を消せません"; return; }
+        } else {
+            puts("NETWORK OCR 削除できなかった: ジョブ ID を取得できない");
         }
+        if (response.cleanup_only || published) return;
         if (parsed.error != network_result::Error::none) {
             output.text = parsed.error == network_result::Error::missing_text ? "文字がありません" : "JSON またはジョブ ID が不正";
             return;
@@ -171,14 +193,7 @@ void do_work(void* argument) {
     network_wifi::stop();
     network_settings::wipe(&credentials, sizeof(credentials));
     free(work->jpeg);
-    if (!cancelled.load()) {
-        if (int32_t(uint32_t(esp_timer_get_time() / 1000) - visible_deadline_ms.load()) >= 0) {
-            output.ok = false;
-            output.text = "通信が時間切れ";
-        }
-        Result* published = new(std::nothrow) Result(std::move(output));
-        if (published && xQueueSend(results, &published, 0) != pdTRUE) delete published;
-    }
+    if (!published) publish();
     active.store(false);
 }
 void worker(void* argument) {
@@ -196,6 +211,7 @@ bool start(Kind kind, uint64_t photo, uint8_t* jpeg, size_t size,
     Result* stale = nullptr;
     while (xQueueReceive(results, &stale, 0) == pdTRUE) delete stale;
     cancelled.store(false);
+    cancelled_at.store(0);
     progress.store(network_http::Phase::connecting);
     const int64_t started_us = esp_timer_get_time();
     visible_deadline_ms.store(uint32_t((started_us + kConnectUs) / 1000));
@@ -206,12 +222,19 @@ bool start(Kind kind, uint64_t photo, uint8_t* jpeg, size_t size,
     }
     return true;
 }
-void cancel() { cancelled.store(true); }
+void cancel() {
+    int64_t expected = 0;
+    cancelled_at.compare_exchange_strong(expected, esp_timer_get_time());
+    cancelled.store(true);
+}
 bool busy() { return active.load(); }
 network_http::Phase phase() { return progress.load(); }
 bool link_connected() { return link_up.load(); }
 bool expired() {
-    return active.load() && int32_t(uint32_t(esp_timer_get_time() / 1000) - visible_deadline_ms.load()) >= 0;
+    const auto current = progress.load();
+    return current == network_http::Phase::cancelled_cleanup ||
+           (active.load() && current != network_http::Phase::cleanup &&
+            int32_t(uint32_t(esp_timer_get_time() / 1000) - visible_deadline_ms.load()) >= 0);
 }
 bool take(Result& result) {
     Result* item = nullptr;

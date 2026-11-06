@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the pinned MicroLink source and apply the task's TCP patch."""
+"""Fetch the pinned MicroLink source and apply the local safety patch."""
 from pathlib import Path
 import subprocess
 import sys
@@ -27,19 +27,23 @@ def main():
         run("git", "checkout", "--detach", COMMIT, cwd=DEST)
     if run("git", "rev-parse", "HEAD", cwd=DEST).stdout.decode().strip() != COMMIT:
         raise RuntimeError("MicroLink source is not at the pinned commit")
-    diff = run("git", "diff", "--unified=0", "--binary", "--", "components/microlink/src/ml_tcp.c", cwd=DEST).stdout.replace(b"\r\n", b"\n")
+    diff = run("git", "diff", "--unified=0", "--binary", "--", "components/microlink", cwd=DEST).stdout.replace(b"\r\n", b"\n")
     expected = PATCH.read_bytes()
     if not diff:
         patch_data = source_line_endings(expected)
         run("git", "apply", "--unidiff-zero", "--check", "-", cwd=DEST, input_data=patch_data)
         run("git", "apply", "--unidiff-zero", "-", cwd=DEST, input_data=patch_data)
-        diff = run("git", "diff", "--unified=0", "--binary", "--", "components/microlink/src/ml_tcp.c", cwd=DEST).stdout.replace(b"\r\n", b"\n")
+        diff = run("git", "diff", "--unified=0", "--binary", "--", "components/microlink", cwd=DEST).stdout.replace(b"\r\n", b"\n")
     if diff != expected:
         raise RuntimeError("MicroLink source does not match the approved patch")
     status = run("git", "status", "--porcelain", "--untracked-files=all", cwd=DEST).stdout.decode().splitlines()
-    if status != [" M components/microlink/src/ml_tcp.c"]:
+    allowed = {" M components/microlink/include/microlink.h", " M components/microlink/include/microlink_internal.h",
+               " M components/microlink/src/microlink.c", " M components/microlink/src/ml_coord.c",
+               " M components/microlink/src/ml_derp.c", " M components/microlink/src/ml_net_io.c",
+               " M components/microlink/src/ml_tcp.c", " M components/microlink/src/ml_wg_mgr.c"}
+    if set(status) != allowed:
         raise RuntimeError("MicroLink source contains unexpected changes")
-    print("MicroLink pinned commit and TCP patch verified")
+    print("MicroLink pinned commit and safety patch verified")
 
 
 if __name__ == "__main__":

@@ -15,25 +15,34 @@ Error interrupted(std::atomic<bool>& cancelled, int64_t deadline) {
     if (esp_timer_get_time() >= deadline) return Error::timeout;
     return Error::none;
 }
+bool is_cancelled(void* context) { return static_cast<std::atomic<bool>*>(context)->load(); }
 }
 Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* method,
                  const std::string& path, const std::string& content_type, const std::string& body,
                  std::atomic<bool>& cancelled, int64_t connect_deadline_us, int64_t request_duration_us,
                  std::atomic<uint32_t>* visible_deadline_ms, std::atomic<Phase>* phase,
-                 std::atomic<bool>* link_state) {
+                 std::atomic<bool>* link_state, bool recover_ocr, int64_t absolute_limit_us,
+                 std::atomic<int64_t>* cancelled_at_us) {
     Response result{Error::none, 0, {}};
     result.error = interrupted(cancelled, connect_deadline_us);
     if (result.error != Error::none) return result;
     const int64_t remaining = connect_deadline_us - esp_timer_get_time();
     if (remaining <= 0) { result.error = Error::timeout; return result; }
     errno = 0;
-    Socket socket(microlink_tcp_connect(ml, address, port, (remaining + 999) / 1000));
+    Socket socket(microlink_tcp_connect_until(ml, address, port, connect_deadline_us, is_cancelled, &cancelled));
     const int connect_errno = errno;
     result.error = interrupted(cancelled, connect_deadline_us);
     if (result.error != Error::none) return result;
     if (!socket) { result.error = connect_errno == ECONNREFUSED ? Error::refused : Error::connect; return result; }
     if (phase) phase->store(Phase::sending);
-    const int64_t request_deadline_us = esp_timer_get_time() + request_duration_us;
+    const int64_t request_deadline_us = std::min(esp_timer_get_time() + request_duration_us, absolute_limit_us);
+    const auto cleanup_deadline = [&]() {
+        const int64_t now = esp_timer_get_time();
+        const int64_t cancelled_at = cancelled_at_us ? cancelled_at_us->load() : 0;
+        const int64_t start = std::min(now >= request_deadline_us ? request_deadline_us : now,
+                                       cancelled_at > 0 ? cancelled_at : now);
+        return start + 120LL * 1000000;
+    };
     if (visible_deadline_ms) visible_deadline_ms->store(uint32_t(request_deadline_us / 1000));
     char ip[16];
     microlink_ip_to_str(address, ip);
@@ -46,16 +55,16 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
     headers += "\r\n";
     result.error = interrupted(cancelled, request_deadline_us);
     if (result.error != Error::none) return result;
-    if (microlink_tcp_send(socket.get(), headers.data(), headers.size()) != ESP_OK) {
-        result.error = Error::send; return result;
+    if (microlink_tcp_send_until(socket.get(), headers.data(), headers.size(), request_deadline_us, is_cancelled, &cancelled) != ESP_OK) {
+        result.error = interrupted(cancelled, request_deadline_us); if (result.error == Error::none) result.error = Error::send; return result;
     }
     for (size_t offset = 0; offset < body.size();) {
         if (link_state) link_state->store(microlink_is_connected(ml));
         result.error = interrupted(cancelled, request_deadline_us);
         if (result.error != Error::none) return result;
         const size_t size = std::min(size_t(4096), body.size() - offset);
-        if (microlink_tcp_send(socket.get(), body.data() + offset, size) != ESP_OK) {
-            result.error = Error::send; return result;
+        if (microlink_tcp_send_until(socket.get(), body.data() + offset, size, request_deadline_us, is_cancelled, &cancelled) != ESP_OK) {
+            result.error = interrupted(cancelled, request_deadline_us); if (result.error == Error::none) result.error = Error::send; return result;
         }
         offset += size;
     }
@@ -64,9 +73,16 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
     char buffer[2048];
     while (!response.complete()) {
         if (link_state) link_state->store(microlink_is_connected(ml));
-        result.error = interrupted(cancelled, request_deadline_us);
-        if (result.error != Error::none) return result;
-        const int64_t remaining_us = request_deadline_us - esp_timer_get_time();
+        if (!result.cleanup_only) {
+            result.error = interrupted(cancelled, request_deadline_us);
+            if (result.error != Error::none) {
+                if (!recover_ocr) return result;
+                result.cleanup_only = true;
+                result.cleanup_deadline_us = cleanup_deadline();
+                if (phase) phase->store(Phase::cancelled_cleanup);
+            }
+        }
+        const int64_t remaining_us = (result.cleanup_only ? result.cleanup_deadline_us : request_deadline_us) - esp_timer_get_time();
         if (remaining_us <= 0) { result.error = Error::timeout; return result; }
         const uint32_t wait_ms = std::min<int64_t>((remaining_us + 999) / 1000, 250);
         const int count = microlink_tcp_recv(socket.get(), buffer, sizeof(buffer), wait_ms);
@@ -78,7 +94,15 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
     }
     result.status = response.status();
     result.body = response.body();
-    if (result.status < 200 || result.status >= 300) result.error = Error::http_status;
+    if (!result.cleanup_only) {
+        result.error = interrupted(cancelled, request_deadline_us);
+        if (result.error != Error::none && recover_ocr) {
+            result.cleanup_only = true;
+            result.cleanup_deadline_us = cleanup_deadline();
+        }
+        if (result.error == Error::none && (result.status < 200 || result.status >= 300)) result.error = Error::http_status;
+        if (phase) phase->store(result.cleanup_only ? Phase::cancelled_cleanup : Phase::cleanup);
+    }
     return result;
 }
 }

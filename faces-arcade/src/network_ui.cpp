@@ -102,7 +102,7 @@ bool begin(network_job::Kind kind) {
         message("説明先が未設定");
         return false;
     }
-    if (network_job::busy()) { message("前の処理が終了待ち"); return false; }
+    if (network_job::busy()) { message("前の処理を片付け中"); return false; }
     uint8_t* jpeg = nullptr;
     size_t size = 0;
     char error[80];
@@ -142,7 +142,8 @@ void tick() {
             }
         } else if (network_job::expired()) {
             network_job::cancel();
-            message("通信が時間切れ");
+            if (last_kind == network_job::Kind::ocr) request_menu = true;
+            else message("通信が時間切れ");
         } else if (!network_job::busy()) {
             message("通信処理に失敗");
         } else drawWaiting();

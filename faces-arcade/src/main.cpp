@@ -362,6 +362,8 @@ void menuTick() {
 //   m<0|1>  mute speaker   f<hz>  use a sine wave instead of the microphone (0 = off)
 void sendScreenshot() {
     static uint8_t row[320 * 3];
+    flockfile(stdout);
+    flockfile(stderr);
     puts("SHOT 320 240");
     for (int y = 0; y < 240; ++y) {
         M5.Display.readRectRGB(0, y, 320, 1, row);
@@ -370,6 +372,8 @@ void sendScreenshot() {
     }
     puts("\nENDSHOT");
     fflush(stdout);
+    funlockfile(stderr);
+    funlockfile(stdout);
 }
 
 void handleSerial() {
