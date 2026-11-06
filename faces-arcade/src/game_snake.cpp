@@ -65,8 +65,8 @@ void drawApple() {
 
 void placeApple() {
     do {
-        apple.x = random(kCols);
-        apple.y = random(kRows);
+        apple.x = arcadeRandom(kCols);
+        apple.y = arcadeRandom(kRows);
     } while (onSnake(apple.x, apple.y));
     drawApple();
 }
@@ -102,23 +102,23 @@ void startGame() {
     dirY     = 0;
     queued   = 0;
     state    = PLAY;
-    lastStep = millis();
+    lastStep = lgfx::millis();
     do {
-        apple.x = random(kCols);
-        apple.y = random(kRows);
+        apple.x = arcadeRandom(kCols);
+        apple.y = arcadeRandom(kRows);
     } while (onSnake(apple.x, apple.y));
     drawAll();
-    Serial.println("SNAKE start");
+    puts("SNAKE start");
 }
 
 void gameOver() {
     state   = OVER;
-    overAt  = millis();
+    overAt  = lgfx::millis();
     const bool best = submitScore(kKey, score);
     char b[24];
     snprintf(b, sizeof(b), "点数 %d", score);
     dialog("ゲームオーバー", pal::kRed, b, best ? "さいこう更新！" : nullptr, "A:もう一度");
-    Serial.printf("SNAKE gameover score=%d\n", score);
+    printf("SNAKE gameover score=%d\n", score);
 }
 
 void queueDir(int x, int y) {
@@ -157,7 +157,7 @@ void step() {
         ++length;
         ++score;
         drawHud();
-        Serial.printf("SNAKE score=%d\n", score);
+        printf("SNAKE score=%d\n", score);
         placeApple();
     }
     // Recolor the segments right behind the head; the rest keep a close shade.
@@ -194,12 +194,12 @@ void tick() {
         case PAUSE:
             if ((pad_just & kStart) || tap_just) {
                 state = PLAY;
-                lastStep = millis();
+                lastStep = lgfx::millis();
                 drawAll();
             }
             break;
         case OVER:
-            if (((pad_just & (kA | kStart)) || tap_just) && millis() - overAt > 500) startGame();
+            if (((pad_just & (kA | kStart)) || tap_just) && lgfx::millis() - overAt > 500) startGame();
             break;
         case PLAY:
             if (pad_just & kStart) {
@@ -211,8 +211,8 @@ void tick() {
             if (pad_just & kDown) queueDir(0, 1);
             if (pad_just & kLeft) queueDir(-1, 0);
             if (pad_just & kRight) queueDir(1, 0);
-            if (millis() - lastStep >= stepMs()) {
-                lastStep = millis();
+            if (lgfx::millis() - lastStep >= stepMs()) {
+                lastStep = lgfx::millis();
                 step();
             }
             break;

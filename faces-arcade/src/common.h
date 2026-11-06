@@ -3,6 +3,16 @@
 #pragma once
 #include <M5Unified.h>
 #include <M5Faces.h>
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include "esp_random.h"
+using std::min;
+using std::max;
+constexpr float PI = 3.14159265358979323846f;
+inline long arcadeRandom(long upper) { return upper > 0 ? esp_random() % upper : 0; }
+inline long arcadeRandom(long lower, long upper) { return lower + arcadeRandom(upper - lower); }
 
 constexpr uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);

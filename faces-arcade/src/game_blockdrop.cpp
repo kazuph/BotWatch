@@ -53,7 +53,7 @@ int takeFromBag() {
     if (bagLeft == 0) {
         for (int i = 0; i < 7; ++i) bag[i] = i;
         for (int i = 6; i > 0; --i) {
-            const int j = random(i + 1);
+            const int j = arcadeRandom(i + 1);
             const uint8_t t = bag[i];
             bag[i]          = bag[j];
             bag[j]          = t;
@@ -154,13 +154,13 @@ void drawFrame() {
 
 void gameOver() {
     state   = OVER;
-    overAt  = millis();
+    overAt  = lgfx::millis();
     newBest = submitScore(kKey, score);
     renderField();
     char b[24];
     snprintf(b, sizeof(b), "点数 %d", score);
     dialog("ゲームオーバー", pal::kRed, b, newBest ? "さいこう更新！" : nullptr, "A:もう一度");
-    Serial.printf("BLOCKS gameover score=%d lines=%d level=%d\n", score, lines, level);
+    printf("BLOCKS gameover score=%d lines=%d level=%d\n", score, lines, level);
 }
 
 void spawn() {
@@ -171,7 +171,7 @@ void spawn() {
     py        = -1;
     lockMoves = 0;
     lockAt    = 0;
-    lastFall  = millis();
+    lastFall  = lgfx::millis();
     fieldDirty = hudDirty = true;
     if (!fits(piece, rot, px, py)) gameOver();
 }
@@ -194,9 +194,9 @@ void lockPiece() {
         lines += cleared;
         level = lines / 10 + 1;
         state = CLEARING;
-        clearAt = millis();
+        clearAt = lgfx::millis();
         fieldDirty = hudDirty = true;
-        Serial.printf("BLOCKS cleared=%d score=%d lines=%d\n", cleared, score, lines);
+        printf("BLOCKS cleared=%d score=%d lines=%d\n", cleared, score, lines);
     } else {
         spawn();
     }
@@ -219,7 +219,7 @@ void tryMove(int dx) {
     if (fits(piece, rot, px + dx, py)) {
         px += dx;
         fieldDirty = true;
-        if (lockAt && lockMoves++ < 12) lockAt = millis();
+        if (lockAt && lockMoves++ < 12) lockAt = lgfx::millis();
     }
 }
 
@@ -232,7 +232,7 @@ void tryRotate(int dir) {
             px += k[0];
             py += k[1];
             fieldDirty = true;
-            if (lockAt && lockMoves++ < 12) lockAt = millis();
+            if (lockAt && lockMoves++ < 12) lockAt = lgfx::millis();
             return;
         }
 }
@@ -247,11 +247,11 @@ void startGame() {
     state = PLAY;
     drawFrame();
     spawn();
-    Serial.println("BLOCKS start");
+    puts("BLOCKS start");
 }
 
 void tickPlay() {
-    const uint32_t now = millis();
+    const uint32_t now = lgfx::millis();
     if (pad_just & kStart) {
         state = PAUSE;
         fieldDirty = true;
@@ -315,17 +315,17 @@ void tick() {
         case PAUSE:
             if ((pad_just & kStart) || tap_just) {
                 state = PLAY;
-                lastFall = millis();
+                lastFall = lgfx::millis();
                 drawFrame();
             }
             return;
         case OVER:
-            if (((pad_just & (kA | kStart)) || tap_just) && millis() - overAt > 500) startGame();
+            if (((pad_just & (kA | kStart)) || tap_just) && lgfx::millis() - overAt > 500) startGame();
             return;
         case CLEARING:
             if (fieldDirty) { renderField(); fieldDirty = false; }
             if (hudDirty) { drawHud(); hudDirty = false; }
-            if (millis() - clearAt >= 180) collapse();
+            if (lgfx::millis() - clearAt >= 180) collapse();
             return;
         case PLAY:
             tickPlay();

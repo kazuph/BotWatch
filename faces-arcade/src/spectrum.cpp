@@ -94,7 +94,8 @@ void analyze(const int16_t* samples) {
         lo = min<int>(lo, samples[i]);
         hi = max<int>(hi, samples[i]);
     }
-    flatBuffers = (!test_tone_hz && hi - lo <= 1) ? flatBuffers + 1 : 0;
+    const bool core2 = M5.getBoard() == m5::board_t::board_M5StackCore2;
+    flatBuffers = (core2 && !test_tone_hz && hi - lo <= 1) ? flatBuffers + 1 : 0;
     if (flatBuffers >= 8) {
         if (!noMicShown) {
             noMicShown = true;
@@ -103,7 +104,7 @@ void analyze(const int16_t* samples) {
             text(M5.Display, "マイクは純正の底に", 160, 96, pal::kText, F24, top_center);
             text(M5.Display, "入っています", 160, 126, pal::kText, F24, top_center);
             text(M5.Display, "SELECT:もどる", 160, 186, pal::kDim, F24, top_center);
-            Serial.printf("MIC flat min=%d max=%d\n", lo, hi);
+            printf("MIC flat min=%d max=%d\n", lo, hi);
         }
         return;
     }
@@ -146,7 +147,7 @@ void analyze(const int16_t* samples) {
         for (int i = i0; i <= i1; ++i) m = max(m, mag[i]);
         // 0 to 1 over a 60 dB range.
         float level = (20.0f * log10f(m / kN + 1.0f)) / 60.0f;
-        level       = constrain(level, 0.0f, 1.0f);
+        level       = std::clamp(level, 0.0f, 1.0f);
         smooth[b]   = max(level, smooth[b] * 0.82f);
         const int h = int(smooth[b] * kBarsH);
         const uint16_t c = smooth[b] > 0.75f ? pal::kRed : smooth[b] > 0.5f ? pal::kAccent : pal::kCyan;
@@ -154,15 +155,15 @@ void analyze(const int16_t* samples) {
     }
     bars.pushSprite(0, kBarsTop);
 
-    if (millis() - lastLog > 500) {
-        lastLog = millis();
+    if (lgfx::millis() - lastLog > 500) {
+        lastLog = lgfx::millis();
         int lo = 32767, hi = -32768;
         for (int i = 0; i < kN; ++i) {
             lo = min<int>(lo, samples[i]);
             hi = max<int>(hi, samples[i]);
         }
         const auto c = M5.Mic.config();
-        Serial.printf("MIC rms=%.1f min=%d max=%d peakHz=%.1f peakMag=%.1f loud=%d in=%d ws=%d port=%d adc=%d mag=%d os=%d left=%d\n", rms,
+        printf("MIC rms=%.1f min=%d max=%d peakHz=%.1f peakMag=%.1f loud=%d in=%d ws=%d port=%d adc=%d mag=%d os=%d left=%d\n", rms,
                       lo, hi, hz, peakMag / kN, loud, c.pin_data_in, c.pin_ws, int(c.i2s_port), c.use_adc, c.magnification,
                       c.over_sampling, c.left_channel);
     }
@@ -196,11 +197,11 @@ void enter() {
     auto cfg            = M5.Mic.config();
     cfg.sample_rate     = kRate;
     cfg.noise_filter_level = 0;
-    cfg.left_channel    = test_mic_left;
+    if (M5.getBoard() == m5::board_t::board_M5StackCore2) cfg.left_channel = test_mic_left;
     M5.Mic.config(cfg);
     const bool ok = rec && M5.Mic.begin();
     M5.Display.fillScreen(pal::kBg);
-    Serial.printf("MIC begin=%d\n", ok);
+    printf("MIC begin=%d\n", ok);
     if (!ok) {
         text(M5.Display, "マイクが使えません", 160, 100, pal::kRed, F32, top_center);
         return;

@@ -1,10 +1,19 @@
 // FACES ARCADE: menu for M5Stack Core2 + Faces Gamepad3.
-#include <Preferences.h>
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <sys/select.h>
+#include <unistd.h>
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "driver/usb_serial_jtag.h"
+#include "driver/usb_serial_jtag_vfs.h"
+#endif
 #include "common.h"
 
 namespace {
 M5Faces_Gamepad3 gamepad;
-Preferences prefs;
+nvs_handle_t prefs = 0;
 uint8_t pad_injected   = 0;  // set over serial for self tests
 bool tap_injected      = false;
 int injected_x = 0, injected_y = 0;
@@ -40,7 +49,7 @@ void padRead() {
         tap_x        = injected_x;
         tap_y        = injected_y;
     }
-    if (tap_just) Serial.printf("GAMES tap x=%d y=%d\n", tap_x, tap_y);
+    if (tap_just) printf("GAMES tap x=%d y=%d\n", tap_x, tap_y);
 }
 
 void drawRow(int index) {
@@ -79,12 +88,12 @@ void menuEnter() {
     d.fillScreen(pal::kBg);
     text(d, "タップか上下+A", 160, 8, pal::kAccent, F24, top_center);
     drawList();
-    Serial.println("GAMES menu");
+    puts("GAMES menu");
 }
 
 void openCursor() {
     running = kGames[cursor];
-    Serial.printf("GAMES play=%s\n", running->scoreKey ? running->scoreKey : "spectrum");
+    printf("GAMES play=%s\n", running->scoreKey ? running->scoreKey : "spectrum");
     running->enter();
 }
 
@@ -125,19 +134,25 @@ void menuTick() {
 //   m<0|1>  mute speaker   f<hz>  use a sine wave instead of the microphone (0 = off)
 void sendScreenshot() {
     static uint8_t row[320 * 3];
-    Serial.println("SHOT 320 240");
+    puts("SHOT 320 240");
     for (int y = 0; y < 240; ++y) {
         M5.Display.readRectRGB(0, y, 320, 1, row);
-        Serial.write(row, sizeof(row));
+        fwrite(row, 1, sizeof(row), stdout);
     }
-    Serial.println("\nENDSHOT");
+    puts("\nENDSHOT");
+    fflush(stdout);
 }
 
 void handleSerial() {
     static char line[10];
     static int len = 0;
-    while (Serial.available()) {
-        const char c = Serial.read();
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+    timeval timeout = {0, 0};
+    while (select(STDIN_FILENO + 1, &readfds, nullptr, nullptr, &timeout) > 0) {
+        char c;
+        if (read(STDIN_FILENO, &c, 1) != 1) break;
         if (c != '\n') {
             if (len < 9) line[len++] = c;
             continue;
@@ -149,7 +164,7 @@ void handleSerial() {
         if (line[0] == 'f') test_tone_hz = atoi(line + 1);
         if (line[0] == 'l') test_mic_left = line[1] == '1';
         if (line[0] == 'r') {  // clears scores left behind by a self test
-            prefs.clear();
+            if (prefs) { nvs_erase_all(prefs); nvs_commit(prefs); }
             if (!running) menuEnter();
         }
         if (line[0] == 't' && sscanf(line + 1, "%d,%d", &injected_x, &injected_y) == 2) tap_injected = true;
@@ -170,12 +185,15 @@ int test_tone_hz = 0;
 bool test_mute   = false;
 bool test_mic_left = false;
 
-int bestScore(const char* key) { return prefs.getInt(key, 0); }
+int bestScore(const char* key) {
+    int32_t score = 0;
+    if (prefs) nvs_get_i32(prefs, key, &score);
+    return score;
+}
 
 bool submitScore(const char* key, int score) {
     if (score <= bestScore(key)) return false;
-    prefs.putInt(key, score);
-    return true;
+    return prefs && nvs_set_i32(prefs, key, score) == ESP_OK && nvs_commit(prefs) == ESP_OK;
 }
 
 void text(lgfx::LovyanGFX& d, const char* s, int x, int y, uint16_t color, const lgfx::IFont* font, textdatum_t datum,
@@ -204,18 +222,25 @@ void dialog(const char* title, uint16_t titleColor, const char* line1, const cha
 void setup() {
     auto cfg = M5.config();
     M5.begin(cfg);
-    Serial.begin(460800);
+#if CONFIG_IDF_TARGET_ESP32S3
+    usb_serial_jtag_driver_config_t serial = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(usb_serial_jtag_driver_install(&serial));
+    usb_serial_jtag_vfs_use_driver();
+#endif
+    setvbuf(stdout, nullptr, _IONBF, 0);
     M5.Display.setBrightness(180);
     M5.Display.fillScreen(pal::kBg);
-    prefs.begin("arcade");
+    esp_err_t nvs = nvs_flash_init();
+    if (nvs == ESP_OK) nvs = nvs_open("arcade", NVS_READWRITE, &prefs);
+    if (nvs != ESP_OK) printf("GAMES nvs=%s\n", esp_err_to_name(nvs));
     if (gamepad.begin(&M5.In_I2C, 0x08, 100000) != M5FACES_OK) {
         text(M5.Display, "ゲームパッドなし", 160, 100, pal::kRed, F32, top_center);
-        Serial.println("GAMES gamepad=FAIL");
-        while (true) delay(1000);
+        puts("GAMES gamepad=FAIL");
+        while (true) vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    Serial.println("GAMES gamepad=OK");
+    puts("GAMES gamepad=OK");
     // The Core2 IMU (0x68) and PDM mic share the small board in the stock bottom module.
-    Serial.printf("GAMES imu_0x68=%d imu_enabled=%d board=%d\n", M5.In_I2C.scanID(0x68), M5.Imu.isEnabled(), int(M5.getBoard()));
+    printf("GAMES imu_0x68=%d imu_enabled=%d board=%d\n", M5.In_I2C.scanID(0x68), M5.Imu.isEnabled(), int(M5.getBoard()));
     menuEnter();
 }
 
@@ -233,5 +258,10 @@ void loop() {
     } else {
         running->tick();
     }
-    delay(4);
+    vTaskDelay(pdMS_TO_TICKS(4));
+}
+
+extern "C" void app_main() {
+    setup();
+    while (true) loop();
 }

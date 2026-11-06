@@ -71,13 +71,13 @@ void pickChoices(int correct, int range, int n, int* out) {
     for (int i = 1; i < n; ++i) {
         bool dup;
         do {
-            out[i] = random(range);
+            out[i] = arcadeRandom(range);
             dup    = false;
             for (int j = 0; j < i; ++j) dup |= soundsSame(out[j], out[i]);
         } while (dup);
     }
     for (int i = n - 1; i > 0; --i) {
-        const int j = random(i + 1);
+        const int j = arcadeRandom(i + 1);
         const int t = out[i];
         out[i]      = out[j];
         out[j]      = t;
@@ -160,7 +160,7 @@ void askQuestion() {
     selected    = 0;
     choiceCount = 4;
     if (kind == NOTE) {
-        const int target = random(7);
+        const int target = arcadeRandom(7);
         pickChoices(target, 7, 4, picks);
         for (int i = 0; i < 4; ++i) {
             strlcpy(choiceLabel[i], kNoteNames[picks[i]], sizeof(choiceLabel[i]));
@@ -168,7 +168,7 @@ void askQuestion() {
         }
         notes[0] = kNoteMidi[target];
     } else if (kind == CHORD) {
-        const int target = random(6);
+        const int target = arcadeRandom(6);
         pickChoices(target, 6, 4, picks);
         for (int i = 0; i < 4; ++i) {
             strlcpy(choiceLabel[i], kChords[picks[i]].name, sizeof(choiceLabel[i]));
@@ -177,9 +177,9 @@ void askQuestion() {
         }
         memcpy(notes, kChords[target].midi, sizeof(notes));
     } else {
-        const int target = random(kKanaCount);
+        const int target = arcadeRandom(kKanaCount);
         pickChoices(target, kKanaCount, 4, picks);
-        const bool useKata = kanaMode == 1 || (kanaMode == 2 && random(2));
+        const bool useKata = kanaMode == 1 || (kanaMode == 2 && arcadeRandom(2));
         for (int i = 0; i < 4; ++i) {
             strlcpy(choiceLabel[i], useKata ? kKana[picks[i]].kata : kKana[picks[i]].hira, sizeof(choiceLabel[i]));
             if (picks[i] == target) answer = i;
@@ -190,25 +190,25 @@ void askQuestion() {
     M5.Display.fillScreen(pal::kBg);
     drawAskBar();
     drawCells();
-    Serial.printf("QUIZ streak=%d answer=%d\n", streak, answer);
+    printf("QUIZ streak=%d answer=%d\n", streak, answer);
     playQuestion();
 }
 
 void drawDone() {
     auto& d = M5.Display;
     state      = DONE;
-    feedbackAt = millis();
+    feedbackAt = lgfx::millis();
     d.fillScreen(pal::kBg);
     for (int i = 0; i < 26; ++i) {
         static const uint16_t kColors[4] = {pal::kAccent, pal::kCyan, pal::kGreen, pal::kRed};
         // Keep the confetti in the strips above and below the text.
-        const int y = (i % 2) ? random(0, 22) : random(200, 240);
-        d.fillCircle(random(320), y, random(3, 7), kColors[i % 4]);
+        const int y = (i % 2) ? arcadeRandom(0, 22) : arcadeRandom(200, 240);
+        d.fillCircle(arcadeRandom(320), y, arcadeRandom(3, 7), kColors[i % 4]);
     }
     text(d, "10もん", 160, 28, pal::kAccent, F40, top_center, 1.5f);
     text(d, "れんぞく", 160, 92, pal::kText, F40, top_center);
     text(d, "せいかい！", 160, 140, pal::kGreen, F40, top_center, 1.25f);
-    Serial.println("QUIZ done streak=10");
+    puts("QUIZ done streak=10");
     soundStop();
     if (kind != KANA) {
         soundPlay(0, 180, 72);
@@ -237,8 +237,8 @@ void answerNow() {
     }
     drawCell(answer, rgb(30, 110, 60), pal::kGreen);
     if (!ok) playQuestion();  // Hear the right answer again.
-    feedbackAt = millis();
-    Serial.printf("QUIZ picked=%d ok=%d streak=%d\n", selected, ok, streak);
+    feedbackAt = lgfx::millis();
+    printf("QUIZ picked=%d ok=%d streak=%d\n", selected, ok, streak);
 }
 
 void drawModeSelect() {
@@ -300,19 +300,19 @@ void tick() {
             break;
         }
         case RIGHT:
-            if (millis() - feedbackAt >= 800) {
+            if (lgfx::millis() - feedbackAt >= 800) {
                 if (streak >= kGoal) drawDone();
                 else askQuestion();
             }
             break;
         case WRONG:
-            if (millis() - feedbackAt >= kWrongShowMs ||
-                (((pad_just & kA) || tap_just) && millis() - feedbackAt >= 250)) {
+            if (lgfx::millis() - feedbackAt >= kWrongShowMs ||
+                (((pad_just & kA) || tap_just) && lgfx::millis() - feedbackAt >= 250)) {
                 askQuestion();
             }
             break;
         case DONE:
-            if (millis() - feedbackAt >= 4000 || ((pad_just || tap_just) && millis() - feedbackAt >= 800)) request_menu = true;
+            if (lgfx::millis() - feedbackAt >= 4000 || ((pad_just || tap_just) && lgfx::millis() - feedbackAt >= 800)) request_menu = true;
             break;
     }
 }
@@ -327,7 +327,7 @@ void enterKind(Kind k, const char* key) {
             M5.Display.fillScreen(pal::kBg);
             text(M5.Display, "音声が使えません", 160, 100, pal::kRed, F32, top_center);
             state = DONE;
-            feedbackAt = millis();
+            feedbackAt = lgfx::millis();
             return;
         }
         drawModeSelect();

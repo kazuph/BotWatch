@@ -20,7 +20,7 @@ uint32_t lastStep, overAt, frames;
 const uint16_t kSky[6] = {rgb(70, 170, 235), rgb(90, 185, 240), rgb(115, 200, 243),
                           rgb(145, 215, 245), rgb(175, 228, 245), rgb(205, 238, 240)};
 
-int randomGap() { return random(36, kPlayH - kGap - 30); }
+int randomGap() { return arcadeRandom(36, kPlayH - kGap - 30); }
 
 void resetRound() {
     birdY = kPlayH / 2 - 10;
@@ -120,12 +120,12 @@ void render() {
 
 void gameOver() {
     state  = OVER;
-    overAt = millis();
+    overAt = lgfx::millis();
     const bool best = submitScore(kKey, score);
     char b[32];
     snprintf(b, sizeof(b), "%d点 最高%d", score, bestScore(kKey));
     dialog("ゲームオーバー", pal::kRed, b, best ? "さいこう更新！" : nullptr, "A:もう一度");
-    Serial.printf("FLAPPY gameover score=%d\n", score);
+    printf("FLAPPY gameover score=%d\n", score);
 }
 
 void stepPlay() {
@@ -150,18 +150,18 @@ void stepPlay() {
         if (bx1 > pipeX[i] + 2 && bx0 < pipeX[i] + kPipeW - 2 && (by0 < pipeGap[i] - 2 || by1 > pipeGap[i] + kGap + 2)) {
             state = FALL;
             birdV = -1.0f;
-            Serial.println("FLAPPY hit pipe");
+            puts("FLAPPY hit pipe");
         }
         if (!pipeScored[i] && pipeX[i] + kPipeW < bx0) {
             pipeScored[i] = true;
             ++score;
-            Serial.printf("FLAPPY score=%d\n", score);
+            printf("FLAPPY score=%d\n", score);
         }
     }
     if (int(birdY) + 9 >= kPlayH) {
         birdY = kPlayH - 9;
         state = FALL;
-        Serial.println("FLAPPY hit ground");
+        puts("FLAPPY hit ground");
     }
 }
 
@@ -170,7 +170,7 @@ void enter() {
         frame.setColorDepth(16);
         frame.setPsram(true);
         if (!frame.createSprite(kW, kH)) {
-            Serial.println("FLAPPY sprite=FAIL");
+            puts("FLAPPY sprite=FAIL");
             text(M5.Display, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
             state = TITLE;
             return;
@@ -190,21 +190,21 @@ void enter() {
 
 void tick() {
     if (state == OVER) {
-        if (((pad_just & (kA | kStart | kB)) || tap_just) && millis() - overAt > 500) {
+        if (((pad_just & (kA | kStart | kB)) || tap_just) && lgfx::millis() - overAt > 500) {
             resetRound();
             state = READY;
-            Serial.println("FLAPPY ready");
+            puts("FLAPPY ready");
         }
         if (state == OVER) return;
     }
     if (state == TITLE) {
         if ((pad_just & (kA | kStart | kB)) || tap_just) {
             state = READY;
-            Serial.println("FLAPPY ready");
+            puts("FLAPPY ready");
         }
         if (state == TITLE) return;
     }
-    const uint32_t now = millis();
+    const uint32_t now = lgfx::millis();
     if (now - lastStep < kStepMs) return;
     int steps = min<uint32_t>((now - lastStep) / kStepMs, 4);
     lastStep  = now;
@@ -217,7 +217,7 @@ void tick() {
             if ((pad_just & (kA | kB | kUp)) || tap_just) {
                 state = PLAY;
                 birdV = kFlap;
-                Serial.println("FLAPPY start");
+                puts("FLAPPY start");
             }
         } else if (state == PLAY) {
             stepPlay();
