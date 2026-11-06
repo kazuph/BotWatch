@@ -9,3 +9,4 @@ tools/gen_kana
 !/sdkconfig.defaults
 !/sdkconfig.defaults.esp32
 !/sdkconfig.defaults.esp32s3
+/.dependencies/
