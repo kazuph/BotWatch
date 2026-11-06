@@ -5,10 +5,14 @@
 #include "network_ui.h"
 #include "imagenet_ja.h"
 #include "esp_camera.h"
+#include "esp_jpeg_dec.h"
 #include "esp_heap_caps.h"
+#include "esp_memory_utils.h"
+#include "esp_timer.h"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <string>
 #include <sys/stat.h>
 
@@ -23,6 +27,7 @@ uint32_t capture_start = 0;
 uint8_t* captured = nullptr;
 size_t captured_size = 0;
 int captured_width = 0, captured_height = 0;
+M5Canvas preview(&M5.Display);
 const char* const mode_names[] = {"顔の検出", "画像全体の分類", "文字", "説明"};
 
 void memory_log(const char* stage) {
@@ -39,10 +44,7 @@ void show_error(const char* message) {
     printf("CAMERA error: %s\n", message);
 }
 
-void enter() {
-    mode = Mode::face;
-    showing_message = false;
-    capture_state = CaptureState::idle;
+bool start_camera(framesize_t frame_size) {
     camera_config_t config = {};
     config.pin_pwdn = -1;
     config.pin_reset = -1;
@@ -56,16 +58,31 @@ void enter() {
     config.xclk_freq_hz = 20000000;
     config.ledc_timer = LEDC_TIMER_0; config.ledc_channel = LEDC_CHANNEL_0;
     config.pixel_format = PIXFORMAT_RGB565;
-    config.frame_size = FRAMESIZE_QVGA;
+    config.frame_size = frame_size;
     config.fb_count = 2;
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
     const esp_err_t result = esp_camera_init(&config);
     camera_ready = result == ESP_OK;
-    if (camera_ready) vision::set_mode(vision::Mode::faces);
+    if (!camera_ready) printf("CAMERA init=%s\n", esp_err_to_name(result));
+    return camera_ready;
+}
+
+void enter() {
+    mode = Mode::face;
+    showing_message = false;
+    capture_state = CaptureState::idle;
+    preview.setPsram(true);
+    preview.setColorDepth(16);
+    void* buffer = preview.createSprite(320, 240);
+    if (!buffer || !esp_ptr_external_ram(buffer)) {
+        preview.deleteSprite();
+        show_error("メモリ不足");
+        return;
+    }
+    if (start_camera(FRAMESIZE_QVGA)) vision::set_mode(vision::Mode::faces);
     memory_log("camera_init");
     if (!camera_ready) {
-        printf("CAMERA init=%s\n", esp_err_to_name(result));
         show_error("初期化失敗");
     }
 }
@@ -78,7 +95,18 @@ void view_latest() {
         show_error(error);
         return;
     }
-    const bool drawn = M5.Display.drawJpg(data, read_size, 0, 0);
+    jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
+    jpeg_dec_handle_t decoder = nullptr;
+    jpeg_dec_header_info_t info = {};
+    jpeg_dec_io_t io = {};
+    io.inbuf = data;
+    const bool size_ok = read_size <= static_cast<size_t>(std::numeric_limits<int>::max());
+    io.inbuf_len = size_ok ? static_cast<int>(read_size) : 0;
+    bool valid = size_ok && jpeg_dec_open(&config, &decoder) == JPEG_ERR_OK;
+    if (valid) valid = jpeg_dec_parse_header(decoder, &io, &info) == JPEG_ERR_OK && info.width && info.height;
+    if (decoder) jpeg_dec_close(decoder);
+    const float scale = valid ? std::min(1.0f, std::min(320.0f / info.width, 240.0f / info.height)) : 1.0f;
+    const bool drawn = valid && M5.Display.drawJpg(data, read_size, 0, 0, 0, 0, 0, 0, scale);
     free(data);
     if (!drawn) { show_error("JPEG が不正です"); return; }
     showing_message = true;
@@ -86,7 +114,7 @@ void view_latest() {
 }
 
 void draw_prediction(const vision::Prediction& prediction, int y) {
-    auto& display = M5.Display;
+    auto& display = preview;
     constexpr int name_x = 8;
     constexpr int name_width = 224;
     constexpr int row_height = 51;
@@ -118,8 +146,10 @@ void tick() {
         arcade_led::clear();
         capture_state = CaptureState::idle;
         char path[64], error[80];
+        const int64_t save_start = esp_timer_get_time();
         const bool saved = photo_storage::save_rgb565(captured, captured_size, captured_width, captured_height,
                                                        path, sizeof(path), error, sizeof(error));
+        printf("CAMERA save_us=%lld\n", static_cast<long long>(esp_timer_get_time() - save_start));
         free(captured); captured = nullptr;
         memory_log("save");
         if (!saved) { show_error(error); return; }
@@ -146,44 +176,71 @@ void tick() {
     }
     camera_fb_t* frame = esp_camera_fb_get();
     if (!frame) { capture_state = CaptureState::idle; arcade_led::clear(); show_error("取得失敗"); return; }
-    M5.Display.pushImage(0, 0, frame->width, frame->height, reinterpret_cast<uint16_t*>(frame->buf));
+    preview.pushImage(0, 0, frame->width, frame->height, reinterpret_cast<uint16_t*>(frame->buf));
+    int countdown = 0;
     if (capture_state == CaptureState::countdown) {
         const uint32_t elapsed = lgfx::millis() - capture_start;
         if (elapsed >= 3000) {
             arcade_led::clear();
-            captured = static_cast<uint8_t*>(heap_caps_malloc(frame->len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-            if (!captured) {
-                arcade_led::clear(); capture_state = CaptureState::idle;
-                esp_camera_fb_return(frame); show_error("メモリ不足"); return;
+            esp_camera_fb_return(frame);
+            const int64_t start = esp_timer_get_time();
+            captured_size = 0; captured_width = 0; captured_height = 0;
+            esp_camera_deinit();
+            camera_ready = false;
+            const bool capture_ok = start_camera(FRAMESIZE_VGA);
+            camera_fb_t* photo = capture_ok ? esp_camera_fb_get() : nullptr;
+            if (photo && photo->width == 640 && photo->height == 480) {
+                captured = static_cast<uint8_t*>(heap_caps_malloc(photo->len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+                if (captured) {
+                    captured_size = photo->len; captured_width = photo->width; captured_height = photo->height;
+                    memcpy(captured, photo->buf, photo->len);
+                }
             }
-            captured_size = frame->len; captured_width = frame->width; captured_height = frame->height;
-            memcpy(captured, frame->buf, frame->len);
+            memory_log("photo");
+            if (photo) esp_camera_fb_return(photo);
+            if (camera_ready) esp_camera_deinit();
+            camera_ready = false;
+            const bool preview_ok = start_camera(FRAMESIZE_QVGA);
+            printf("CAMERA capture_us=%lld size=%dx%d\n", static_cast<long long>(esp_timer_get_time() - start), captured_width, captured_height);
             memory_log("capture");
+            if (!captured || !preview_ok) {
+                free(captured); captured = nullptr;
+                capture_state = CaptureState::idle;
+                show_error(preview_ok ? "撮影失敗" : "初期化失敗");
+                return;
+            }
             capture_state = CaptureState::saving;
+            return;
         } else {
             const unsigned step = elapsed / 1000;
             arcade_led::countdown(elapsed);
             char count[2] = {char('3' - step), 0};
-            text(M5.Display, count, 160, 90, pal::kAccent, F40, top_center, 2.0f);
+            countdown = count[0] - '0';
         }
-        esp_camera_fb_return(frame);
-        return;
     }
-    M5.Display.fillRect(0, 0, 320, 30, pal::kBg);
-    text(M5.Display, mode_names[static_cast<int>(mode)], 160, 2, pal::kText, F24, top_center);
+    preview.fillRect(0, 0, 320, 30, pal::kBg);
+    char title[80];
+    snprintf(title, sizeof(title), "モード: %s", mode_names[static_cast<int>(mode)]);
+    text(preview, title, 160, 2, pal::kText, F24, top_center);
     if (mode == Mode::face) {
         std::vector<vision::Box> boxes;
         if (vision::faces(frame->buf, frame->width, frame->height, boxes)) {
             arcade_led::show(boxes.empty() ? arcade_led::Color::off : arcade_led::Color::white);
             for (const auto& box : boxes)
-                M5.Display.drawRect(box.x1, box.y1, box.x2 - box.x1 + 1, box.y2 - box.y1 + 1, pal::kGreen);
+                preview.drawRect(box.x1, box.y1, box.x2 - box.x1 + 1, box.y2 - box.y1 + 1, pal::kGreen);
+            if (!boxes.empty()) {
+                char count[32];
+                snprintf(count, sizeof(count), "顔 %u人", unsigned(boxes.size()));
+                preview.fillRect(0, 210, 320, 30, pal::kBg);
+                text(preview, count, 160, 212, pal::kText, F24, top_center);
+            }
         } else {
             esp_camera_fb_return(frame); show_error("顔検出に失敗"); return;
         }
     } else if (mode == Mode::classify) {
         std::vector<vision::Prediction> results;
         if (vision::classify(frame->buf, frame->width, frame->height, results)) {
-            M5.Display.fillRect(0, 84, 320, 156, pal::kBg);
+            preview.fillRect(0, 84, 320, 156, pal::kBg);
             for (size_t i = 0; i < results.size(); ++i)
                 draw_prediction(results[i], 86 + i * 51);
         } else {
@@ -195,6 +252,11 @@ void tick() {
         capture_state = CaptureState::countdown;
         arcade_led::countdown(0);
     }
+    if (countdown) {
+        char count[2] = {char('0' + countdown), 0};
+        text(preview, count, 160, 90, pal::kAccent, F40, top_center, 2.0f);
+    }
+    preview.pushSprite(0, 0);
     esp_camera_fb_return(frame);
 }
 
@@ -206,6 +268,7 @@ void leave() {
     vision::stop();
     if (camera_ready) esp_camera_deinit();
     camera_ready = false;
+    preview.deleteSprite();
 }
 
 void icon(int x, int y) {

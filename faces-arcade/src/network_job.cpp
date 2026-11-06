@@ -43,11 +43,12 @@ struct Work {
 struct LinkDeleter { void operator()(microlink_t* link) const { if (link) microlink_destroy(link); } };
 using Link = std::unique_ptr<microlink_t, LinkDeleter>;
 void log_memory(const char* stage) {
-    printf("NETWORK %s internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u\n", stage,
+    printf("NETWORK %s internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u stack_free=%u\n", stage,
            unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
            unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
            unsigned(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
-           unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+           unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
+           unsigned(uxTaskGetStackHighWaterMark(nullptr)));
 }
 const char* http_error(const network_http::Response& response) {
     switch (response.error) {
@@ -68,6 +69,7 @@ void do_work(void* argument) {
     network_settings::Credentials credentials{};
     Link link;
     auto perform = [&]() {
+        log_memory("start");
         if (work->kind == Kind::describe &&
             (work->host.empty() || !work->port || work->model.empty())) {
             output.text = "説明先が未設定"; return;
@@ -95,6 +97,8 @@ void do_work(void* argument) {
             if (microlink_get_state(link.get()) == ML_STATE_ERROR) { output.text = "VPN に接続できません"; return; }
             vTaskDelay(pdMS_TO_TICKS(100));
         }
+        puts("NETWORK tailnet connected");
+        log_memory("connected");
         if (work->kind == Kind::describe) {
             in_addr address = {};
             uint32_t target = inet_aton(work->host.c_str(), &address) == 1
@@ -124,6 +128,8 @@ void do_work(void* argument) {
         auto response = network_http::request(link.get(), microlink_parse_ip(kGpuAddress), port, "POST", path,
                                               content_type, body, cancelled, connect_deadline, duration,
                                               &visible_deadline_ms);
+        printf("NETWORK post error=%d status=%u\n", int(response.error), response.status);
+        log_memory("post");
         if (response.error != network_http::Error::none) {
             output.text = response.error == network_http::Error::http_status
                 ? std::string("HTTP エラー ") + std::to_string(response.status) : http_error(response);
@@ -145,6 +151,7 @@ void do_work(void* argument) {
             const int64_t cleanup_deadline = esp_timer_get_time() + kConnectUs;
             auto cleanup = network_http::request(link.get(), microlink_parse_ip(kGpuAddress), kOcrPort, "DELETE",
                 "/v1/yomitoku/jobs/" + parsed.job_id, "", "", cleanup_cancelled, cleanup_deadline, kConnectUs);
+            printf("NETWORK delete error=%d status=%u\n", int(cleanup.error), cleanup.status);
             if (cleanup.error != network_http::Error::none) { output.text = "サーバーの写真を消せません"; return; }
         }
         if (parsed.error != network_result::Error::none) {
@@ -155,6 +162,7 @@ void do_work(void* argument) {
         output.ok = true;
     };
     perform();
+    printf("NETWORK finished ok=%d cancelled=%d\n", int(output.ok), int(cancelled.load()));
     link.reset();
     network_wifi::stop();
     network_settings::wipe(&credentials, sizeof(credentials));

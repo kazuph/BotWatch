@@ -19,9 +19,14 @@ esp_event_handler_instance_t wifi_handler = nullptr, ip_handler = nullptr;
 bool netif_initialized = false;
 bool wifi_initialized = false;
 bool wifi_started = false;
+std::atomic<unsigned> disconnect_reason{0};
 
-void on_event(void*, esp_event_base_t base, int32_t id, void*) {
-    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) xEventGroupSetBits(events, kDisconnected);
+void on_event(void*, esp_event_base_t base, int32_t id, void* data) {
+    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        const auto* event = static_cast<const wifi_event_sta_disconnected_t*>(data);
+        disconnect_reason.store(event ? unsigned(event->reason) : 0U);
+        xEventGroupSetBits(events, kDisconnected);
+    }
     if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) xEventGroupSetBits(events, kConnected);
 }
 }
@@ -72,7 +77,11 @@ Result connect(const network_settings::Credentials& credentials, std::atomic<boo
         const auto bits = xEventGroupWaitBits(events, kConnected | kDisconnected, pdFALSE, pdFALSE,
                                              pdMS_TO_TICKS(std::min<int64_t>((remaining_us + 999) / 1000, 100)));
         if (bits & kConnected) return Result::connected;
-        if (bits & kDisconnected) { stop(); return Result::disconnected; }
+        if (bits & kDisconnected) {
+            printf("NETWORK wifi_disconnected reason=%u\n", disconnect_reason.load());
+            stop();
+            return Result::disconnected;
+        }
     }
 }
 }

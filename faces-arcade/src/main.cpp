@@ -1,6 +1,7 @@
 // FACES ARCADE: menu for M5Stack Core2 + Faces Gamepad3.
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <sys/select.h>
@@ -284,6 +285,7 @@ void setup() {
     uart_vfs_dev_port_set_tx_line_endings(console, ESP_LINE_ENDINGS_LF);
 #endif
     setvbuf(stdout, nullptr, _IONBF, 0);
+    printf("GAMES reset_reason=%d\n", int(esp_reset_reason()));
     M5.Display.setBrightness(180);
     M5.Display.fillScreen(pal::kBg);
 #if CONFIG_IDF_TARGET_ESP32S3
