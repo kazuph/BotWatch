@@ -471,6 +471,8 @@ bool request_menu = false;
 bool tap_just     = false;
 int tap_x = 0, tap_y = 0;
 int64_t input_time_us = 0;
+TenTiming ten_timing_max = {};
+int64_t ten_draw_us = 0, ten_transfer_us = 0;
 int test_tone_hz = 0;
 bool test_mute   = false;
 bool test_mic_left = false;
@@ -764,9 +766,24 @@ void setup() {
 }
 
 void loop() {
+    static int64_t previousInput = 0, previousEnd = 0, previousSound = 0, previousTick = 0, largestGap = 0;
+    const int64_t loopStart = esp_timer_get_time();
     handleSerial();
+    const int64_t serialEnd = esp_timer_get_time();
     padRead();
+    const int64_t padEnd = esp_timer_get_time();
+    if (running == &kTenSeconds && tenTimingActive() && previousInput) {
+        const int64_t gap = input_time_us - previousInput;
+        if (gap > largestGap) {
+            largestGap = gap;
+            ten_timing_max = {serialEnd - loopStart, input_time_us - serialEnd, previousSound,
+                              ten_draw_us, ten_transfer_us,
+                              previousTick - ten_draw_us - ten_transfer_us, loopStart - previousEnd};
+        }
+    } else largestGap = 0;
+    previousInput = input_time_us;
     soundTick();
+    const int64_t soundEndAt = esp_timer_get_time();
     if (!running) {
         menuTick();
     } else if (pad_exit || request_menu) {
@@ -781,6 +798,9 @@ void loop() {
     } else {
         running->tick();
     }
+    previousSound = soundEndAt - padEnd;
+    previousTick = esp_timer_get_time() - soundEndAt;
+    previousEnd = esp_timer_get_time();
     vTaskDelay(pdMS_TO_TICKS(4));
 }
 

@@ -1,6 +1,7 @@
 #include "common.h"
 #include "ui_icons.h"
 #include "esp_timer.h"
+#include "esp_memory_utils.h"
 #include <climits>
 
 namespace {
@@ -16,6 +17,8 @@ int ledFrom = 0, ledTo = 0, ledCurrent = 0;
 int tile = 0;
 int64_t lastShown = -1;
 M5Canvas slice(&M5.Display);
+M5Canvas ready0(&M5.Display), ready1(&M5.Display), ready2(&M5.Display);
+M5Canvas* const ready[] = {&ready0, &ready1, &ready2};
 
 void ramp(int target) { ledFrom = ledCurrent; ledTo = target; ledAt = esp_timer_get_time(); }
 void tickLed() {
@@ -48,10 +51,7 @@ void selectScreen() {
 void start() {
     soundStop(); ramp(0); state = State::running; started = input_time_us;
     previousRead = started; maxGap = 0; tile = 0; lastShown = -1;
-    auto& d = uiFrame; d.fillScreen(pal::kBg);
-    text(d, modes[difficulty], 12, 8, pal::kDim, F24);
-    text(d, "10.00 で A を押す", 160, 150, pal::kDim, F24, top_center);
-    text(d, "SELECT でメニュー", 160, 200, pal::kDim, F24, top_center);
+    memcpy(uiFrame.getBuffer(), ready[difficulty]->getBuffer(), 320 * 240 * sizeof(uint16_t));
 }
 void result() {
     stopped = input_time_us; state = State::result; resultAt = stopped;
@@ -77,11 +77,34 @@ void result() {
     if (grade == 2) { soundPlay(0,200,69); soundPlay(200,300,72); }
     if (grade == 3) { soundPlay(0,300,60); soundPlay(300,400,55); }
     printf("TEN elapsed_us=%lld max_gap_us=%lld grade=%d best=%d\n", (long long)elapsed, (long long)maxGap, grade, newBest);
+    printf("TEN timing_us serial=%lld pad=%lld sound=%lld draw=%lld transfer=%lld other=%lld wait=%lld\n",
+           (long long)ten_timing_max.serial, (long long)ten_timing_max.pad, (long long)ten_timing_max.sound,
+           (long long)ten_timing_max.draw, (long long)ten_timing_max.transfer, (long long)ten_timing_max.other,
+           (long long)ten_timing_max.wait);
 }
-void enter() { soundBegin(); ledCurrent = 0; selectScreen(); }
-void leave() { soundStop(); soundEnd(); }
+void enter() {
+    soundBegin(); ledCurrent = 0;
+    for (int i = 0; i < 3; ++i) {
+        ready[i]->setColorDepth(16); ready[i]->setPsram(true);
+        void* buffer = ready[i]->createSprite(320, 240);
+        if (!buffer || !esp_ptr_external_ram(buffer)) {
+        for (auto* frame : ready) frame->deleteSprite();
+        uiFrame.fillScreen(pal::kBg);
+        text(uiFrame, "画面メモリ不足", 160, 100, pal::kRed, F32, top_center);
+        uiFrame.pushSprite(0, 0);
+        puts("TEN frame=FAIL"); request_menu = true; return;
+        }
+        ready[i]->fillScreen(pal::kBg);
+        text(*ready[i], modes[i], 12, 8, pal::kDim, F24);
+        text(*ready[i], "10.00 で A を押す", 160, 150, pal::kDim, F24, top_center);
+        text(*ready[i], "SELECT でメニュー", 160, 200, pal::kDim, F24, top_center);
+    }
+    selectScreen();
+}
+void leave() { soundStop(); soundEnd(); for (auto* frame : ready) frame->deleteSprite(); }
 void icon(int x, int y) { ui_icon::stopwatch(uiGlyph, x, y); }
 void tick() {
+    ten_draw_us = ten_transfer_us = 0;
     tickLed();
     if (state == State::select) {
         if (pad_just & kUp) difficulty = max(0, difficulty - 1);
@@ -102,19 +125,25 @@ void tick() {
     if (tile < 30) {
         auto* pixels = static_cast<uint16_t*>(uiFrame.getBuffer());
         slice.setBuffer(pixels + tile * 8 * 320, 320, 8, 16);
-        slice.pushSprite(0, tile * 8); ++tile; return;
+        const int64_t before = esp_timer_get_time();
+        slice.pushSprite(0, tile * 8); ten_transfer_us = esp_timer_get_time() - before; ++tile; return;
     }
     const int64_t elapsed = input_time_us - started;
     const bool hidden = difficulty == 2 || (difficulty == 1 && elapsed >= 3000000);
     const int64_t cs = hidden ? -2 : elapsed / 10000;
     if (cs == lastShown) return;
     lastShown = cs;
+    const int64_t before = esp_timer_get_time();
     uiGlyph.fillSprite(pal::kBg);
     char number[48];
     if (hidden) strlcpy(number, "?.??", sizeof(number));
     else snprintf(number, sizeof(number), "%lld.%02lld", (long long)(cs / 100), (long long)(cs % 100));
     text(uiGlyph, number, 96, 0, pal::kText, F40, top_center);
+    ten_draw_us = esp_timer_get_time() - before;
+    const int64_t pushAt = esp_timer_get_time();
     uiGlyph.pushSprite(64, 78);
+    ten_transfer_us = esp_timer_get_time() - pushAt;
 }
 }
+bool tenTimingActive() { return state == State::running; }
 const Game kTenSeconds = {"10秒ぴったり", nullptr, enter, tick, icon, leave, GameCategory::play, GameFooter::tenBest};

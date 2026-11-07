@@ -49,6 +49,10 @@ extern bool request_menu;  // set by an app to return to the menu
 extern bool tap_just;      // the screen was tapped this read
 extern int tap_x, tap_y;
 extern int64_t input_time_us;
+struct TenTiming { int64_t serial, pad, sound, draw, transfer, other, wait; };
+extern TenTiming ten_timing_max;
+extern int64_t ten_draw_us, ten_transfer_us;
+bool tenTimingActive();
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
 extern bool test_mic_left; // self test: PDM channel used by the microphone
