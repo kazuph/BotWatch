@@ -326,10 +326,22 @@ void menuTick() {
         menuTouchActive = false;
         const int dx = touch.x - touchStartX, dy = touch.y - touchStartY;
         if (dx * dx + dy * dy <= 12 * 12) {
+#if CONFIG_IDF_TARGET_ESP32S3
+            if (!sliding && kGames[cursor] == &kCamera && touch.x >= 68 && touch.x < 252 && touch.y >= 160 && touch.y < 200) {
+                running = &kPhotoViewer; running->enter(); return;
+            }
+#endif
             if (touch.x >= 40 && touch.x < 280 && touch.y >= 38 && touch.y < 204) action = OPEN;
         } else if (abs(dx) > abs(dy)) action = dx < 0 ? NEXT : PREVIOUS;
     }
-    if (injectedTapThisRead && tap_x >= 40 && tap_x < 280 && tap_y >= 38 && tap_y < 204) action = OPEN;
+    if (injectedTapThisRead && tap_x >= 40 && tap_x < 280 && tap_y >= 38 && tap_y < 204) {
+#if CONFIG_IDF_TARGET_ESP32S3
+        if (!sliding && kGames[cursor] == &kCamera && tap_x >= 68 && tap_x < 252 && tap_y >= 160 && tap_y < 200) {
+            running = &kPhotoViewer; running->enter(); return;
+        }
+#endif
+        action = OPEN;
+    }
     menuAction(action);
     if (sliding) {
         if (lgfx::millis() - slideAt >= 150) {

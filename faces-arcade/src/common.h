@@ -99,4 +99,5 @@ extern const Game kSnake;
 extern const Game kFlappy;
 #if CONFIG_IDF_TARGET_ESP32S3
 extern const Game kCamera;
+extern const Game kPhotoViewer;
 #endif

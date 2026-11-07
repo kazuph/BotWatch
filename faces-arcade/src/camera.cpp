@@ -29,6 +29,7 @@ enum class Mode { face, classify, text, describe };
 Mode mode = Mode::face;
 bool camera_ready = false;
 bool showing_message = false;
+bool viewerActive = false, viewerFromMenu = false, viewerTouchActive = false;
 enum class CaptureState { idle, countdown, saving };
 CaptureState capture_state = CaptureState::idle;
 uint32_t capture_start = 0;
@@ -204,6 +205,7 @@ bool start_camera(framesize_t frame_size) {
 
 void enter() {
     preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
+    viewerActive = false;
     mode = Mode::face;
     showing_message = false;
     capture_state = CaptureState::idle;
@@ -217,46 +219,100 @@ void enter() {
     }
 }
 
-void view_latest() {
-    char error[80];
+unsigned viewerIndex = 0, viewerTotal = 0;
+int viewerTouchX = 0, viewerTouchY = 0;
+uint32_t viewerNoticeAt = 0;
+const char* viewerNotice = nullptr;
+
+void drawViewer() {
+    const int64_t started = esp_timer_get_time();
+    char error[80] = {}, name[16] = {};
     uint8_t* data = nullptr;
-    size_t read_size = 0;
-    if (!photo_storage::read_latest(&data, &read_size, error, sizeof(error))) {
-        show_error(error);
-        return;
-    }
+    size_t size = 0;
+    const bool read = photo_storage::read_index(viewerIndex, &viewerTotal, name, sizeof(name), &data, &size, error, sizeof(error));
+    if (!read && !viewerTotal) { show_error(error); return; }
+    preview.fillScreen(rgb(7, 9, 18));
     jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
     jpeg_dec_handle_t decoder = nullptr;
     jpeg_dec_header_info_t info = {};
     jpeg_dec_io_t io = {};
     io.inbuf = data;
-    const bool size_ok = read_size <= static_cast<size_t>(std::numeric_limits<int>::max());
-    io.inbuf_len = size_ok ? static_cast<int>(read_size) : 0;
-    bool valid = size_ok && jpeg_dec_open(&config, &decoder) == JPEG_ERR_OK;
+    const bool sizeOk = read && size <= static_cast<size_t>(std::numeric_limits<int>::max());
+    io.inbuf_len = sizeOk ? static_cast<int>(size) : 0;
+    bool valid = sizeOk && jpeg_dec_open(&config, &decoder) == JPEG_ERR_OK;
     if (valid) valid = jpeg_dec_parse_header(decoder, &io, &info) == JPEG_ERR_OK && info.width && info.height;
     if (decoder) jpeg_dec_close(decoder);
     const float scale = valid ? std::min(1.0f, std::min(320.0f / info.width, 240.0f / info.height)) : 1.0f;
-    const bool drawn = valid && preview.drawJpg(data, read_size, 0, 0, 0, 0, 0, 0, scale);
+    const bool drawn = valid && preview.drawJpg(data, size, 0, 0, 0, 0, 0, 0, scale);
     free(data);
-    if (!drawn) { show_error("JPEG が不正です"); return; }
-    char path[64], pathError[80];
-    if (!photo_storage::latest_path(path, sizeof(path), pathError, sizeof(pathError))) {
-        show_error(pathError); return;
-    }
-    const char* name = strrchr(path, '/');
-    name = name ? name + 1 : path;
-    char shortName[16];
-    strlcpy(shortName, name, sizeof(shortName));
-    char* extension = strrchr(shortName, '.');
-    if (extension) *extension = 0;
-    darkenRoundRect(preview, 6, 6, 176, 34, 17);
-    ui_icon::photo(preview, 26, 23, rgb(155, 123, 255));
-    text(preview, shortName, 44, 10, pal::kText, F24);
+    if (!drawn) text(preview, "この写真は読めません", 160, 105, pal::kText, F24, top_center);
+    darkenRoundRect(preview, 0, 0, 320, 36, 0);
+    char count[32]; snprintf(count, sizeof(count), "%u / %u", viewerIndex + 1, viewerTotal);
+    text(preview, count, 12, 4, pal::kText, F24);
+    text(preview, name, 150, 4, pal::kText, F24);
+    darkenRoundRect(preview, 6, 96, 48, 44, 12);
+    darkenRoundRect(preview, 266, 96, 48, 44, 12);
+    text(preview, "◀", 30, 106, pal::kText, F24, top_center);
+    text(preview, "▶", 290, 106, pal::kText, F24, top_center);
     darkenRoundRect(preview, 0, 202, 320, 38, 0);
-    text(preview, "A・B・START カメラへ", 160, 207, pal::kText, F24, top_center);
+    ui_icon::buttonB(preview, 26, 221);
+    text(preview, "もどる", 44, 207, pal::kText, F24);
+    if (viewerNotice) {
+        darkenRoundRect(preview, 14, 76, 292, 88, 12);
+        text(preview, viewerNotice, 160, 90, pal::kText, F24, top_center);
+        text(preview, viewerIndex ? "◀ で新しいほうへ" : "▶ で古いほうへ", 160, 130, pal::kDim, F24, top_center);
+    }
     preview.pushSprite(0, 0);
-    showing_message = true;
-    puts("CAMERA viewed latest");
+    printf("CAMERA viewer index=%u total=%u display_us=%lld valid=%d\n", viewerIndex, viewerTotal,
+           (long long)(esp_timer_get_time() - started), drawn);
+}
+
+void beginViewer(bool fromMenu) {
+    viewerFromMenu = fromMenu;
+    viewerActive = true;
+    viewerTouchActive = false;
+    viewerIndex = 0; viewerTotal = 0;
+    viewerNotice = nullptr;
+    showing_message = false;
+    preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
+    drawViewer();
+}
+
+void viewerMove(int direction) {
+    if (!viewerTotal) return;
+    if ((direction < 0 && viewerIndex == 0) || (direction > 0 && viewerIndex + 1 >= viewerTotal)) {
+        viewerNotice = direction < 0 ? "いちばん新しい写真です" : "いちばん古い写真です";
+        viewerNoticeAt = lgfx::millis();
+    } else {
+        viewerIndex = direction < 0 ? viewerIndex - 1 : viewerIndex + 1;
+        viewerNotice = nullptr;
+    }
+    drawViewer();
+}
+
+void viewerTick() {
+    if ((pad_just & kB) || (tap_just && tap_y >= 202 && tap_x < 160)) {
+        viewerActive = false; showing_message = false;
+        if (viewerFromMenu) request_menu = true;
+        return;
+    }
+    if (viewerNotice && lgfx::millis() - viewerNoticeAt >= 2000) { viewerNotice = nullptr; drawViewer(); }
+    if (pad_just & kRight) { viewerMove(1); return; }
+    if (pad_just & kLeft) { viewerMove(-1); return; }
+    const auto touch = M5.Touch.getDetail();
+    if (touch.wasPressed()) { viewerTouchActive = true; viewerTouchX = touch.x; viewerTouchY = touch.y; }
+    if (viewerTouchActive && touch.wasReleased()) {
+        viewerTouchActive = false;
+        const int dx = touch.x - viewerTouchX, dy = touch.y - viewerTouchY;
+        if (abs(dx) > abs(dy) && abs(dx) > 12) viewerMove(dx < 0 ? 1 : -1);
+        else if (viewerTouchY >= 40 && viewerTouchY < 202) {
+            if (viewerTouchX < 106) viewerMove(-1);
+            else if (viewerTouchX >= 214) viewerMove(1);
+        }
+    } else if (tap_just && !touch.wasPressed() && tap_y >= 40 && tap_y < 202) {
+        if (tap_x < 106) viewerMove(-1);
+        else if (tap_x >= 214) viewerMove(1);
+    }
 }
 
 void draw_prediction(const vision::Prediction& prediction, int y, bool first) {
@@ -322,11 +378,12 @@ void drawFooter(bool countdown) {
     ui_icon::buttonB(preview, b, 221);
     frameIconUs += esp_timer_get_time() - iconStart;
     text(preview, "モード", b + 18, 207, pal::kText, F24);
-    if (mode == Mode::face) {
+    const int photoX = b + 18 + preview.textWidth("モード", F24) + 8;
+    if (photoX + 38 + preview.textWidth("写真", F24) <= 320) {
         iconStart = esp_timer_get_time();
-        ui_icon::buttonStart(preview, 206, 209);
+        ui_icon::buttonStart(preview, photoX, 209);
         frameIconUs += esp_timer_get_time() - iconStart;
-        text(preview, "写真", 244, 207, pal::kText, F24);
+        text(preview, "写真", photoX + 38, 207, pal::kText, F24);
     }
 }
 
@@ -384,6 +441,7 @@ void drawCountdown(uint32_t elapsed, int count) {
 }
 
 void tick() {
+    if (viewerActive) { viewerTick(); return; }
     if (network_ui::active()) { previewMeasureStart = 0; network_ui::tick(); return; }
     if (capture_state == CaptureState::saving) {
         previewMeasureStart = 0;
@@ -428,7 +486,10 @@ void tick() {
         capture_state = CaptureState::idle;
         arcade_led::clear();
     }
-    if (!cancelledCapture && capture_state == CaptureState::idle && (pad_just & kStart)) { view_latest(); return; }
+    if (!cancelledCapture && capture_state == CaptureState::idle &&
+        ((pad_just & kStart) || (tap_just && tap_x >= 222 && tap_x < 316 && tap_y >= 42 && tap_y < 94))) {
+        beginViewer(false); return;
+    }
     if (!cancelledCapture && capture_state == CaptureState::idle && (pad_just & kB)) {
         mode = static_cast<Mode>((static_cast<int>(mode) + 1) % 4);
         arcade_led::clear();
@@ -549,12 +610,14 @@ void tick() {
     else {
         if (mode == Mode::text || mode == Mode::describe) drawFinder(50, 54, 270, 186, 16, pal::kAccent);
         drawBadge();
+        darkenRoundRect(preview, 226, 46, 86, 44, 12);
+        text(preview, "写真", 269, 56, pal::kText, F24, top_center);
         if (mode == Mode::classify) {
             const float angle = float(lgfx::millis() % 2000) * 360.0f / 2000.0f;
             preview.fillArc(180, 23, 10, 7, angle, angle + 240, pal::kText);
         }
         drawToast();
-        if (mode != Mode::classify) drawFooter(false);
+        drawFooter(false);
     }
     iconUs = esp_timer_get_time() - stageStart;
     stageStart = esp_timer_get_time();
@@ -586,3 +649,4 @@ void icon(int x, int y) {
 }
 
 const Game kCamera = {"カメラ", nullptr, enter, tick, icon, leave};
+const Game kPhotoViewer = {"写真", nullptr, [] { beginViewer(true); }, viewerTick, nullptr, nullptr};

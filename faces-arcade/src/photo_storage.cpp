@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <vector>
 
 namespace photo_storage {
 namespace {
@@ -152,13 +153,7 @@ bool send_latest(char* error, size_t error_size) {
     return true;
 }
 
-bool read_latest(uint8_t** data, size_t* size, char* error, size_t error_size) {
-    if (!data || !size) return fail(error, error_size, "buffer", EINVAL);
-    *data = nullptr;
-    *size = 0;
-    SdBusGuard guard;
-    char path[64];
-    if (!find_latest(path, sizeof(path), error, error_size)) return false;
+static bool read_file(const char* path, uint8_t** data, size_t* size, char* error, size_t error_size) {
     FILE* file = fopen(path, "rb");
     if (!file) return fail(error, error_size, "open", errno);
     struct stat info = {};
@@ -178,6 +173,46 @@ bool read_latest(uint8_t** data, size_t* size, char* error, size_t error_size) {
     *data = buffer;
     *size = count;
     return true;
+}
+
+bool read_latest(uint8_t** data, size_t* size, char* error, size_t error_size) {
+    if (!data || !size) return fail(error, error_size, "buffer", EINVAL);
+    *data = nullptr; *size = 0;
+    SdBusGuard guard;
+    char path[64];
+    return find_latest(path, sizeof(path), error, error_size) && read_file(path, data, size, error, error_size);
+}
+
+bool read_index(unsigned index, unsigned* total, char* name, size_t name_size,
+                uint8_t** data, size_t* size, char* error, size_t error_size) {
+    if (!total || !name || !data || !size) return fail(error, error_size, "buffer", EINVAL);
+    *total = 0; *data = nullptr; *size = 0;
+    SdBusGuard guard;
+    if (!mount_sd(error, error_size)) return false;
+    DIR* dir = opendir(kPhotoDir);
+    if (!dir) return fail(error, error_size, errno == ENOENT ? "no photo" : "opendir", errno);
+    std::vector<int> numbers;
+    int read_error = 0;
+    for (;;) {
+        errno = 0;
+        dirent* entry = readdir(dir);
+        if (!entry) { read_error = errno; break; }
+        const char* n = entry->d_name;
+        if (strlen(n) != 12 || memcmp(n, "IMG_", 4) || strcmp(n + 8, ".JPG") ||
+            !std::all_of(n + 4, n + 8, [](unsigned char c) { return std::isdigit(c); })) continue;
+        numbers.push_back((n[4]-'0')*1000 + (n[5]-'0')*100 + (n[6]-'0')*10 + n[7]-'0');
+    }
+    const int closed = closedir(dir);
+    if (read_error) return fail(error, error_size, "readdir", read_error);
+    if (closed) return fail(error, error_size, "closedir", errno);
+    std::sort(numbers.begin(), numbers.end(), [](int a, int b) { return a > b; });
+    *total = numbers.size();
+    if (index >= numbers.size()) return fail(error, error_size, "no photo", ENOENT);
+    char path[64];
+    if (snprintf(name, name_size, "IMG_%04d", numbers[index]) >= int(name_size) ||
+        snprintf(path, sizeof(path), "%s/%s.JPG", kPhotoDir, name) >= int(sizeof(path)))
+        return fail(error, error_size, "path", ENAMETOOLONG);
+    return read_file(path, data, size, error, error_size);
 }
 
 bool save_rgb565(const uint8_t* pixels, size_t size, int width, int height,
