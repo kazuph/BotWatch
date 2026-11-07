@@ -49,7 +49,11 @@ extern bool request_menu;  // set by an app to return to the menu
 extern bool tap_just;      // the screen was tapped this read
 extern int tap_x, tap_y;
 extern int64_t input_time_us;
-struct TenTiming { int64_t serial, pad, sound, draw, transfer, other, wait; };
+struct TenTiming { int64_t serial, pad, sound, draw, transfer, other, wait, led, state, rest, ticks, entry, copy; };
+struct TenDetail { int64_t led, state, rest, ticks, entry, copy; };
+extern TenDetail ten_detail;
+extern int ten_serial_bytes, ten_serial_pad, ten_max_serial_bytes, ten_max_serial_pad;
+extern int64_t ten_clean_gap;
 extern TenTiming ten_timing_max;
 extern int64_t ten_draw_us, ten_transfer_us;
 bool tenTimingActive();

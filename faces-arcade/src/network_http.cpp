@@ -24,6 +24,20 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
                  std::atomic<bool>* link_state, bool recover_ocr, int64_t absolute_limit_us,
                  std::atomic<int64_t>* cancelled_at_us) {
     Response result{Error::none, 0, {}};
+    const int64_t trace_start = esp_timer_get_time();
+    const auto trace_ms = [&]() { return (long long)((esp_timer_get_time() - trace_start) / 1000); };
+    const auto trace_route = [&]() {
+        for (int i = 0; i < microlink_get_peer_count(ml); ++i) {
+            microlink_peer_info_t peer = {};
+            if (microlink_get_peer_info(ml, i, &peer) == ESP_OK && peer.vpn_ip == address) {
+                printf("NETWORK route direct=%d elapsed_ms=%lld\n", peer.direct_path, trace_ms());
+                return;
+            }
+        }
+        printf("NETWORK route unknown elapsed_ms=%lld\n", trace_ms());
+    };
+    printf("NETWORK connect_start elapsed_ms=%lld\n", trace_ms());
+    trace_route();
     result.error = interrupted(cancelled, connect_deadline_us);
     if (result.error != Error::none) return result;
     const int64_t remaining = connect_deadline_us - esp_timer_get_time();
@@ -31,8 +45,10 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
     errno = 0;
     Socket socket(microlink_tcp_connect_until(ml, address, port, connect_deadline_us, is_cancelled, &cancelled));
     const int connect_errno = errno;
+    printf("NETWORK connect_end connected=%d elapsed_ms=%lld\n", bool(socket), trace_ms());
+    trace_route();
     result.error = interrupted(cancelled, connect_deadline_us);
-    if (result.error != Error::none) return result;
+    if (result.error != Error::none) { printf("NETWORK connect_result error=%d elapsed_ms=%lld\n", int(result.error), trace_ms()); return result; }
     if (!socket) { result.error = connect_errno == ECONNREFUSED ? Error::refused : Error::connect; return result; }
     if (phase) phase->store(Phase::sending);
     const int64_t request_deadline_us = std::min(esp_timer_get_time() + request_duration_us, absolute_limit_us);
@@ -67,10 +83,15 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
             result.error = interrupted(cancelled, request_deadline_us); if (result.error == Error::none) result.error = Error::send; return result;
         }
         offset += size;
+        if (offset % (16 * 1024) == 0 || offset == body.size())
+            printf("NETWORK sent_bytes=%zu total_bytes=%zu elapsed_ms=%lld\n", offset, body.size(), trace_ms());
     }
+    printf("NETWORK send_complete elapsed_ms=%lld\n", trace_ms());
+    trace_route();
     if (phase) phase->store(Phase::processing);
     HttpResponse response;
     char buffer[2048];
+    bool first_response = true;
     while (!response.complete()) {
         if (link_state) link_state->store(microlink_is_connected(ml));
         if (!result.cleanup_only) {
@@ -90,6 +111,7 @@ Response request(microlink_t* ml, uint32_t address, uint16_t port, const char* m
             if (!response.finish_eof()) { result.error = Error::receive; return result; }
             break;
         }
+        if (count && first_response) { printf("NETWORK first_response elapsed_ms=%lld\n", trace_ms()); trace_route(); first_response = false; }
         if (count && !response.feed(buffer, count)) { result.error = Error::invalid_http; return result; }
     }
     result.status = response.status();

@@ -16,6 +16,7 @@ int64_t ledAt = 0;
 int ledFrom = 0, ledTo = 0, ledCurrent = 0;
 int tile = 0;
 int64_t lastShown = -1;
+int64_t copy_us = 0, max_slice_us = 0;
 M5Canvas slice(&M5.Display);
 M5Canvas ready0(&M5.Display), ready1(&M5.Display), ready2(&M5.Display);
 M5Canvas* const ready[] = {&ready0, &ready1, &ready2};
@@ -50,8 +51,7 @@ void selectScreen() {
 }
 void start() {
     soundStop(); ramp(0); state = State::running; started = input_time_us;
-    previousRead = started; maxGap = 0; tile = 0; lastShown = -1;
-    memcpy(uiFrame.getBuffer(), ready[difficulty]->getBuffer(), 320 * 240 * sizeof(uint16_t));
+    previousRead = started; maxGap = 0; max_slice_us = 0; tile = 0; lastShown = -1;
 }
 void result() {
     stopped = input_time_us; state = State::result; resultAt = stopped;
@@ -81,6 +81,11 @@ void result() {
            (long long)ten_timing_max.serial, (long long)ten_timing_max.pad, (long long)ten_timing_max.sound,
            (long long)ten_timing_max.draw, (long long)ten_timing_max.transfer, (long long)ten_timing_max.other,
            (long long)ten_timing_max.wait);
+    printf("TEN max_slice_us=%lld clean_gap_us=%lld serial_bytes=%d serial_pad=%d\n", (long long)max_slice_us, (long long)ten_clean_gap, ten_max_serial_bytes, ten_max_serial_pad);
+    printf("TEN detail_us led=%lld state=%lld rest=%lld ticks=%lld entry=%lld copy=%lld\n",
+           (long long)ten_timing_max.led, (long long)ten_timing_max.state,
+           (long long)ten_timing_max.rest, (long long)ten_timing_max.ticks,
+           (long long)ten_timing_max.entry, (long long)ten_timing_max.copy);
 }
 void enter() {
     soundBegin(); ledCurrent = 0;
@@ -104,8 +109,24 @@ void enter() {
 void leave() { soundStop(); soundEnd(); for (auto* frame : ready) frame->deleteSprite(); }
 void icon(int x, int y) { ui_icon::stopwatch(uiGlyph, x, y); }
 void tick() {
+    copy_us = 0;
+    const int64_t entry = int(state);
+    const int64_t began = esp_timer_get_time();
+    const TickType_t tickBegan = xTaskGetTickCount();
+    int64_t ledEnd = began, stateEnd = began;
+    struct DetailCapture {
+        int64_t began, &ledEnd, &stateEnd;
+        TickType_t tickBegan;
+        int64_t entry;
+        ~DetailCapture() {
+            const int64_t end = esp_timer_get_time();
+            ten_detail = {ledEnd - began, stateEnd - ledEnd, end - stateEnd - ten_draw_us - ten_transfer_us,
+                          int64_t(xTaskGetTickCount() - tickBegan), entry, copy_us};
+        }
+    } capture{began, ledEnd, stateEnd, tickBegan, entry};
     ten_draw_us = ten_transfer_us = 0;
     tickLed();
+    ledEnd = stateEnd = esp_timer_get_time();
     if (state == State::select) {
         if (pad_just & kUp) difficulty = max(0, difficulty - 1);
         else if (pad_just & kDown) difficulty = min(2, difficulty + 1);
@@ -119,14 +140,15 @@ void tick() {
         if (input_time_us - resultAt >= 300000 && ((pad_just & kA) || tap_just)) start();
         return;
     }
+    stateEnd = esp_timer_get_time();
     maxGap = max(maxGap, input_time_us - previousRead); previousRead = input_time_us;
     if (pad_just & kB) { selectScreen(); return; }
     if ((pad_just & kA) || tap_just) { result(); return; }
     if (tile < 30) {
-        auto* pixels = static_cast<uint16_t*>(uiFrame.getBuffer());
+        auto* pixels = static_cast<uint16_t*>(ready[difficulty]->getBuffer());
         slice.setBuffer(pixels + tile * 8 * 320, 320, 8, 16);
         const int64_t before = esp_timer_get_time();
-        slice.pushSprite(0, tile * 8); ten_transfer_us = esp_timer_get_time() - before; ++tile; return;
+        slice.pushSprite(0, tile * 8); ten_transfer_us = esp_timer_get_time() - before; max_slice_us = max(max_slice_us, ten_transfer_us); ++tile; return;
     }
     const int64_t elapsed = input_time_us - started;
     const bool hidden = difficulty == 2 || (difficulty == 1 && elapsed >= 3000000);

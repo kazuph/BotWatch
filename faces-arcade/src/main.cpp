@@ -398,6 +398,8 @@ void sendScreenshot() {
     funlockfile(stdout);
 }
 
+int ten_serial_bytes = 0, ten_serial_pad = 0, ten_max_serial_bytes = 0, ten_max_serial_pad = 0;
+int64_t ten_clean_gap = 0;
 void handleSerial() {
 #if CONFIG_IDF_TARGET_ESP32S3
     static char line[1 + sizeof(network_settings::Credentials::ssid) + sizeof(network_settings::Credentials::password) + 1];
@@ -413,6 +415,7 @@ void handleSerial() {
     while (select(STDIN_FILENO + 1, &readfds, nullptr, nullptr, &timeout) > 0) {
         char c;
         if (read(STDIN_FILENO, &c, 1) != 1) break;
+        ++ten_serial_bytes;
         if (c == '\r') continue;
         if (c != '\n') {
             if (len + 1 < sizeof(line) && !overflow) line[len++] = c;
@@ -435,7 +438,7 @@ void handleSerial() {
 #if CONFIG_IDF_TARGET_ESP32S3
         network_serial_command(line);
 #endif
-        if (line[0] == 'p') pad_injected = strtoul(line + 1, nullptr, 16);
+        if (line[0] == 'p') { ++ten_serial_pad; pad_injected = strtoul(line + 1, nullptr, 16); }
         if (line[0] == 's') sendScreenshot();
 #if CONFIG_IDF_TARGET_ESP32S3
         if (line[0] == 'j') {
@@ -472,6 +475,7 @@ bool tap_just     = false;
 int tap_x = 0, tap_y = 0;
 int64_t input_time_us = 0;
 TenTiming ten_timing_max = {};
+TenDetail ten_detail = {};
 int64_t ten_draw_us = 0, ten_transfer_us = 0;
 int test_tone_hz = 0;
 bool test_mute   = false;
@@ -767,20 +771,27 @@ void setup() {
 
 void loop() {
     static int64_t previousInput = 0, previousEnd = 0, previousSound = 0, previousTick = 0, largestGap = 0;
+    static int previousSerialBytes = 0, previousSerialPad = 0;
     const int64_t loopStart = esp_timer_get_time();
+    ten_serial_bytes = ten_serial_pad = 0;
     handleSerial();
     const int64_t serialEnd = esp_timer_get_time();
     padRead();
     const int64_t padEnd = esp_timer_get_time();
     if (running == &kTenSeconds && tenTimingActive() && previousInput) {
         const int64_t gap = input_time_us - previousInput;
+        if (!previousSerialBytes && !ten_serial_bytes) ten_clean_gap = max(ten_clean_gap, gap);
         if (gap > largestGap) {
+            ten_max_serial_bytes = previousSerialBytes + ten_serial_bytes;
+            ten_max_serial_pad = previousSerialPad + ten_serial_pad;
             largestGap = gap;
             ten_timing_max = {serialEnd - loopStart, input_time_us - serialEnd, previousSound,
                               ten_draw_us, ten_transfer_us,
-                              previousTick - ten_draw_us - ten_transfer_us, loopStart - previousEnd};
+                              previousTick - ten_draw_us - ten_transfer_us, loopStart - previousEnd,
+                              ten_detail.led, ten_detail.state, ten_detail.rest, ten_detail.ticks, ten_detail.entry, ten_detail.copy};
         }
-    } else largestGap = 0;
+    } else { largestGap = 0; ten_clean_gap = 0; }
+    previousSerialBytes = ten_serial_bytes; previousSerialPad = ten_serial_pad;
     previousInput = input_time_us;
     soundTick();
     const int64_t soundEndAt = esp_timer_get_time();

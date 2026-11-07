@@ -141,6 +141,7 @@ void tick() {
                 } else message(result.text.c_str());
             }
         } else if (network_job::expired()) {
+            puts("NETWORK cancel_reason=deadline");
             network_job::cancel();
             if (last_kind == network_job::Kind::ocr) request_menu = true;
             else message("通信が時間切れ");
@@ -154,6 +155,7 @@ void tick() {
     else if (pad_just & kA) { text_viewer::clear(); thumbnail.deleteSprite(); state = State::inactive; }
 }
 void cancel() {
+    printf("NETWORK cancel_reason=%s\n", pad_exit ? "select" : "other");
     ++photo;
     network_job::cancel();
     text_viewer::clear();

@@ -87,7 +87,9 @@ void do_work(void* argument) {
         }
         if (network_settings::load(&credentials) != ESP_OK) { output.text = "通信設定がありません"; return; }
         const int64_t connect_deadline = work->started_us + kConnectUs;
+        const int64_t wifi_at = esp_timer_get_time();
         auto wifi = network_wifi::connect(credentials, cancelled, connect_deadline);
+        printf("NETWORK wifi_end result=%d elapsed_ms=%lld total_ms=%lld\n", int(wifi), (long long)((esp_timer_get_time() - wifi_at)/1000), (long long)((esp_timer_get_time()-work->started_us)/1000));
         if (wifi != network_wifi::Result::connected) {
             output.text = wifi == network_wifi::Result::cancelled ? "中止しました" :
                           wifi == network_wifi::Result::timeout ? "接続が時間切れ" : "Wi-Fi に接続できません";
@@ -100,15 +102,33 @@ void do_work(void* argument) {
         config.enable_stun = true;
         config.enable_disco = true;
         config.priority_peer_ip = microlink_parse_ip(kGpuAddress);
+        const int64_t tailnet_at = esp_timer_get_time();
         link.reset(microlink_init(&config));
         if (!link || microlink_start(link.get()) != ESP_OK) { output.text = "VPN を開始できません"; return; }
+        int last_state = -1; bool peer_seen = false;
         while (!microlink_is_connected(link.get())) {
+            const int current_state = int(microlink_get_state(link.get()));
+            if (current_state != last_state) { printf("NETWORK tailnet_state=%d elapsed_ms=%lld\n", current_state, (long long)((esp_timer_get_time()-tailnet_at)/1000)); last_state = current_state; }
+            for (int i = 0; !peer_seen && i < microlink_get_peer_count(link.get()); ++i) {
+                microlink_peer_info_t peer = {};
+                if (microlink_get_peer_info(link.get(), i, &peer) == ESP_OK && peer.vpn_ip == config.priority_peer_ip) {
+                    printf("NETWORK peer_seen online=%d direct=%d elapsed_ms=%lld\n", peer.online, peer.direct_path, (long long)((esp_timer_get_time()-tailnet_at)/1000)); peer_seen = true;
+                }
+            }
             if (cancelled.load()) { output.text = "中止しました"; return; }
             if (esp_timer_get_time() >= connect_deadline) { output.text = "接続が時間切れ"; return; }
             if (microlink_get_state(link.get()) == ML_STATE_ERROR) { output.text = "VPN に接続できません"; return; }
             vTaskDelay(pdMS_TO_TICKS(100));
         }
-        puts("NETWORK tailnet connected");
+        printf("NETWORK tailnet connected elapsed_ms=%lld total_ms=%lld\n", (long long)((esp_timer_get_time()-tailnet_at)/1000), (long long)((esp_timer_get_time()-work->started_us)/1000));
+        bool found_peer = false;
+        for (int i = 0; i < microlink_get_peer_count(link.get()); ++i) {
+            microlink_peer_info_t peer = {};
+            if (microlink_get_peer_info(link.get(), i, &peer) == ESP_OK && peer.vpn_ip == config.priority_peer_ip) {
+                printf("NETWORK peer_snapshot online=%d direct=%d\n", peer.online, peer.direct_path); found_peer = true; break;
+            }
+        }
+        if (!found_peer) puts("NETWORK peer_snapshot unavailable");
         link_up.store(true);
         log_memory("connected");
         if (work->kind == Kind::describe) {
