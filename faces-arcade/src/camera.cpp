@@ -250,10 +250,8 @@ void drawViewer() {
     char count[32]; snprintf(count, sizeof(count), "%u / %u", viewerIndex + 1, viewerTotal);
     text(preview, count, 12, 4, pal::kText, F24);
     text(preview, name, 150, 4, pal::kText, F24);
-    darkenRoundRect(preview, 6, 96, 48, 44, 12);
-    darkenRoundRect(preview, 266, 96, 48, 44, 12);
-    text(preview, "◀", 30, 106, pal::kText, F24, top_center);
-    text(preview, "▶", 290, 106, pal::kText, F24, top_center);
+    ui_icon::arrowButton(preview, 30, 118, 22, false, rgb(25, 28, 40), pal::kText);
+    ui_icon::arrowButton(preview, 290, 118, 22, true, rgb(25, 28, 40), pal::kText);
     darkenRoundRect(preview, 0, 202, 320, 38, 0);
     ui_icon::buttonB(preview, 26, 221);
     text(preview, "もどる", 44, 207, pal::kText, F24);
