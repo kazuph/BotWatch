@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include <sys/select.h>
 #include <unistd.h>
+#include <algorithm>
 #if CONFIG_IDF_TARGET_ESP32S3
 #include "driver/usb_serial_jtag.h"
 #include "driver/usb_serial_jtag_vfs.h"
@@ -442,6 +443,29 @@ void handleSerial() {
         if (line[0] == 'j') {
             char error[80];
             if (!photo_storage::send_latest(error, sizeof(error))) printf("JPEG error: %s\n", error);
+        }
+        if (line[0] == 'J') {  // J<index>: sends one saved photo (0 = newest) for backup
+            char error[80], name[16];
+            unsigned total = 0;
+            uint8_t* data = nullptr;
+            size_t size = 0;
+            if (!photo_storage::read_index(strtoul(line + 1, nullptr, 10), &total, name, sizeof(name),
+                                           &data, &size, error, sizeof(error))) {
+                printf("PHOTO error %u %s\n", total, error);
+            } else {
+                flockfile(stdout);
+                flockfile(stderr);
+                printf("PHOTO %s %u %u\n", name, total, unsigned(size));
+                for (size_t sent = 0; sent < size;) {
+                    const size_t count = fwrite(data + sent, 1, std::min<size_t>(4096, size - sent), stdout);
+                    if (!count) break;
+                    sent += count;
+                }
+                fflush(stdout);
+                funlockfile(stderr);
+                funlockfile(stdout);
+            }
+            free(data);
         }
 #endif
         if (line[0] == 'f') test_tone_hz = atoi(line + 1);
