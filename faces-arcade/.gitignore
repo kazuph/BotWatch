@@ -2,3 +2,12 @@
 kana_voice.bin
 saanotts.bin
 tools/gen_kana
+/build*/
+/managed_components/
+/.component_cache/
+/dependencies.lock
+/sdkconfig*
+!/sdkconfig.defaults
+!/sdkconfig.defaults.esp32
+!/sdkconfig.defaults.esp32s3
+/.dependencies/

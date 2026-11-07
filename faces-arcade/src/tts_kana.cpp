@@ -18,7 +18,7 @@ uint32_t secondAt  = 0;
 
 bool playClip() {
     const bool ok = M5.Speaker.playRaw(playBuf, clipSamples, KANA_VOICE_RATE, false, 1, 0, true);
-    Serial.printf("TTS play samples=%u ok=%d\n", unsigned(clipSamples), ok);
+    printf("TTS play samples=%u ok=%d\n", unsigned(clipSamples), ok);
     return ok;
 }
 }  // namespace
@@ -31,7 +31,7 @@ bool ttsBegin() {
 void ttsCancel() { secondPending = false; }
 
 void ttsTick() {
-    if (secondPending && int32_t(millis() - secondAt) >= 0) {
+    if (secondPending && int32_t(lgfx::millis() - secondAt) >= 0) {
         secondPending = false;
         playClip();
     }
@@ -45,12 +45,12 @@ bool ttsSay(const char* kana) {
         soundStop();
         memcpy(playBuf, voice_start + v.offset * 2, v.samples * 2);
         clipSamples = v.samples;
-        Serial.printf("TTS say=%s\n", kana);
+        printf("TTS say=%s\n", kana);
         if (!playClip()) return false;
-        secondAt      = millis() + v.samples * 1000 / KANA_VOICE_RATE + kPauseMs;
+        secondAt      = lgfx::millis() + v.samples * 1000 / KANA_VOICE_RATE + kPauseMs;
         secondPending = true;
         return true;
     }
-    Serial.printf("TTS missing kana=%s\n", kana);
+    printf("TTS missing kana=%s\n", kana);
     return false;
 }

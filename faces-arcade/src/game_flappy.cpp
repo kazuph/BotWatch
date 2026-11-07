@@ -10,7 +10,7 @@ const char* const kKey = "flappy";
 
 enum State { TITLE, READY, PLAY, FALL, OVER };
 State state;
-M5Canvas frame(&M5.Display);
+M5Canvas frame(&uiFrame);
 float birdY, birdV, pipeX[kPipes], scrollX;
 int pipeGap[kPipes];
 bool pipeScored[kPipes];
@@ -20,9 +20,12 @@ uint32_t lastStep, overAt, frames;
 const uint16_t kSky[6] = {rgb(70, 170, 235), rgb(90, 185, 240), rgb(115, 200, 243),
                           rgb(145, 215, 245), rgb(175, 228, 245), rgb(205, 238, 240)};
 
-int randomGap() { return random(36, kPlayH - kGap - 30); }
+int randomGap() { return arcadeRandom(36, kPlayH - kGap - 30); }
 
 void resetRound() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
     birdY = kPlayH / 2 - 10;
     birdV = 0;
     score = 0;
@@ -82,7 +85,7 @@ void drawBird(int cx, int cy) {
     frame.fillEllipse(cx - 7, wy, 5, 3, rgb(255, 245, 200));
 }
 
-void render() {
+void render(bool present = true) {
     for (int i = 0; i < 6; ++i) frame.fillRect(0, i * (kPlayH / 6), kW, kPlayH / 6 + 1, kSky[i]);
     frame.fillRect(0, kPlayH - 4, kW, 4, kSky[5]);
     const int off = int(scrollX * 0.25f) % (kW + 90);
@@ -108,24 +111,28 @@ void render() {
     if (state == PLAY || state == FALL) {
         char b[8];
         snprintf(b, sizeof(b), "%d", score);
-        text(frame, b, kW / 2 + 2, 10, rgb(30, 50, 60), &fonts::FreeSansBold24pt7b, top_center);
-        text(frame, b, kW / 2, 8, TFT_WHITE, &fonts::FreeSansBold24pt7b, top_center);
+        text(frame, b, kW / 2 + 2, 10, rgb(30, 50, 60), F40, top_center);
+        text(frame, b, kW / 2, 8, TFT_WHITE, F40, top_center);
     }
     if (state == READY) {
         text(frame, "Aではばたく", kW / 2 + 1, 151, rgb(30, 50, 60), F32, top_center);
         text(frame, "Aではばたく", kW / 2, 150, TFT_WHITE, F32, top_center);
     }
     frame.pushSprite(0, 0);
+    if (present) uiFrame.pushSprite(0, 0);
 }
 
 void gameOver() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::show(arcade_led::Color::red);
+#endif
     state  = OVER;
-    overAt = millis();
+    overAt = lgfx::millis();
     const bool best = submitScore(kKey, score);
     char b[32];
     snprintf(b, sizeof(b), "%d点 最高%d", score, bestScore(kKey));
     dialog("ゲームオーバー", pal::kRed, b, best ? "さいこう更新！" : nullptr, "A:もう一度");
-    Serial.printf("FLAPPY gameover score=%d\n", score);
+    printf("FLAPPY gameover score=%d\n", score);
 }
 
 void stepPlay() {
@@ -150,18 +157,21 @@ void stepPlay() {
         if (bx1 > pipeX[i] + 2 && bx0 < pipeX[i] + kPipeW - 2 && (by0 < pipeGap[i] - 2 || by1 > pipeGap[i] + kGap + 2)) {
             state = FALL;
             birdV = -1.0f;
-            Serial.println("FLAPPY hit pipe");
+            puts("FLAPPY hit pipe");
         }
         if (!pipeScored[i] && pipeX[i] + kPipeW < bx0) {
             pipeScored[i] = true;
             ++score;
-            Serial.printf("FLAPPY score=%d\n", score);
+#if CONFIG_IDF_TARGET_ESP32S3
+            arcade_led::show(arcade_led::Color::green);
+#endif
+            printf("FLAPPY score=%d\n", score);
         }
     }
     if (int(birdY) + 9 >= kPlayH) {
         birdY = kPlayH - 9;
         state = FALL;
-        Serial.println("FLAPPY hit ground");
+        puts("FLAPPY hit ground");
     }
 }
 
@@ -170,8 +180,10 @@ void enter() {
         frame.setColorDepth(16);
         frame.setPsram(true);
         if (!frame.createSprite(kW, kH)) {
-            Serial.println("FLAPPY sprite=FAIL");
-            text(M5.Display, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
+            puts("FLAPPY sprite=FAIL");
+            uiFrame.fillScreen(pal::kBg);
+            text(uiFrame, "メモリ不足", 160, 100, pal::kRed, F32, top_center);
+            uiFrame.pushSprite(0, 0);
             state = TITLE;
             return;
         }
@@ -179,32 +191,34 @@ void enter() {
     resetRound();
     state = TITLE;
     wing  = 0;
-    render();
-    text(M5.Display, "ぱたぱた", 160, 10, TFT_WHITE, F40, top_center);
+    render(false);
+    text(uiFrame, "ぱたぱた", 160, 10, TFT_WHITE, F40, top_center);
     char b[20];
     snprintf(b, sizeof(b), "さいこう %d", bestScore(kKey));
-    text(M5.Display, b, 160, 134, rgb(20, 40, 90), F24, top_center);
-    text(M5.Display, "A:はじめる", 160, 160, rgb(20, 40, 90), F32, top_center);
-    text(M5.Display, "SELECT:もどる", 160, 212, rgb(70, 60, 30), F24, top_center);
+    text(uiFrame, b, 160, 134, rgb(20, 40, 90), F24, top_center);
+    text(uiFrame, "A:はじめる", 160, 160, rgb(20, 40, 90), F32, top_center);
+    text(uiFrame, "SELECT:もどる", 160, 212, rgb(70, 60, 30), F24, top_center);
+    uiFrame.pushSprite(0, 0);
 }
 
 void tick() {
+    if (!frame.getBuffer()) return;
     if (state == OVER) {
-        if (((pad_just & (kA | kStart | kB)) || tap_just) && millis() - overAt > 500) {
+        if (((pad_just & (kA | kStart | kB)) || tap_just) && lgfx::millis() - overAt > 500) {
             resetRound();
             state = READY;
-            Serial.println("FLAPPY ready");
+            puts("FLAPPY ready");
         }
         if (state == OVER) return;
     }
     if (state == TITLE) {
         if ((pad_just & (kA | kStart | kB)) || tap_just) {
             state = READY;
-            Serial.println("FLAPPY ready");
+            puts("FLAPPY ready");
         }
         if (state == TITLE) return;
     }
-    const uint32_t now = millis();
+    const uint32_t now = lgfx::millis();
     if (now - lastStep < kStepMs) return;
     int steps = min<uint32_t>((now - lastStep) / kStepMs, 4);
     lastStep  = now;
@@ -217,7 +231,7 @@ void tick() {
             if ((pad_just & (kA | kB | kUp)) || tap_just) {
                 state = PLAY;
                 birdV = kFlap;
-                Serial.println("FLAPPY start");
+                puts("FLAPPY start");
             }
         } else if (state == PLAY) {
             stepPlay();
@@ -226,7 +240,7 @@ void tick() {
             birdY += birdV;
             if (int(birdY) + 9 >= kPlayH) {
                 birdY = kPlayH - 9;
-                render();
+                render(false);
                 gameOver();
                 return;
             }
@@ -237,7 +251,7 @@ void tick() {
 }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, kSky[1]);
     d.fillRect(x + 28, y + 2, 9, 11, rgb(90, 190, 70));
     d.fillRect(x + 28, y + 26, 9, 12, rgb(90, 190, 70));
@@ -249,4 +263,4 @@ void icon(int x, int y) {
 }
 }  // namespace
 
-const Game kFlappy = {"ぱたぱた", kKey, enter, tick, icon, nullptr};
+const Game kFlappy = {"ぱたぱた", kKey, enter, tick, icon, nullptr, GameCategory::play, GameFooter::score};

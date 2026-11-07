@@ -40,12 +40,12 @@ void soundStop() {
 
 void soundPlay(uint32_t delayMs, uint32_t durationMs, int note1, int note2, int note3) {
     if (eventCount >= kMaxEvents) return;
-    events[eventCount++] = {millis() + delayMs, durationMs, {note1, note2, note3}};
+    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}};
 }
 
 void soundTick() {
     ttsTick();
-    const uint32_t now = millis();
+    const uint32_t now = lgfx::millis();
     for (int i = 0; i < eventCount;) {
         if (int32_t(now - events[i].at) < 0) {
             ++i;
