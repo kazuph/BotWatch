@@ -524,7 +524,7 @@ void uiGradientCard(int x, int y, int w, int h, int radius, uint16_t top, uint16
 }
 
 
-void darkenRoundRect(int x, int y, int w, int h, int radius) {
+void darkenRoundRect(M5Canvas& target, int x, int y, int w, int h, int radius) {
     static uint8_t dimTable[32][64];
     static bool dimTableReady = false;
     if (!dimTableReady) {
@@ -565,7 +565,7 @@ void darkenRoundRect(int x, int y, int w, int h, int radius) {
         cachedMask = entry.data;
         break;
     }
-    auto* pixels = static_cast<uint8_t*>(uiFrame.getBuffer());
+    auto* pixels = static_cast<uint8_t*>(target.getBuffer());
     for (int tileY = 0; tileY < h; tileY += 48) {
         for (int tileX = 0; tileX < w; tileX += 192) {
             const int left = max(0, x + tileX), right = min(320, min(x + w, x + tileX + 192));
@@ -616,6 +616,10 @@ void darkenRoundRect(int x, int y, int w, int h, int radius) {
             }
         }
     }
+}
+
+void darkenRoundRect(int x, int y, int w, int h, int radius) {
+    darkenRoundRect(uiFrame, x, y, w, h, radius);
 }
 
 void dialog(const char* title, uint16_t titleColor, const char* line1, const char* line2, const char* line3) {

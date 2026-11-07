@@ -35,7 +35,7 @@ uint32_t capture_start = 0;
 uint8_t* captured = nullptr;
 size_t captured_size = 0;
 int captured_width = 0, captured_height = 0;
-M5Canvas& preview = uiFrame;
+M5Canvas preview(&M5.Display);
 const char* const mode_names[] = {"顔さがし", "これなに？", "文字よみ", "せつめい"};
 uint32_t toastAt = 0;
 char toastText[80] = {};
@@ -203,6 +203,7 @@ bool start_camera(framesize_t frame_size) {
 }
 
 void enter() {
+    preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
     mode = Mode::face;
     showing_message = false;
     capture_state = CaptureState::idle;
@@ -248,10 +249,10 @@ void view_latest() {
     strlcpy(shortName, name, sizeof(shortName));
     char* extension = strrchr(shortName, '.');
     if (extension) *extension = 0;
-    darkenRoundRect(6, 6, 176, 34, 17);
+    darkenRoundRect(preview, 6, 6, 176, 34, 17);
     ui_icon::photo(preview, 26, 23, rgb(155, 123, 255));
     text(preview, shortName, 44, 10, pal::kText, F24);
-    darkenRoundRect(0, 202, 320, 38, 0);
+    darkenRoundRect(preview, 0, 202, 320, 38, 0);
     text(preview, "A・B・START カメラへ", 160, 207, pal::kText, F24, top_center);
     preview.pushSprite(0, 0);
     showing_message = true;
@@ -292,7 +293,7 @@ int64_t frameIconUs = 0;
 void drawBadge() {
     const uint16_t accent = mode == Mode::face ? pal::kCyan : mode == Mode::text ? pal::kAccent : rgb(155, 123, 255);
     const int width = mode == Mode::classify ? 158 : 140;
-    darkenRoundRect(6, 6, width, 34, 17);
+    darkenRoundRect(preview, 6, 6, width, 34, 17);
     const int64_t iconStart = esp_timer_get_time();
     if (mode == Mode::face) ui_icon::face(preview, 26, 23, accent);
     else if (mode == Mode::classify) ui_icon::question(preview, 26, 23, accent);
@@ -305,7 +306,7 @@ void drawBadge() {
 }
 
 void drawFooter(bool countdown) {
-    darkenRoundRect(0, 202, 320, 38, 0);
+    darkenRoundRect(preview, 0, 202, 320, 38, 0);
     if (countdown) {
         ui_icon::buttonB(preview, 124, 221);
         text(preview, "やめる", 142, 207, pal::kText, F24);
@@ -366,8 +367,8 @@ void drawFinder(int x1, int y1, int x2, int y2, int length, uint16_t color) {
 }
 
 void drawCountdown(uint32_t elapsed, int count) {
-    darkenRoundRect(0, 0, 320, 240, 0);
-    darkenRoundRect(102, 46, 116, 116, 58);
+    darkenRoundRect(preview, 0, 0, 320, 240, 0);
+    darkenRoundRect(preview, 102, 46, 116, 116, 58);
     const float start = 270.0f;
     const float end = start + 360.0f * (3000 - min(elapsed, uint32_t(3000))) / 3000.0f;
     preview.fillArc(160, 104, 61, 55, start, end, pal::kText);
@@ -444,11 +445,9 @@ void tick() {
     getUs = esp_timer_get_time() - stageStart;
     stageStart = esp_timer_get_time();
     if (!frame) { capture_state = CaptureState::idle; arcade_led::clear(); show_error("取得失敗"); return; }
-    auto* destination = static_cast<uint8_t*>(preview.getBuffer());
-    const size_t copyWidth = std::min<size_t>(frame->width, 320) * 2;
-    const size_t copyHeight = std::min<size_t>(frame->height, 240);
-    for (size_t y = 0; y < copyHeight; ++y)
-        memcpy(destination + y * 320 * 2, frame->buf + y * frame->width * 2, copyWidth);
+    if (frame->width != 320 || frame->height != 240 || frame->format != PIXFORMAT_RGB565 || frame->len < 320 * 240 * 2) {
+        esp_camera_fb_return(frame); show_error("取得失敗"); return;
+    }
     int countdown = 0;
     if (capture_state == CaptureState::countdown) {
         const uint32_t elapsed = lgfx::millis() - capture_start;
@@ -490,6 +489,7 @@ void tick() {
             countdown = count[0] - '0';
         }
     }
+    preview.setBuffer(frame->buf, 320, 240, 16);
     composeUs += esp_timer_get_time() - stageStart;
     if (capture_state == CaptureState::idle && mode == Mode::face && !inferenceBusy) {
         std::vector<vision::Box> boxes;
@@ -511,6 +511,7 @@ void tick() {
                 fittedCameraText(count, 279, 10, 62, rgb(3, 32, 43), F24, top_center);
             }
         } else {
+            preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
             esp_camera_fb_return(frame); show_error("顔検出に失敗"); return;
         }
     } else if (capture_state == CaptureState::idle && mode == Mode::classify) {
@@ -522,17 +523,18 @@ void tick() {
             const bool ok = done->ok;
             lastPredictions = std::move(done->results);
             delete done;
-            if (!ok) { esp_camera_fb_return(frame); show_error("分類に失敗"); return; }
-        }
-        if (!lastPredictions.empty()) {
-            darkenRoundRect(6, 94, 308, 140, 16);
-            darkenRoundRect(6, 94, 308, 140, 16);
-            darkenRoundRect(6, 94, 308, 140, 16);
-            for (size_t i = 0; i < lastPredictions.size(); ++i)
-                draw_prediction(lastPredictions[i], 102 + i * 44, i == 0);
+            if (!ok) { preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16); esp_camera_fb_return(frame); show_error("分類に失敗"); return; }
         }
         if (!inferenceBusy && !startClassification(frame)) {
+            preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
             esp_camera_fb_return(frame); show_error("分類に失敗"); return;
+        }
+        if (!lastPredictions.empty()) {
+            darkenRoundRect(preview, 6, 94, 308, 140, 16);
+            darkenRoundRect(preview, 6, 94, 308, 140, 16);
+            darkenRoundRect(preview, 6, 94, 308, 140, 16);
+            for (size_t i = 0; i < lastPredictions.size(); ++i)
+                draw_prediction(lastPredictions[i], 102 + i * 44, i == 0);
         }
     }
     if (!cancelledCapture && (pad_just & kA)) {
@@ -564,6 +566,7 @@ void tick() {
                (long long)iconUs, (long long)frameIconUs, (long long)pushUs);
     }
     measurePreview();
+    preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
     esp_camera_fb_return(frame);
 }
 

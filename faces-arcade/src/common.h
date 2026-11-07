@@ -54,6 +54,7 @@ extern bool test_mic_left; // self test: PDM channel used by the microphone
 extern M5Canvas uiFrame;  // Shared 320 x 240 UI frame allocated once in PSRAM.
 extern M5Canvas uiGlyph;  // Small sprite for antialiased enlarged text.
 void darkenRoundRect(int x, int y, int w, int h, int radius);
+void darkenRoundRect(M5Canvas& target, int x, int y, int w, int h, int radius);
 void uiGradientCard(int x, int y, int w, int h, int radius, uint16_t top, uint16_t bottom);
 void uiRadialBackground(uint16_t center, uint16_t edge);
 
