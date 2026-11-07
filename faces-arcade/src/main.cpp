@@ -525,14 +525,67 @@ void uiGradientCard(int x, int y, int w, int h, int radius, uint16_t top, uint16
 
 
 void darkenRoundRect(int x, int y, int w, int h, int radius) {
+    static uint8_t dimTable[32][64];
+    static bool dimTableReady = false;
+    if (!dimTableReady) {
+        for (int opacity = 0; opacity < 32; ++opacity)
+            for (int component = 0; component < 64; ++component)
+                dimTable[opacity][component] = (component * (62 - opacity) + 31) / 62;
+        dimTableReady = true;
+    }
+    struct MaskCache { int w, h, radius; uint8_t* data; };
+    static MaskCache masks[] = {{140, 34, 17, nullptr}, {158, 34, 17, nullptr},
+                                {308, 140, 16, nullptr}};
+    uint8_t* cachedMask = nullptr;
+    for (auto& entry : masks) {
+        if (entry.w != w || entry.h != h || entry.radius != radius) continue;
+        if (!entry.data) {
+            entry.data = static_cast<uint8_t*>(heap_caps_malloc(w * h, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+            if (!entry.data) { puts("GAMES ui_mask=FAIL"); abort(); }
+            for (int ty = 0; ty < h; ty += 48) {
+                for (int tx = 0; tx < w; tx += 192) {
+                    uiGlyph.fillSprite(TFT_BLACK);
+                    uiGlyph.fillSmoothRoundRect(-tx, -ty, w, h, radius, TFT_WHITE);
+                    const auto* source = static_cast<const uint8_t*>(uiGlyph.getBuffer());
+                    for (int row = 0; row < min(48, h - ty); ++row)
+                        for (int col = 0; col < min(192, w - tx); ++col)
+                            entry.data[(ty + row) * w + tx + col] = source[2 * (row * 192 + col)] >> 3;
+                }
+            }
+        }
+        cachedMask = entry.data;
+        break;
+    }
     auto* pixels = static_cast<uint8_t*>(uiFrame.getBuffer());
     for (int tileY = 0; tileY < h; tileY += 48) {
         for (int tileX = 0; tileX < w; tileX += 192) {
             const int left = max(0, x + tileX), right = min(320, min(x + w, x + tileX + 192));
             const int top = max(0, y + tileY), bottom = min(240, min(y + h, y + tileY + 48));
             if (left >= right || top >= bottom) continue;
+            if (!radius) {
+                for (int py = top; py < bottom; ++py) {
+                    int px = left;
+                    for (; px + 1 < right; px += 2) {
+                        uint32_t pair;
+                        auto* dest = pixels + 2 * (py * 320 + px);
+                        memcpy(&pair, dest, sizeof(pair));
+                        pair = ((pair & 0x00ff00ffU) << 8) | ((pair & 0xff00ff00U) >> 8);
+                        pair = (pair & 0xf7def7deU) >> 1;
+                        pair = ((pair & 0x00ff00ffU) << 8) | ((pair & 0xff00ff00U) >> 8);
+                        memcpy(dest, &pair, sizeof(pair));
+                    }
+                    if (px < right) {
+                        auto* dest = pixels + 2 * (py * 320 + px);
+                        uint16_t color = (uint16_t(dest[0]) << 8) | dest[1];
+                        color = (color & 0xf7deU) >> 1;
+                        dest[0] = color >> 8;
+                        dest[1] = color & 0xff;
+                    }
+                }
+                continue;
+            }
             const uint8_t* mask = nullptr;
-            if (radius) {
+            if (radius && !cachedMask) {
                 uiGlyph.fillSprite(TFT_BLACK);
                 uiGlyph.fillSmoothRoundRect(-tileX, -tileY, w, h, radius, TFT_WHITE);
                 mask = static_cast<const uint8_t*>(uiGlyph.getBuffer());
@@ -541,12 +594,12 @@ void darkenRoundRect(int x, int y, int w, int h, int radius) {
                 for (int px = left; px < right; ++px) {
                     const int offset = 2 * (py * 320 + px);
                     uint16_t color = (uint16_t(pixels[offset]) << 8) | pixels[offset + 1];
-                    if (mask) {
+                    if (mask || cachedMask) {
                         const int maskOffset = 2 * ((py - y - tileY) * 192 + px - x - tileX);
-                        const uint16_t maskColor = (uint16_t(mask[maskOffset]) << 8) | mask[maskOffset + 1];
-                        const int opacity = (maskColor >> 11) & 31;
-                        const auto dim = [opacity](int component) { return (component * (62 - opacity) + 31) / 62; };
-                        color = (dim((color >> 11) & 31) << 11) | (dim((color >> 5) & 63) << 5) | dim(color & 31);
+                        const int opacity = cachedMask ? cachedMask[(py - y) * w + px - x] : mask[maskOffset] >> 3;
+                        if (!opacity) continue;
+                        const uint8_t* dim = dimTable[opacity];
+                        color = (dim[(color >> 11) & 31] << 11) | (dim[(color >> 5) & 63] << 5) | dim[color & 31];
                     } else {
                         color = (color & 0xF7DE) >> 1;
                     }
