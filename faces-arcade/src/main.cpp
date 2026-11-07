@@ -533,15 +533,24 @@ void darkenRoundRect(int x, int y, int w, int h, int radius) {
                 dimTable[opacity][component] = (component * (62 - opacity) + 31) / 62;
         dimTableReady = true;
     }
-    struct MaskCache { int w, h, radius; uint8_t* data; };
-    static MaskCache masks[] = {{140, 34, 17, nullptr}, {158, 34, 17, nullptr},
-                                {308, 140, 16, nullptr}};
+    struct MaskCache { int w, h, radius; uint8_t* data; bool attempted; };
+    constexpr size_t kMaskCacheLimit = 3;
+    static MaskCache masks[kMaskCacheLimit] = {{140, 34, 17, nullptr, false},
+        {158, 34, 17, nullptr, false}, {308, 140, 16, nullptr, false}};
+    static bool maskAllocationFailureLogged = false;
     uint8_t* cachedMask = nullptr;
     for (auto& entry : masks) {
         if (entry.w != w || entry.h != h || entry.radius != radius) continue;
-        if (!entry.data) {
+        if (!entry.attempted) {
+            entry.attempted = true;
             entry.data = static_cast<uint8_t*>(heap_caps_malloc(w * h, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-            if (!entry.data) { puts("GAMES ui_mask=FAIL"); abort(); }
+            if (!entry.data) {
+                if (!maskAllocationFailureLogged) {
+                    puts("GAMES ui_mask=FAIL; drawing without cache");
+                    maskAllocationFailureLogged = true;
+                }
+                break;
+            }
             for (int ty = 0; ty < h; ty += 48) {
                 for (int tx = 0; tx < w; tx += 192) {
                     uiGlyph.fillSprite(TFT_BLACK);
