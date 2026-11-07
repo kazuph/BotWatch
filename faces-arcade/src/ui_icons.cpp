@@ -142,4 +142,29 @@ void arrowsUpDown(lgfx::LovyanGFX& g, int x, int y, uint16_t color) {
     g.fillTriangle(x + 24, y, x + 42, y, x + 33, y + 16, color);
 }
 
+void stopwatch(lgfx::LovyanGFX& g, int x, int y) {
+    const uint16_t rim = 0xFFFF, face = 0x2945, hand = 0xFE8C;  // white, dark navy, amber
+    const int cx = x + 20, cy = y + 23;
+    g.fillRoundRect(x + 16, y, 8, 5, 2, rim);                    // crown
+    g.fillRect(x + 18, y + 4, 4, 4, rim);
+    g.fillSmoothCircle(cx, cy, 16, rim);
+    g.fillSmoothCircle(cx, cy, 13, face);
+    for (int i = 0; i < 12; ++i) {                                // tick marks every 5 s
+        const float a = -M_PI / 2 + i * M_PI / 6;
+        const float r0 = (i % 3) ? 10.5f : 9.0f;
+        g.drawWideLine(cx + r0 * cosf(a), cy + r0 * sinf(a), cx + 12 * cosf(a), cy + 12 * sinf(a),
+                       (i % 3) ? 0.6f : 1.0f, rim);
+    }
+    const float a = -M_PI / 2 + 10 * M_PI / 30;                   // 10 s on a 60 s dial
+    g.drawWideLine(cx, cy, cx + 10 * cosf(a), cy + 10 * sinf(a), 1.4f, hand);
+    g.fillSmoothCircle(cx, cy, 2, hand);
+}
+
+void arrowButton(lgfx::LovyanGFX& g, int cx, int cy, int r, bool right, uint16_t disc, uint16_t mark) {
+    g.fillSmoothCircle(cx, cy, r, disc);
+    const int s = r * 9 / 20;                                     // triangle half-height
+    const int tip = right ? cx + s : cx - s, back = right ? cx - s * 2 / 3 : cx + s * 2 / 3;
+    g.fillTriangle(tip, cy, back, cy - s, back, cy + s, mark);
+}
+
 }  // namespace ui_icon

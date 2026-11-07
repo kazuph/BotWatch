@@ -33,4 +33,11 @@ void buttonB(lgfx::LovyanGFX& g, int cx, int cy);
 void buttonStart(lgfx::LovyanGFX& g, int x, int y);  // 32x24 pill with a play triangle
 void arrowsUpDown(lgfx::LovyanGFX& g, int x, int y, uint16_t color);  // 44x16 pair of triangles
 
+// 40x40 menu-card icon for the ten-second challenge: stopwatch with the hand at 10 s.
+void stopwatch(lgfx::LovyanGFX& g, int x, int y);
+
+// Round arrow button for the photo viewer, centred at (cx, cy). `right` points the triangle right.
+// Use r >= 22 so the touch target stays at least 44 px wide.
+void arrowButton(lgfx::LovyanGFX& g, int cx, int cy, int r, bool right, uint16_t disc, uint16_t mark);
+
 }  // namespace ui_icon
