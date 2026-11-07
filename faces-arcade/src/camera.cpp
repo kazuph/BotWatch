@@ -287,14 +287,18 @@ void draw_prediction(const vision::Prediction& prediction, int y, bool first) {
     if (barWidth) display.fillSmoothRoundRect(18, y + 30, barWidth, 6, 3, rgb(155, 123, 255));
 }
 
+int64_t frameIconUs = 0;
+
 void drawBadge() {
     const uint16_t accent = mode == Mode::face ? pal::kCyan : mode == Mode::text ? pal::kAccent : rgb(155, 123, 255);
     const int width = mode == Mode::classify ? 158 : 140;
     darkenRoundRect(6, 6, width, 34, 17);
+    const int64_t iconStart = esp_timer_get_time();
     if (mode == Mode::face) ui_icon::face(preview, 26, 23, accent);
     else if (mode == Mode::classify) ui_icon::question(preview, 26, 23, accent);
     else if (mode == Mode::text) ui_icon::kana(preview, 26, 23, accent);
     else ui_icon::bubble(preview, 26, 23, accent);
+    frameIconUs += esp_timer_get_time() - iconStart;
     text(preview, mode_names[static_cast<int>(mode)], 42, 10, pal::kText, F24);
     if (mode == Mode::text || mode == Mode::describe)
         ui_icon::link(preview, width + 17, 23, network_job::link_connected());
@@ -307,14 +311,20 @@ void drawFooter(bool countdown) {
         text(preview, "やめる", 142, 207, pal::kText, F24);
         return;
     }
+    int64_t iconStart = esp_timer_get_time();
     ui_icon::buttonA(preview, 20, 221);
+    frameIconUs += esp_timer_get_time() - iconStart;
     text(preview, mode == Mode::text ? "撮って読む" : mode == Mode::describe ? "撮って聞く" : "撮る",
          38, 207, pal::kText, F24);
     const int b = (mode == Mode::text || mode == Mode::describe) ? 176 : 108;
+    iconStart = esp_timer_get_time();
     ui_icon::buttonB(preview, b, 221);
+    frameIconUs += esp_timer_get_time() - iconStart;
     text(preview, "モード", b + 18, 207, pal::kText, F24);
     if (mode == Mode::face) {
+        iconStart = esp_timer_get_time();
         ui_icon::buttonStart(preview, 206, 209);
+        frameIconUs += esp_timer_get_time() - iconStart;
         text(preview, "写真", 244, 207, pal::kText, F24);
     }
 }
@@ -427,7 +437,12 @@ void tick() {
     if (!inferenceBusy)
         vision::set_mode(mode == Mode::face ? vision::Mode::faces :
                          mode == Mode::classify ? vision::Mode::classify : vision::Mode::off);
+    const bool profile = mode == Mode::face && capture_state == CaptureState::idle;
+    int64_t stageStart = esp_timer_get_time();
+    int64_t getUs = 0, faceUs = 0, composeUs = 0, iconUs = 0, pushUs = 0;
     camera_fb_t* frame = esp_camera_fb_get();
+    getUs = esp_timer_get_time() - stageStart;
+    stageStart = esp_timer_get_time();
     if (!frame) { capture_state = CaptureState::idle; arcade_led::clear(); show_error("取得失敗"); return; }
     preview.pushImage(0, 0, frame->width, frame->height, reinterpret_cast<uint16_t*>(frame->buf));
     int countdown = 0;
@@ -471,9 +486,14 @@ void tick() {
             countdown = count[0] - '0';
         }
     }
+    composeUs += esp_timer_get_time() - stageStart;
     if (capture_state == CaptureState::idle && mode == Mode::face && !inferenceBusy) {
         std::vector<vision::Box> boxes;
-        if (vision::faces(frame->buf, frame->width, frame->height, boxes)) {
+        stageStart = esp_timer_get_time();
+        const bool faceOk = vision::faces(frame->buf, frame->width, frame->height, boxes);
+        faceUs = esp_timer_get_time() - stageStart;
+        stageStart = esp_timer_get_time();
+        if (faceOk) {
             arcade_led::show(boxes.empty() ? arcade_led::Color::off : arcade_led::Color::white);
             for (const auto& box : boxes) {
                 const int x1 = std::clamp(box.x1, 0, 319), y1 = std::clamp(box.y1, 0, 239);
@@ -516,6 +536,9 @@ void tick() {
         capture_state = CaptureState::countdown;
         arcade_led::countdown(0);
     }
+    composeUs += esp_timer_get_time() - stageStart;
+    stageStart = esp_timer_get_time();
+    frameIconUs = 0;
     if (countdown) drawCountdown(lgfx::millis() - capture_start, countdown);
     else {
         if (mode == Mode::text || mode == Mode::describe) drawFinder(50, 54, 270, 186, 16, pal::kAccent);
@@ -527,7 +550,15 @@ void tick() {
         drawToast();
         if (mode != Mode::classify) drawFooter(false);
     }
+    iconUs = esp_timer_get_time() - stageStart;
+    stageStart = esp_timer_get_time();
     preview.pushSprite(0, 0);
+    pushUs = esp_timer_get_time() - stageStart;
+    if (profile && capture_state == CaptureState::idle) {
+        printf("CAMERA stages_us get=%lld face=%lld compose=%lld overlay=%lld icons=%lld push=%lld\n",
+               (long long)getUs, (long long)faceUs, (long long)composeUs,
+               (long long)iconUs, (long long)frameIconUs, (long long)pushUs);
+    }
     measurePreview();
     esp_camera_fb_return(frame);
 }
