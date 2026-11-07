@@ -444,7 +444,11 @@ void tick() {
     getUs = esp_timer_get_time() - stageStart;
     stageStart = esp_timer_get_time();
     if (!frame) { capture_state = CaptureState::idle; arcade_led::clear(); show_error("取得失敗"); return; }
-    preview.pushImage(0, 0, frame->width, frame->height, reinterpret_cast<uint16_t*>(frame->buf));
+    auto* destination = static_cast<uint8_t*>(preview.getBuffer());
+    const size_t copyWidth = std::min<size_t>(frame->width, 320) * 2;
+    const size_t copyHeight = std::min<size_t>(frame->height, 240);
+    for (size_t y = 0; y < copyHeight; ++y)
+        memcpy(destination + y * 320 * 2, frame->buf + y * frame->width * 2, copyWidth);
     int countdown = 0;
     if (capture_state == CaptureState::countdown) {
         const uint32_t elapsed = lgfx::millis() - capture_start;

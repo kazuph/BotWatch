@@ -578,9 +578,7 @@ void darkenRoundRect(int x, int y, int w, int h, int radius) {
                         uint32_t pair;
                         auto* dest = pixels + 2 * (py * 320 + px);
                         memcpy(&pair, dest, sizeof(pair));
-                        pair = ((pair & 0x00ff00ffU) << 8) | ((pair & 0xff00ff00U) >> 8);
-                        pair = (pair & 0xf7def7deU) >> 1;
-                        pair = ((pair & 0x00ff00ffU) << 8) | ((pair & 0xff00ff00U) >> 8);
+                        pair = ((pair & 0xdef6def6U) >> 1) | ((pair & 0x00010001U) << 15);
                         memcpy(dest, &pair, sizeof(pair));
                     }
                     if (px < right) {
