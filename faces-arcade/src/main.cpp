@@ -398,8 +398,6 @@ void sendScreenshot() {
     funlockfile(stdout);
 }
 
-int ten_serial_bytes = 0, ten_serial_pad = 0, ten_max_serial_bytes = 0, ten_max_serial_pad = 0;
-int64_t ten_clean_gap = 0;
 void handleSerial() {
 #if CONFIG_IDF_TARGET_ESP32S3
     static char line[1 + sizeof(network_settings::Credentials::ssid) + sizeof(network_settings::Credentials::password) + 1];
@@ -475,6 +473,8 @@ bool tap_just     = false;
 int tap_x = 0, tap_y = 0;
 int64_t input_time_us = 0;
 TenTiming ten_timing_max = {};
+int ten_serial_bytes = 0, ten_serial_pad = 0, ten_max_serial_bytes = 0, ten_max_serial_pad = 0;
+int64_t ten_clean_gap = 0;
 TenDetail ten_detail = {};
 int64_t ten_draw_us = 0, ten_transfer_us = 0;
 int test_tone_hz = 0;
