@@ -430,6 +430,6 @@ void iconKana(int x, int y) {
 }
 }  // namespace
 
-const Game kNoteQuiz  = {"音あて", "note", enterNote, tick, iconNote, leave};
-const Game kChordQuiz = {"和音あて", "chord", enterChord, tick, iconChord, leave};
-const Game kKanaQuiz  = {"かな読み", "kana", enterKana, tick, iconKana, leave};
+const Game kNoteQuiz  = {"音あて", "note", enterNote, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
+const Game kChordQuiz = {"和音あて", "chord", enterChord, tick, iconChord, leave, GameCategory::learn, GameFooter::score};
+const Game kKanaQuiz  = {"かな読み", "kana", enterKana, tick, iconKana, leave, GameCategory::learn, GameFooter::score};

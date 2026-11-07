@@ -263,4 +263,4 @@ void icon(int x, int y) {
 }
 }  // namespace
 
-const Game kFlappy = {"ぱたぱた", kKey, enter, tick, icon, nullptr};
+const Game kFlappy = {"ぱたぱた", kKey, enter, tick, icon, nullptr, GameCategory::play, GameFooter::score};

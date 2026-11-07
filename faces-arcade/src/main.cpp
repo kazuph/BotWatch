@@ -2,6 +2,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <sys/select.h>
@@ -31,7 +32,7 @@ uint8_t pad_injected   = 0;  // set over serial for self tests
 bool tap_injected      = false;
 int injected_x = 0, injected_y = 0;
 
-const Game* const kGames[] = {&kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy
+const Game* const kGames[] = {&kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy, &kTenSeconds
 #if CONFIG_IDF_TARGET_ESP32S3
     , &kCamera
 #endif
@@ -93,20 +94,21 @@ void padRead() {
         tap_x        = injected_x;
         tap_y        = injected_y;
     }
+    input_time_us = esp_timer_get_time();
     if (tap_just) printf("GAMES tap x=%d y=%d\n", tap_x, tap_y);
 }
 
 uint16_t categoryColor(int index) {
-    if (index < 3) return rgb(79, 209, 255);
-    if (index == 3) return rgb(91, 227, 138);
-    if (index < 7) return rgb(255, 92, 138);
+    if (kGames[index]->category == GameCategory::learn) return rgb(79, 209, 255);
+    if (kGames[index]->category == GameCategory::listen) return rgb(91, 227, 138);
+    if (kGames[index]->category == GameCategory::play) return rgb(255, 92, 138);
     return rgb(155, 123, 255);
 }
 
 uint16_t categoryDark(int index) {
-    if (index < 3) return rgb(31, 90, 120);
-    if (index == 3) return rgb(29, 106, 60);
-    if (index < 7) return rgb(122, 31, 82);
+    if (kGames[index]->category == GameCategory::learn) return rgb(31, 90, 120);
+    if (kGames[index]->category == GameCategory::listen) return rgb(29, 106, 60);
+    if (kGames[index]->category == GameCategory::play) return rgb(122, 31, 82);
     return rgb(59, 37, 128);
 }
 
@@ -146,9 +148,9 @@ void drawLink() {
 #endif
 
 const char* categoryName(int index) {
-    if (index < 3) return "まなぶ";
-    if (index == 3) return "きく";
-    if (index < 7) return "あそぶ";
+    if (kGames[index]->category == GameCategory::learn) return "まなぶ";
+    if (kGames[index]->category == GameCategory::listen) return "きく";
+    if (kGames[index]->category == GameCategory::play) return "あそぶ";
     return "みる";
 }
 
@@ -183,7 +185,13 @@ void drawMenuCard(int index, int x) {
     }
     text(d, label, x + 120, 111, pal::kText, F40, top_center);
     darkenRoundRect(x + 32, 164, 176, 32, 16);
-    if (kGames[index]->scoreKey) {
+    if (kGames[index]->footer == GameFooter::tenBest) {
+        char score[32];
+        if (menuBest[index] < 0) strlcpy(score, "—", sizeof(score));
+        else { const int64_t cs = (int64_t(menuBest[index]) + 5) / 10; snprintf(score, sizeof(score), "%lld.%02lld秒", (long long)(cs / 100), (long long)(cs % 100)); }
+        text(d, "BEST", x + 46, 168, pal::kAccent, F24);
+        text(d, score, x + 194, 168, pal::kText, F24, top_right);
+    } else if (kGames[index]->footer == GameFooter::score) {
         char score[20];
         snprintf(score, sizeof(score), "%d", menuBest[index]);
         const int scoreWidth = 148 - d.textWidth("BEST", F24) - 8;
@@ -195,7 +203,7 @@ void drawMenuCard(int index, int x) {
         text(d, "BEST", x + 46, 168, pal::kAccent, F24);
         text(d, score, x + 194, 168, pal::kText, F24, top_right);
     } else {
-        if (index == 3) text(d, "音をきく", x + 120, 168, pal::kText, F24, top_center);
+        if (kGames[index]->footer == GameFooter::sound) text(d, "音をきく", x + 120, 168, pal::kText, F24, top_center);
 #if CONFIG_IDF_TARGET_ESP32S3
         else {
             char status[32];
@@ -250,7 +258,8 @@ void menuEnter() {
     menuTouchActive = false;
     menuBattery = M5.Power.getBatteryLevel();
     for (int i = 0; i < kGameCount; ++i)
-        menuBest[i] = kGames[i]->scoreKey ? bestScore(kGames[i]->scoreKey) : 0;
+        if (kGames[i]->footer == GameFooter::tenBest) { int32_t value; menuBest[i] = tenBest("t10_hide3", &value) ? value : -1; }
+        else menuBest[i] = kGames[i]->scoreKey ? bestScore(kGames[i]->scoreKey) : 0;
 #if CONFIG_IDF_TARGET_ESP32S3
     char error[80];
     menuPhotoReady = photo_storage::count_photos(&menuPhotoCount, error, sizeof(error));
@@ -268,6 +277,7 @@ void menuEnter() {
 void openCursor() {
     running = kGames[cursor];
     const char* name = running->scoreKey ? running->scoreKey : "spectrum";
+    if (running == &kTenSeconds) name = "ten_seconds";
 #if CONFIG_IDF_TARGET_ESP32S3
     if (running == &kCamera) name = "camera";
 #endif
@@ -460,6 +470,7 @@ bool pad_exit     = false;
 bool request_menu = false;
 bool tap_just     = false;
 int tap_x = 0, tap_y = 0;
+int64_t input_time_us = 0;
 int test_tone_hz = 0;
 bool test_mute   = false;
 bool test_mic_left = false;
@@ -473,6 +484,19 @@ int bestScore(const char* key) {
 bool submitScore(const char* key, int score) {
     if (score <= bestScore(key)) return false;
     return prefs && nvs_set_i32(prefs, key, score) == ESP_OK && nvs_commit(prefs) == ESP_OK;
+}
+
+bool tenBest(const char* key, int32_t* value) {
+    return prefs && nvs_get_i32(prefs, key, value) == ESP_OK;
+}
+
+bool submitTenBest(const char* key, int32_t value) {
+    int32_t old;
+    const esp_err_t read = prefs ? nvs_get_i32(prefs, key, &old) : ESP_FAIL;
+    if (read == ESP_OK && value >= old) return false;
+    if (read != ESP_OK && read != ESP_ERR_NVS_NOT_FOUND) { puts("TEN score read failed"); return false; }
+    if (nvs_set_i32(prefs, key, value) != ESP_OK || nvs_commit(prefs) != ESP_OK) { puts("TEN score save failed"); return false; }
+    return true;
 }
 
 void text(lgfx::LovyanGFX& d, const char* s, int x, int y, uint16_t color, const lgfx::IFont* font, textdatum_t datum,

@@ -383,4 +383,4 @@ void icon(int x, int y) {
 }
 }  // namespace
 
-const Game kBlockDrop = {"ブロック", kKey, enter, tick, icon, nullptr};
+const Game kBlockDrop = {"ブロック", kKey, enter, tick, icon, nullptr, GameCategory::play, GameFooter::score};

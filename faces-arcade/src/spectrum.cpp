@@ -275,4 +275,4 @@ void icon(int x, int y) {
 }
 }  // namespace
 
-const Game kSpectrum = {"周波数メーター", nullptr, enter, tick, icon, leave};
+const Game kSpectrum = {"周波数メーター", nullptr, enter, tick, icon, leave, GameCategory::listen, GameFooter::sound};

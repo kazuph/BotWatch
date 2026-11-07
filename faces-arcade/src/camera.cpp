@@ -646,5 +646,5 @@ void icon(int x, int y) {
 }
 }
 
-const Game kCamera = {"カメラ", nullptr, enter, tick, icon, leave};
-const Game kPhotoViewer = {"写真", nullptr, [] { beginViewer(true); }, viewerTick, nullptr, nullptr};
+const Game kCamera = {"カメラ", nullptr, enter, tick, icon, leave, GameCategory::view, GameFooter::photo};
+const Game kPhotoViewer = {"写真", nullptr, [] { beginViewer(true); }, viewerTick, nullptr, nullptr, GameCategory::view, GameFooter::photo};

@@ -1,6 +1,6 @@
 # FACES ARCADE
 
-M5Stack CoreS3 Lite または Core2 と Faces Gamepad3 で使う、学習とゲームのアプリです。音あて・和音あて・かな読み・周波数メーター・ブロック・へび・ぱたぱたがあり、SELECT でメニューに戻ります。CoreS3 ではカメラも使います。
+M5Stack CoreS3 Lite または Core2 と Faces Gamepad3 で使う、学習とゲームのアプリです。音あて・和音あて・かな読み・周波数メーター・ブロック・へび・ぱたぱた・10秒ぴったりがあり、SELECT でメニューに戻ります。CoreS3 ではカメラも使います。
 
 ## 準備
 

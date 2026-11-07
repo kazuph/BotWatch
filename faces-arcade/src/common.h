@@ -48,6 +48,7 @@ extern bool pad_exit;      // SELECT pressed: leave the current app
 extern bool request_menu;  // set by an app to return to the menu
 extern bool tap_just;      // the screen was tapped this read
 extern int tap_x, tap_y;
+extern int64_t input_time_us;
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
 extern bool test_mic_left; // self test: PDM channel used by the microphone
@@ -60,6 +61,8 @@ void uiRadialBackground(uint16_t center, uint16_t edge);
 
 int bestScore(const char* key);
 bool submitScore(const char* key, int score);  // true when it is a new best
+bool tenBest(const char* key, int32_t* value);
+bool submitTenBest(const char* key, int32_t value);
 
 void text(lgfx::LovyanGFX& d, const char* s, int x, int y, uint16_t color,
           const lgfx::IFont* font = F24, textdatum_t datum = top_left, float scale = 1.0f);
@@ -82,6 +85,8 @@ bool ttsSay(const char* kana);
 void ttsTick();
 void ttsCancel();
 
+enum class GameCategory { learn, listen, play, view };
+enum class GameFooter { score, sound, photo, tenBest };
 struct Game {
     const char* name;
     const char* scoreKey;  // nullptr: no score
@@ -89,6 +94,8 @@ struct Game {
     void (*tick)();
     void (*icon)(int x, int y);
     void (*leave)();  // may be nullptr
+    GameCategory category;
+    GameFooter footer;
 };
 extern const Game kNoteQuiz;
 extern const Game kChordQuiz;
@@ -97,6 +104,7 @@ extern const Game kSpectrum;
 extern const Game kBlockDrop;
 extern const Game kSnake;
 extern const Game kFlappy;
+extern const Game kTenSeconds;
 #if CONFIG_IDF_TARGET_ESP32S3
 extern const Game kCamera;
 extern const Game kPhotoViewer;
