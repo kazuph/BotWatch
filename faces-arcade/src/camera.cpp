@@ -223,6 +223,8 @@ unsigned viewerIndex = 0, viewerTotal = 0;
 int viewerTouchX = 0, viewerTouchY = 0;
 uint32_t viewerNoticeAt = 0;
 const char* viewerNotice = nullptr;
+char viewerName[16] = {};
+bool viewerConfirm = false;
 
 void drawViewer() {
     const int64_t started = esp_timer_get_time();
@@ -230,7 +232,8 @@ void drawViewer() {
     uint8_t* data = nullptr;
     size_t size = 0;
     const bool read = photo_storage::read_index(viewerIndex, &viewerTotal, name, sizeof(name), &data, &size, error, sizeof(error));
-    if (!read && !viewerTotal) { show_error(error); return; }
+    if (!read && !viewerTotal) { viewerName[0] = 0; show_error(error); return; }
+    strlcpy(viewerName, name, sizeof(viewerName));
     preview.fillScreen(rgb(7, 9, 18));
     jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
     jpeg_dec_handle_t decoder = nullptr;
@@ -255,7 +258,17 @@ void drawViewer() {
     darkenRoundRect(preview, 0, 202, 320, 38, 0);
     ui_icon::buttonB(preview, 26, 221);
     text(preview, "もどる", 44, 207, pal::kText, F24);
-    if (viewerNotice) {
+    ui_icon::buttonA(preview, 196, 221);
+    text(preview, "けす", 214, 207, pal::kText, F24);
+    if (viewerConfirm) {
+        darkenRoundRect(preview, 14, 56, 292, 136, 14);
+        darkenRoundRect(preview, 14, 56, 292, 136, 14);
+        text(preview, "この写真をけしますか？", 160, 70, pal::kText, F24, top_center);
+        preview.fillSmoothRoundRect(30, 120, 120, 48, 14, pal::kRed);
+        text(preview, "A けす", 90, 132, pal::kText, F24, top_center);
+        preview.fillSmoothRoundRect(170, 120, 120, 48, 14, rgb(70, 82, 140));
+        text(preview, "B やめる", 230, 132, pal::kText, F24, top_center);
+    } else if (viewerNotice) {
         darkenRoundRect(preview, 14, 76, 292, 88, 12);
         text(preview, viewerNotice, 160, 90, pal::kText, F24, top_center);
         text(preview, viewerIndex ? "◀ で新しいほうへ" : "▶ で古いほうへ", 160, 130, pal::kDim, F24, top_center);
@@ -271,6 +284,7 @@ void beginViewer(bool fromMenu) {
     viewerTouchActive = false;
     viewerIndex = 0; viewerTotal = 0;
     viewerNotice = nullptr;
+    viewerConfirm = false;
     showing_message = false;
     preview.setBuffer(uiFrame.getBuffer(), 320, 240, 16);
     drawViewer();
@@ -288,7 +302,28 @@ void viewerMove(int direction) {
     drawViewer();
 }
 
+void viewerDelete() {
+    char error[80] = {};
+    const bool ok = viewerName[0] && photo_storage::delete_photo(viewerName, error, sizeof(error));
+    printf("CAMERA viewer delete name=%s ok=%d\n", viewerName, ok);
+    viewerConfirm = false;
+    if (!ok) { show_error("けせませんでした"); return; }
+    if (viewerTotal) --viewerTotal;
+    if (viewerIndex && viewerIndex >= viewerTotal) --viewerIndex;
+    drawViewer();
+}
+
 void viewerTick() {
+    if (viewerConfirm) {
+        if ((pad_just & kA) || (tap_just && tap_y >= 120 && tap_y < 168 && tap_x >= 30 && tap_x < 150)) { viewerDelete(); return; }
+        if ((pad_just & kB) || (tap_just && tap_y >= 120 && tap_y < 168 && tap_x >= 170 && tap_x < 290)) {
+            viewerConfirm = false; drawViewer(); return;
+        }
+        return;
+    }
+    if (viewerName[0] && ((pad_just & kA) || (tap_just && tap_y >= 202 && tap_x >= 160))) {
+        viewerConfirm = true; drawViewer(); return;
+    }
     if ((pad_just & kB) || (tap_just && tap_y >= 202 && tap_x < 160)) {
         viewerActive = false; showing_message = false;
         if (viewerFromMenu) request_menu = true;

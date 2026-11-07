@@ -187,7 +187,7 @@ void drawMenuCard(int index, int x) {
     darkenRoundRect(x + 32, 164, 176, 32, 16);
     if (kGames[index]->footer == GameFooter::tenBest) {
         char score[32];
-        if (menuBest[index] < 0) strlcpy(score, "—", sizeof(score));
+        if (menuBest[index] < 0) strlcpy(score, "まだ", sizeof(score));
         else { const int64_t cs = (int64_t(menuBest[index]) + 5) / 10; snprintf(score, sizeof(score), "%lld.%02lld秒", (long long)(cs / 100), (long long)(cs % 100)); }
         text(d, "BEST", x + 46, 168, pal::kAccent, F24);
         text(d, score, x + 194, 168, pal::kText, F24, top_right);
@@ -446,6 +446,11 @@ void handleSerial() {
 #endif
         if (line[0] == 'f') test_tone_hz = atoi(line + 1);
         if (line[0] == 'l') test_mic_left = line[1] == '1';
+        if (line[0] == 'x' && prefs) {  // clears only the ten-second records left by a self test
+            for (const char* key : {"t10_show", "t10_hide3", "t10_blind"}) nvs_erase_key(prefs, key);
+            nvs_commit(prefs);
+            puts("GAMES ten_records=cleared");
+        }
         if (line[0] == 'r') {  // clears scores left behind by a self test
             if (prefs) { nvs_erase_all(prefs); nvs_commit(prefs); }
             if (!running) menuEnter();

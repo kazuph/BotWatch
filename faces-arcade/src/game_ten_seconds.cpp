@@ -18,6 +18,7 @@ int tile = 0;
 int64_t lastShown = -1;
 int64_t copy_us = 0, max_slice_us = 0;
 M5Canvas slice(&M5.Display);
+M5Canvas number(&M5.Display);  // running time, pushed straight to the panel
 M5Canvas ready0(&M5.Display), ready1(&M5.Display), ready2(&M5.Display);
 M5Canvas* const ready[] = {&ready0, &ready1, &ready2};
 
@@ -32,7 +33,7 @@ void tickLed() {
 void full() { uiFrame.pushSprite(0, 0); }
 void bestText(char* dst, size_t n) {
     int32_t value;
-    if (!tenBest(keys[difficulty], &value)) { strlcpy(dst, "—", n); return; }
+    if (!tenBest(keys[difficulty], &value)) { strlcpy(dst, "まだ", n); return; }
     const int64_t cs = (int64_t(value) + 5) / 10;
     snprintf(dst, n, "%lld.%02lld秒", (long long)(cs / 100), (long long)(cs % 100));
 }
@@ -104,9 +105,11 @@ void enter() {
         text(*ready[i], "10.00 で A を押す", 160, 150, pal::kDim, F24, top_center);
         text(*ready[i], "SELECT でメニュー", 160, 200, pal::kDim, F24, top_center);
     }
+    number.setColorDepth(16); number.setPsram(true);
+    if (!number.createSprite(260, 64)) { puts("TEN number=FAIL"); request_menu = true; return; }
     selectScreen();
 }
-void leave() { soundStop(); soundEnd(); for (auto* frame : ready) frame->deleteSprite(); }
+void leave() { soundStop(); soundEnd(); for (auto* frame : ready) frame->deleteSprite(); number.deleteSprite(); }
 void icon(int x, int y) { ui_icon::stopwatch(uiGlyph, x, y); }
 void tick() {
     copy_us = 0;
@@ -156,16 +159,16 @@ void tick() {
     if (cs == lastShown) return;
     lastShown = cs;
     const int64_t before = esp_timer_get_time();
-    uiGlyph.fillSprite(pal::kBg);
-    char number[48];
-    if (hidden) strlcpy(number, "?.??", sizeof(number));
-    else snprintf(number, sizeof(number), "%lld.%02lld", (long long)(cs / 100), (long long)(cs % 100));
-    text(uiGlyph, number, 96, 0, pal::kText, F40, top_center);
+    number.fillSprite(pal::kBg);
+    char digits[48];
+    if (hidden) strlcpy(digits, "?.??", sizeof(digits));
+    else snprintf(digits, sizeof(digits), "%lld.%02lld", (long long)(cs / 100), (long long)(cs % 100));
+    text(number, digits, 130, 2, hidden ? pal::kDim : pal::kText, F40, top_center, 1.5f);
     ten_draw_us = esp_timer_get_time() - before;
     const int64_t pushAt = esp_timer_get_time();
-    uiGlyph.pushSprite(64, 78);
+    number.pushSprite(30, 66);
     ten_transfer_us = esp_timer_get_time() - pushAt;
 }
 }
 bool tenTimingActive() { return state == State::running; }
-const Game kTenSeconds = {"10秒ぴったり", nullptr, enter, tick, icon, leave, GameCategory::play, GameFooter::tenBest};
+const Game kTenSeconds = {"10びょう", nullptr, enter, tick, icon, leave, GameCategory::play, GameFooter::tenBest};

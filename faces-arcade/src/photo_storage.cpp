@@ -215,6 +215,18 @@ bool read_index(unsigned index, unsigned* total, char* name, size_t name_size,
     return read_file(path, data, size, error, error_size);
 }
 
+bool delete_photo(const char* name, char* error, size_t error_size) {
+    if (!name || strlen(name) != 8 || memcmp(name, "IMG_", 4) ||
+        !std::all_of(name + 4, name + 8, [](unsigned char c) { return std::isdigit(c); }))
+        return fail(error, error_size, "name", EINVAL);
+    SdBusGuard guard;
+    if (!mount_sd(error, error_size)) return false;
+    char path[64];
+    snprintf(path, sizeof(path), "%s/%s.JPG", kPhotoDir, name);
+    if (unlink(path) != 0) return fail(error, error_size, "delete", errno);
+    return true;
+}
+
 bool save_rgb565(const uint8_t* pixels, size_t size, int width, int height,
                  char* path, size_t path_size, char* error, size_t error_size) {
     SdBusGuard guard;
