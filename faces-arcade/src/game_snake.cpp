@@ -29,7 +29,7 @@ bool onSnake(int x, int y) {
 }
 
 void drawGround(int x, int y) {
-    M5.Display.fillRect(x * kCell, kTop + y * kCell, kCell, kCell, ((x + y) & 1) ? kBoardA : kBoardB);
+    uiFrame.fillRect(x * kCell, kTop + y * kCell, kCell, kCell, ((x + y) & 1) ? kBoardA : kBoardB);
 }
 
 uint16_t bodyColor(int i) {
@@ -38,11 +38,11 @@ uint16_t bodyColor(int i) {
 }
 
 void drawBody(P p, int i) {
-    M5.Display.fillRoundRect(p.x * kCell + 1, kTop + p.y * kCell + 1, kCell - 2, kCell - 2, 4, bodyColor(i));
+    uiFrame.fillRoundRect(p.x * kCell + 1, kTop + p.y * kCell + 1, kCell - 2, kCell - 2, 4, bodyColor(i));
 }
 
 void drawHead() {
-    auto& d       = M5.Display;
+    auto& d       = uiFrame;
     const P p     = at(0);
     const int x   = p.x * kCell, y = kTop + p.y * kCell;
     d.fillRoundRect(x, y, kCell, kCell, 5, rgb(150, 240, 130));
@@ -55,7 +55,7 @@ void drawHead() {
 }
 
 void drawApple() {
-    auto& d     = M5.Display;
+    auto& d     = uiFrame;
     const int x = apple.x * kCell, y = kTop + apple.y * kCell;
     d.fillCircle(x + 8, y + 9, 6, pal::kRed);
     d.fillCircle(x + 6, y + 7, 1, rgb(255, 190, 190));
@@ -65,14 +65,14 @@ void drawApple() {
 
 void placeApple() {
     do {
-        apple.x = random(kCols);
-        apple.y = random(kRows);
+        apple.x = arcadeRandom(kCols);
+        apple.y = arcadeRandom(kRows);
     } while (onSnake(apple.x, apple.y));
     drawApple();
 }
 
 void drawHud() {
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillRect(0, 0, 320, kTop, pal::kPanel);
     d.drawFastHLine(0, kTop - 1, 320, pal::kLine);
     char b[24];
@@ -89,9 +89,13 @@ void drawAll() {
     drawHead();
     drawApple();
     drawHud();
+    uiFrame.pushSprite(0, 0);
 }
 
 void startGame() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
     score    = 0;
     length   = 3;
     headIdx  = 2;
@@ -102,23 +106,26 @@ void startGame() {
     dirY     = 0;
     queued   = 0;
     state    = PLAY;
-    lastStep = millis();
+    lastStep = lgfx::millis();
     do {
-        apple.x = random(kCols);
-        apple.y = random(kRows);
+        apple.x = arcadeRandom(kCols);
+        apple.y = arcadeRandom(kRows);
     } while (onSnake(apple.x, apple.y));
     drawAll();
-    Serial.println("SNAKE start");
+    puts("SNAKE start");
 }
 
 void gameOver() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::show(arcade_led::Color::red);
+#endif
     state   = OVER;
-    overAt  = millis();
+    overAt  = lgfx::millis();
     const bool best = submitScore(kKey, score);
     char b[24];
     snprintf(b, sizeof(b), "点数 %d", score);
     dialog("ゲームオーバー", pal::kRed, b, best ? "さいこう更新！" : nullptr, "A:もう一度");
-    Serial.printf("SNAKE gameover score=%d\n", score);
+    printf("SNAKE gameover score=%d\n", score);
 }
 
 void queueDir(int x, int y) {
@@ -156,20 +163,24 @@ void step() {
     if (eating) {
         ++length;
         ++score;
+#if CONFIG_IDF_TARGET_ESP32S3
+        arcade_led::show(arcade_led::Color::green);
+#endif
         drawHud();
-        Serial.printf("SNAKE score=%d\n", score);
+        printf("SNAKE score=%d\n", score);
         placeApple();
     }
     // Recolor the segments right behind the head; the rest keep a close shade.
     for (int i = min(length - 1, 3); i > 0; --i) drawBody(at(i), i);
     drawHead();
+    drawAll();
 }
 
 uint32_t stepMs() { return max(75, 170 - score * 4); }
 
 void enter() {
     state = TITLE;
-    auto& d = M5.Display;
+    auto& d = uiFrame;
     d.fillScreen(kBoardA);
     for (int i = 0; i < 18; ++i) {
         const int x = 16 + i * 15;
@@ -184,6 +195,7 @@ void enter() {
     text(d, "A:はじめる", 160, 128, pal::kText, F32, top_center);
     text(d, "十字キーで動かす", 160, 172, pal::kDim, F24, top_center);
     text(d, "SELECT:もどる", 160, 206, pal::kDim, F24, top_center);
+    uiFrame.pushSprite(0, 0);
 }
 
 void tick() {
@@ -194,12 +206,12 @@ void tick() {
         case PAUSE:
             if ((pad_just & kStart) || tap_just) {
                 state = PLAY;
-                lastStep = millis();
+                lastStep = lgfx::millis();
                 drawAll();
             }
             break;
         case OVER:
-            if (((pad_just & (kA | kStart)) || tap_just) && millis() - overAt > 500) startGame();
+            if (((pad_just & (kA | kStart)) || tap_just) && lgfx::millis() - overAt > 500) startGame();
             break;
         case PLAY:
             if (pad_just & kStart) {
@@ -211,8 +223,8 @@ void tick() {
             if (pad_just & kDown) queueDir(0, 1);
             if (pad_just & kLeft) queueDir(-1, 0);
             if (pad_just & kRight) queueDir(1, 0);
-            if (millis() - lastStep >= stepMs()) {
-                lastStep = millis();
+            if (lgfx::millis() - lastStep >= stepMs()) {
+                lastStep = lgfx::millis();
                 step();
             }
             break;
@@ -220,7 +232,7 @@ void tick() {
 }
 
 void icon(int x, int y) {
-    auto& d = M5.Display;
+    auto& d = uiGlyph;
     d.fillRoundRect(x, y, 40, 40, 6, kBoardA);
     d.fillRoundRect(x + 5, y + 24, 8, 8, 2, bodyColor(6));
     d.fillRoundRect(x + 13, y + 24, 8, 8, 2, bodyColor(4));
@@ -230,4 +242,4 @@ void icon(int x, int y) {
 }
 }  // namespace
 
-const Game kSnake = {"へび", kKey, enter, tick, icon, nullptr};
+const Game kSnake = {"へび", kKey, enter, tick, icon, nullptr, GameCategory::play, GameFooter::score};

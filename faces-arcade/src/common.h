@@ -3,14 +3,27 @@
 #pragma once
 #include <M5Unified.h>
 #include <M5Faces.h>
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "arcade_led.h"
+#endif
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include "esp_random.h"
+using std::min;
+using std::max;
+constexpr float PI = 3.14159265358979323846f;
+inline long arcadeRandom(long upper) { return upper > 0 ? esp_random() % upper : 0; }
+inline long arcadeRandom(long lower, long upper) { return lower + arcadeRandom(upper - lower); }
 
 constexpr uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
-#define F24 (&fonts::lgfxJapanGothic_24)
-#define F32 (&fonts::lgfxJapanGothic_32)
-#define F40 (&fonts::lgfxJapanGothic_40)
+#define F24 (&fonts::lgfxJapanGothicP_24)
+#define F32 (&fonts::lgfxJapanGothicP_32)
+#define F40 (&fonts::lgfxJapanGothicP_40)
 
 namespace pal {
 constexpr uint16_t kBg      = rgb(14, 18, 38);
@@ -35,12 +48,29 @@ extern bool pad_exit;      // SELECT pressed: leave the current app
 extern bool request_menu;  // set by an app to return to the menu
 extern bool tap_just;      // the screen was tapped this read
 extern int tap_x, tap_y;
+extern int64_t input_time_us;
+struct TenTiming { int64_t serial, pad, sound, draw, transfer, other, wait, led, state, rest, ticks, entry, copy; };
+struct TenDetail { int64_t led, state, rest, ticks, entry, copy; };
+extern TenDetail ten_detail;
+extern int ten_serial_bytes, ten_serial_pad, ten_max_serial_bytes, ten_max_serial_pad;
+extern int64_t ten_clean_gap;
+extern TenTiming ten_timing_max;
+extern int64_t ten_draw_us, ten_transfer_us;
+bool tenTimingActive();
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
 extern bool test_mic_left; // self test: PDM channel used by the microphone
+extern M5Canvas uiFrame;  // Shared 320 x 240 UI frame allocated once in PSRAM.
+extern M5Canvas uiGlyph;  // Small sprite for antialiased enlarged text.
+void darkenRoundRect(int x, int y, int w, int h, int radius);
+void darkenRoundRect(M5Canvas& target, int x, int y, int w, int h, int radius);
+void uiGradientCard(int x, int y, int w, int h, int radius, uint16_t top, uint16_t bottom);
+void uiRadialBackground(uint16_t center, uint16_t edge);
 
 int bestScore(const char* key);
 bool submitScore(const char* key, int score);  // true when it is a new best
+bool tenBest(const char* key, int32_t* value);
+bool submitTenBest(const char* key, int32_t value);
 
 void text(lgfx::LovyanGFX& d, const char* s, int x, int y, uint16_t color,
           const lgfx::IFont* font = F24, textdatum_t datum = top_left, float scale = 1.0f);
@@ -63,6 +93,8 @@ bool ttsSay(const char* kana);
 void ttsTick();
 void ttsCancel();
 
+enum class GameCategory { learn, listen, play, view };
+enum class GameFooter { score, sound, photo, tenBest };
 struct Game {
     const char* name;
     const char* scoreKey;  // nullptr: no score
@@ -70,6 +102,8 @@ struct Game {
     void (*tick)();
     void (*icon)(int x, int y);
     void (*leave)();  // may be nullptr
+    GameCategory category;
+    GameFooter footer;
 };
 extern const Game kNoteQuiz;
 extern const Game kChordQuiz;
@@ -78,3 +112,8 @@ extern const Game kSpectrum;
 extern const Game kBlockDrop;
 extern const Game kSnake;
 extern const Game kFlappy;
+extern const Game kTenSeconds;
+#if CONFIG_IDF_TARGET_ESP32S3
+extern const Game kCamera;
+extern const Game kPhotoViewer;
+#endif

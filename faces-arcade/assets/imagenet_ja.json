@@ -1,0 +1,4002 @@
+[
+  {
+    "source": "tench",
+    "ja": "テンチ"
+  },
+  {
+    "source": "goldfish",
+    "ja": "金魚"
+  },
+  {
+    "source": "great_white_shark",
+    "ja": "ホホジロザメ"
+  },
+  {
+    "source": "tiger_shark",
+    "ja": "イタチザメ"
+  },
+  {
+    "source": "hammerhead",
+    "ja": "シュモクザメ"
+  },
+  {
+    "source": "electric_ray",
+    "ja": "シビレエイ"
+  },
+  {
+    "source": "stingray",
+    "ja": "アカエイ"
+  },
+  {
+    "source": "cock",
+    "ja": "雄鶏"
+  },
+  {
+    "source": "hen",
+    "ja": "雌鶏"
+  },
+  {
+    "source": "ostrich",
+    "ja": "ダチョウ"
+  },
+  {
+    "source": "brambling",
+    "ja": "アトリ"
+  },
+  {
+    "source": "goldfinch",
+    "ja": "ゴシキヒワ"
+  },
+  {
+    "source": "house_finch",
+    "ja": "メキシコマシコ"
+  },
+  {
+    "source": "junco",
+    "ja": "ユキヒメドリ"
+  },
+  {
+    "source": "indigo_bunting",
+    "ja": "ルリノジコ"
+  },
+  {
+    "source": "robin",
+    "ja": "コマツグミ"
+  },
+  {
+    "source": "bulbul",
+    "ja": "ヒヨドリ"
+  },
+  {
+    "source": "jay",
+    "ja": "カケス"
+  },
+  {
+    "source": "magpie",
+    "ja": "カササギ"
+  },
+  {
+    "source": "chickadee",
+    "ja": "アメリカコガラ"
+  },
+  {
+    "source": "water_ouzel",
+    "ja": "カワガラス"
+  },
+  {
+    "source": "kite",
+    "ja": "トビ"
+  },
+  {
+    "source": "bald_eagle",
+    "ja": "ハクトウワシ"
+  },
+  {
+    "source": "vulture",
+    "ja": "ハゲワシ"
+  },
+  {
+    "source": "great_grey_owl",
+    "ja": "カラフトフクロウ"
+  },
+  {
+    "source": "European_fire_salamander",
+    "ja": "ファイアサラマンダー"
+  },
+  {
+    "source": "common_newt",
+    "ja": "ヨーロッパイモリ"
+  },
+  {
+    "source": "eft",
+    "ja": "イモリの幼体"
+  },
+  {
+    "source": "spotted_salamander",
+    "ja": "マダラサンショウウオ"
+  },
+  {
+    "source": "axolotl",
+    "ja": "ウーパールーパー"
+  },
+  {
+    "source": "bullfrog",
+    "ja": "ウシガエル"
+  },
+  {
+    "source": "tree_frog",
+    "ja": "アマガエル"
+  },
+  {
+    "source": "tailed_frog",
+    "ja": "ムカシガエル"
+  },
+  {
+    "source": "loggerhead",
+    "ja": "アカウミガメ"
+  },
+  {
+    "source": "leatherback_turtle",
+    "ja": "オサガメ"
+  },
+  {
+    "source": "mud_turtle",
+    "ja": "ドロガメ"
+  },
+  {
+    "source": "terrapin",
+    "ja": "キスイガメ"
+  },
+  {
+    "source": "box_turtle",
+    "ja": "ハコガメ"
+  },
+  {
+    "source": "banded_gecko",
+    "ja": "オビヤモリ"
+  },
+  {
+    "source": "common_iguana",
+    "ja": "グリーンイグアナ"
+  },
+  {
+    "source": "American_chameleon",
+    "ja": "アノールトカゲ"
+  },
+  {
+    "source": "whiptail",
+    "ja": "ムチオトカゲ"
+  },
+  {
+    "source": "agama",
+    "ja": "アガマ"
+  },
+  {
+    "source": "frilled_lizard",
+    "ja": "エリマキトカゲ"
+  },
+  {
+    "source": "alligator_lizard",
+    "ja": "アリゲータートカゲ"
+  },
+  {
+    "source": "Gila_monster",
+    "ja": "アメリカドクトカゲ"
+  },
+  {
+    "source": "green_lizard",
+    "ja": "ミドリカナヘビ"
+  },
+  {
+    "source": "African_chameleon",
+    "ja": "アフリカカメレオン"
+  },
+  {
+    "source": "Komodo_dragon",
+    "ja": "コモドオオトカゲ"
+  },
+  {
+    "source": "African_crocodile",
+    "ja": "ナイルワニ"
+  },
+  {
+    "source": "American_alligator",
+    "ja": "アメリカアリゲーター"
+  },
+  {
+    "source": "triceratops",
+    "ja": "トリケラトプス"
+  },
+  {
+    "source": "thunder_snake",
+    "ja": "サンダースネーク"
+  },
+  {
+    "source": "ringneck_snake",
+    "ja": "クビワヘビ"
+  },
+  {
+    "source": "hognose_snake",
+    "ja": "シシバナヘビ"
+  },
+  {
+    "source": "green_snake",
+    "ja": "ミドリヘビ"
+  },
+  {
+    "source": "king_snake",
+    "ja": "キングスネーク"
+  },
+  {
+    "source": "garter_snake",
+    "ja": "ガーターヘビ"
+  },
+  {
+    "source": "water_snake",
+    "ja": "ミズヘビ"
+  },
+  {
+    "source": "vine_snake",
+    "ja": "ツルヘビ"
+  },
+  {
+    "source": "night_snake",
+    "ja": "ナイトスネーク"
+  },
+  {
+    "source": "boa_constrictor",
+    "ja": "ボアコンストリクター"
+  },
+  {
+    "source": "rock_python",
+    "ja": "アフリカニシキヘビ"
+  },
+  {
+    "source": "Indian_cobra",
+    "ja": "インドコブラ"
+  },
+  {
+    "source": "green_mamba",
+    "ja": "グリーンマンバ"
+  },
+  {
+    "source": "sea_snake",
+    "ja": "ウミヘビ"
+  },
+  {
+    "source": "horned_viper",
+    "ja": "ツノクサリヘビ"
+  },
+  {
+    "source": "diamondback",
+    "ja": "ダイヤガラガラヘビ"
+  },
+  {
+    "source": "sidewinder",
+    "ja": "ヨコバイガラガラヘビ"
+  },
+  {
+    "source": "trilobite",
+    "ja": "三葉虫"
+  },
+  {
+    "source": "harvestman",
+    "ja": "ザトウムシ"
+  },
+  {
+    "source": "scorpion",
+    "ja": "サソリ"
+  },
+  {
+    "source": "black_and_gold_garden_spider",
+    "ja": "コガネグモ"
+  },
+  {
+    "source": "barn_spider",
+    "ja": "オニグモ"
+  },
+  {
+    "source": "garden_spider",
+    "ja": "ニワオニグモ"
+  },
+  {
+    "source": "black_widow",
+    "ja": "クロゴケグモ"
+  },
+  {
+    "source": "tarantula",
+    "ja": "タランチュラ"
+  },
+  {
+    "source": "wolf_spider",
+    "ja": "コモリグモ"
+  },
+  {
+    "source": "tick",
+    "ja": "マダニ"
+  },
+  {
+    "source": "centipede",
+    "ja": "ムカデ"
+  },
+  {
+    "source": "black_grouse",
+    "ja": "クロライチョウ"
+  },
+  {
+    "source": "ptarmigan",
+    "ja": "ライチョウ"
+  },
+  {
+    "source": "ruffed_grouse",
+    "ja": "エリマキライチョウ"
+  },
+  {
+    "source": "prairie_chicken",
+    "ja": "ソウゲンライチョウ"
+  },
+  {
+    "source": "peacock",
+    "ja": "クジャク"
+  },
+  {
+    "source": "quail",
+    "ja": "ウズラ"
+  },
+  {
+    "source": "partridge",
+    "ja": "ヤマウズラ"
+  },
+  {
+    "source": "African_grey",
+    "ja": "ヨウム"
+  },
+  {
+    "source": "macaw",
+    "ja": "コンゴウインコ"
+  },
+  {
+    "source": "sulphur-crested_cockatoo",
+    "ja": "キバタン"
+  },
+  {
+    "source": "lorikeet",
+    "ja": "ヒインコ"
+  },
+  {
+    "source": "coucal",
+    "ja": "バンケン"
+  },
+  {
+    "source": "bee_eater",
+    "ja": "ハチクイ"
+  },
+  {
+    "source": "hornbill",
+    "ja": "サイチョウ"
+  },
+  {
+    "source": "hummingbird",
+    "ja": "ハチドリ"
+  },
+  {
+    "source": "jacamar",
+    "ja": "キリハシ"
+  },
+  {
+    "source": "toucan",
+    "ja": "オオハシ"
+  },
+  {
+    "source": "drake",
+    "ja": "雄のカモ"
+  },
+  {
+    "source": "red-breasted_merganser",
+    "ja": "ウミアイサ"
+  },
+  {
+    "source": "goose",
+    "ja": "ガチョウ"
+  },
+  {
+    "source": "black_swan",
+    "ja": "コクチョウ"
+  },
+  {
+    "source": "tusker",
+    "ja": "牙のあるゾウ"
+  },
+  {
+    "source": "echidna",
+    "ja": "ハリモグラ"
+  },
+  {
+    "source": "platypus",
+    "ja": "カモノハシ"
+  },
+  {
+    "source": "wallaby",
+    "ja": "ワラビー"
+  },
+  {
+    "source": "koala",
+    "ja": "コアラ"
+  },
+  {
+    "source": "wombat",
+    "ja": "ウォンバット"
+  },
+  {
+    "source": "jellyfish",
+    "ja": "クラゲ"
+  },
+  {
+    "source": "sea_anemone",
+    "ja": "イソギンチャク"
+  },
+  {
+    "source": "brain_coral",
+    "ja": "ノウサンゴ"
+  },
+  {
+    "source": "flatworm",
+    "ja": "扁形動物"
+  },
+  {
+    "source": "nematode",
+    "ja": "線虫"
+  },
+  {
+    "source": "conch",
+    "ja": "巻き貝"
+  },
+  {
+    "source": "snail",
+    "ja": "カタツムリ"
+  },
+  {
+    "source": "slug",
+    "ja": "ナメクジ"
+  },
+  {
+    "source": "sea_slug",
+    "ja": "ウミウシ"
+  },
+  {
+    "source": "chiton",
+    "ja": "ヒザラガイ"
+  },
+  {
+    "source": "chambered_nautilus",
+    "ja": "オウムガイ"
+  },
+  {
+    "source": "Dungeness_crab",
+    "ja": "アメリカイチョウガニ"
+  },
+  {
+    "source": "rock_crab",
+    "ja": "イワガニ"
+  },
+  {
+    "source": "fiddler_crab",
+    "ja": "シオマネキ"
+  },
+  {
+    "source": "king_crab",
+    "ja": "タラバガニ"
+  },
+  {
+    "source": "American_lobster",
+    "ja": "アメリカンロブスター"
+  },
+  {
+    "source": "spiny_lobster",
+    "ja": "イセエビ"
+  },
+  {
+    "source": "crayfish",
+    "ja": "ザリガニ"
+  },
+  {
+    "source": "hermit_crab",
+    "ja": "ヤドカリ"
+  },
+  {
+    "source": "isopod",
+    "ja": "等脚類"
+  },
+  {
+    "source": "white_stork",
+    "ja": "シュバシコウ"
+  },
+  {
+    "source": "black_stork",
+    "ja": "ナベコウ"
+  },
+  {
+    "source": "spoonbill",
+    "ja": "ヘラサギ"
+  },
+  {
+    "source": "flamingo",
+    "ja": "フラミンゴ"
+  },
+  {
+    "source": "little_blue_heron",
+    "ja": "ヒメアカクロサギ"
+  },
+  {
+    "source": "American_egret",
+    "ja": "アメリカダイサギ"
+  },
+  {
+    "source": "bittern",
+    "ja": "サンカノゴイ"
+  },
+  {
+    "source": "crane",
+    "ja": "ツル"
+  },
+  {
+    "source": "limpkin",
+    "ja": "ツルモドキ"
+  },
+  {
+    "source": "European_gallinule",
+    "ja": "バン"
+  },
+  {
+    "source": "American_coot",
+    "ja": "アメリカオオバン"
+  },
+  {
+    "source": "bustard",
+    "ja": "ノガン"
+  },
+  {
+    "source": "ruddy_turnstone",
+    "ja": "キョウジョシギ"
+  },
+  {
+    "source": "red-backed_sandpiper",
+    "ja": "ハマシギ"
+  },
+  {
+    "source": "redshank",
+    "ja": "アカアシシギ"
+  },
+  {
+    "source": "dowitcher",
+    "ja": "オオハシシギ"
+  },
+  {
+    "source": "oystercatcher",
+    "ja": "ミヤコドリ"
+  },
+  {
+    "source": "pelican",
+    "ja": "ペリカン"
+  },
+  {
+    "source": "king_penguin",
+    "ja": "キングペンギン"
+  },
+  {
+    "source": "albatross",
+    "ja": "アホウドリ"
+  },
+  {
+    "source": "grey_whale",
+    "ja": "コククジラ"
+  },
+  {
+    "source": "killer_whale",
+    "ja": "シャチ"
+  },
+  {
+    "source": "dugong",
+    "ja": "ジュゴン"
+  },
+  {
+    "source": "sea_lion",
+    "ja": "アシカ"
+  },
+  {
+    "source": "Chihuahua",
+    "ja": "チワワ"
+  },
+  {
+    "source": "Japanese_spaniel",
+    "ja": "狆"
+  },
+  {
+    "source": "Maltese_dog",
+    "ja": "マルチーズ"
+  },
+  {
+    "source": "Pekinese",
+    "ja": "ペキニーズ"
+  },
+  {
+    "source": "Shih-Tzu",
+    "ja": "シーズー"
+  },
+  {
+    "source": "Blenheim_spaniel",
+    "ja": "ブレンハイムスパニエル"
+  },
+  {
+    "source": "papillon",
+    "ja": "パピヨン"
+  },
+  {
+    "source": "toy_terrier",
+    "ja": "トイテリア"
+  },
+  {
+    "source": "Rhodesian_ridgeback",
+    "ja": "ローデシアンリッジバック"
+  },
+  {
+    "source": "Afghan_hound",
+    "ja": "アフガンハウンド"
+  },
+  {
+    "source": "basset",
+    "ja": "バセットハウンド"
+  },
+  {
+    "source": "beagle",
+    "ja": "ビーグル"
+  },
+  {
+    "source": "bloodhound",
+    "ja": "ブラッドハウンド"
+  },
+  {
+    "source": "bluetick",
+    "ja": "ブルーティッククーンハウンド"
+  },
+  {
+    "source": "black-and-tan_coonhound",
+    "ja": "ブラックアンドタンクーンハウンド"
+  },
+  {
+    "source": "Walker_hound",
+    "ja": "ウォーカーハウンド"
+  },
+  {
+    "source": "English_foxhound",
+    "ja": "イングリッシュフォックスハウンド"
+  },
+  {
+    "source": "redbone",
+    "ja": "レッドボーンクーンハウンド"
+  },
+  {
+    "source": "borzoi",
+    "ja": "ボルゾイ"
+  },
+  {
+    "source": "Irish_wolfhound",
+    "ja": "アイリッシュウルフハウンド"
+  },
+  {
+    "source": "Italian_greyhound",
+    "ja": "イタリアングレーハウンド"
+  },
+  {
+    "source": "whippet",
+    "ja": "ウィペット"
+  },
+  {
+    "source": "Ibizan_hound",
+    "ja": "イビザンハウンド"
+  },
+  {
+    "source": "Norwegian_elkhound",
+    "ja": "ノルウェジアンエルクハウンド"
+  },
+  {
+    "source": "otterhound",
+    "ja": "オッターハウンド"
+  },
+  {
+    "source": "Saluki",
+    "ja": "サルーキ"
+  },
+  {
+    "source": "Scottish_deerhound",
+    "ja": "スコティッシュディアハウンド"
+  },
+  {
+    "source": "Weimaraner",
+    "ja": "ワイマラナー"
+  },
+  {
+    "source": "Staffordshire_bullterrier",
+    "ja": "スタッフォードシャーブルテリア"
+  },
+  {
+    "source": "American_Staffordshire_terrier",
+    "ja": "アメリカンスタッフォードシャーテリア"
+  },
+  {
+    "source": "Bedlington_terrier",
+    "ja": "ベドリントンテリア"
+  },
+  {
+    "source": "Border_terrier",
+    "ja": "ボーダーテリア"
+  },
+  {
+    "source": "Kerry_blue_terrier",
+    "ja": "ケリーブルーテリア"
+  },
+  {
+    "source": "Irish_terrier",
+    "ja": "アイリッシュテリア"
+  },
+  {
+    "source": "Norfolk_terrier",
+    "ja": "ノーフォークテリア"
+  },
+  {
+    "source": "Norwich_terrier",
+    "ja": "ノーリッチテリア"
+  },
+  {
+    "source": "Yorkshire_terrier",
+    "ja": "ヨークシャーテリア"
+  },
+  {
+    "source": "wire-haired_fox_terrier",
+    "ja": "ワイヤーフォックステリア"
+  },
+  {
+    "source": "Lakeland_terrier",
+    "ja": "レークランドテリア"
+  },
+  {
+    "source": "Sealyham_terrier",
+    "ja": "シーリハムテリア"
+  },
+  {
+    "source": "Airedale",
+    "ja": "エアデールテリア"
+  },
+  {
+    "source": "cairn",
+    "ja": "ケアンテリア"
+  },
+  {
+    "source": "Australian_terrier",
+    "ja": "オーストラリアンテリア"
+  },
+  {
+    "source": "Dandie_Dinmont",
+    "ja": "ダンディディンモントテリア"
+  },
+  {
+    "source": "Boston_bull",
+    "ja": "ボストンテリア"
+  },
+  {
+    "source": "miniature_schnauzer",
+    "ja": "ミニチュアシュナウザー"
+  },
+  {
+    "source": "giant_schnauzer",
+    "ja": "ジャイアントシュナウザー"
+  },
+  {
+    "source": "standard_schnauzer",
+    "ja": "スタンダードシュナウザー"
+  },
+  {
+    "source": "Scotch_terrier",
+    "ja": "スコティッシュテリア"
+  },
+  {
+    "source": "Tibetan_terrier",
+    "ja": "チベタンテリア"
+  },
+  {
+    "source": "silky_terrier",
+    "ja": "シルキーテリア"
+  },
+  {
+    "source": "soft-coated_wheaten_terrier",
+    "ja": "ソフトコーテッドウィートンテリア"
+  },
+  {
+    "source": "West_Highland_white_terrier",
+    "ja": "ウエストハイランドホワイトテリア"
+  },
+  {
+    "source": "Lhasa",
+    "ja": "ラサアプソ"
+  },
+  {
+    "source": "flat-coated_retriever",
+    "ja": "フラットコーテッドレトリバー"
+  },
+  {
+    "source": "curly-coated_retriever",
+    "ja": "カーリーコーテッドレトリバー"
+  },
+  {
+    "source": "golden_retriever",
+    "ja": "ゴールデンレトリバー"
+  },
+  {
+    "source": "Labrador_retriever",
+    "ja": "ラブラドールレトリバー"
+  },
+  {
+    "source": "Chesapeake_Bay_retriever",
+    "ja": "チェサピークベイレトリバー"
+  },
+  {
+    "source": "German_short-haired_pointer",
+    "ja": "ジャーマンショートヘアードポインター"
+  },
+  {
+    "source": "vizsla",
+    "ja": "ビズラ"
+  },
+  {
+    "source": "English_setter",
+    "ja": "イングリッシュセター"
+  },
+  {
+    "source": "Irish_setter",
+    "ja": "アイリッシュセター"
+  },
+  {
+    "source": "Gordon_setter",
+    "ja": "ゴードンセター"
+  },
+  {
+    "source": "Brittany_spaniel",
+    "ja": "ブリタニースパニエル"
+  },
+  {
+    "source": "clumber",
+    "ja": "クランバースパニエル"
+  },
+  {
+    "source": "English_springer",
+    "ja": "イングリッシュスプリンガースパニエル"
+  },
+  {
+    "source": "Welsh_springer_spaniel",
+    "ja": "ウェルシュスプリンガースパニエル"
+  },
+  {
+    "source": "cocker_spaniel",
+    "ja": "コッカースパニエル"
+  },
+  {
+    "source": "Sussex_spaniel",
+    "ja": "サセックススパニエル"
+  },
+  {
+    "source": "Irish_water_spaniel",
+    "ja": "アイリッシュウォータースパニエル"
+  },
+  {
+    "source": "kuvasz",
+    "ja": "クーバース"
+  },
+  {
+    "source": "schipperke",
+    "ja": "スキッパーキ"
+  },
+  {
+    "source": "groenendael",
+    "ja": "グローネンダール"
+  },
+  {
+    "source": "malinois",
+    "ja": "マリノア"
+  },
+  {
+    "source": "briard",
+    "ja": "ブリアード"
+  },
+  {
+    "source": "kelpie",
+    "ja": "ケルピー"
+  },
+  {
+    "source": "komondor",
+    "ja": "コモンドール"
+  },
+  {
+    "source": "Old_English_sheepdog",
+    "ja": "オールドイングリッシュシープドッグ"
+  },
+  {
+    "source": "Shetland_sheepdog",
+    "ja": "シェットランドシープドッグ"
+  },
+  {
+    "source": "collie",
+    "ja": "コリー"
+  },
+  {
+    "source": "Border_collie",
+    "ja": "ボーダーコリー"
+  },
+  {
+    "source": "Bouvier_des_Flandres",
+    "ja": "ブービエデフランダース"
+  },
+  {
+    "source": "Rottweiler",
+    "ja": "ロットワイラー"
+  },
+  {
+    "source": "German_shepherd",
+    "ja": "ジャーマンシェパード"
+  },
+  {
+    "source": "Doberman",
+    "ja": "ドーベルマン"
+  },
+  {
+    "source": "miniature_pinscher",
+    "ja": "ミニチュアピンシャー"
+  },
+  {
+    "source": "Greater_Swiss_Mountain_dog",
+    "ja": "グレータースイスマウンテンドッグ"
+  },
+  {
+    "source": "Bernese_mountain_dog",
+    "ja": "バーニーズマウンテンドッグ"
+  },
+  {
+    "source": "Appenzeller",
+    "ja": "アペンツェラー"
+  },
+  {
+    "source": "EntleBucher",
+    "ja": "エントレブッハー"
+  },
+  {
+    "source": "boxer",
+    "ja": "ボクサー犬"
+  },
+  {
+    "source": "bull_mastiff",
+    "ja": "ブルマスティフ"
+  },
+  {
+    "source": "Tibetan_mastiff",
+    "ja": "チベタンマスティフ"
+  },
+  {
+    "source": "French_bulldog",
+    "ja": "フレンチブルドッグ"
+  },
+  {
+    "source": "Great_Dane",
+    "ja": "グレートデーン"
+  },
+  {
+    "source": "Saint_Bernard",
+    "ja": "セントバーナード"
+  },
+  {
+    "source": "Eskimo_dog",
+    "ja": "エスキモー犬"
+  },
+  {
+    "source": "malamute",
+    "ja": "アラスカンマラミュート"
+  },
+  {
+    "source": "Siberian_husky",
+    "ja": "シベリアンハスキー"
+  },
+  {
+    "source": "dalmatian",
+    "ja": "ダルメシアン"
+  },
+  {
+    "source": "affenpinscher",
+    "ja": "アーフェンピンシャー"
+  },
+  {
+    "source": "basenji",
+    "ja": "バセンジー"
+  },
+  {
+    "source": "pug",
+    "ja": "パグ"
+  },
+  {
+    "source": "Leonberg",
+    "ja": "レオンベルガー"
+  },
+  {
+    "source": "Newfoundland",
+    "ja": "ニューファンドランド"
+  },
+  {
+    "source": "Great_Pyrenees",
+    "ja": "グレートピレニーズ"
+  },
+  {
+    "source": "Samoyed",
+    "ja": "サモエド"
+  },
+  {
+    "source": "Pomeranian",
+    "ja": "ポメラニアン"
+  },
+  {
+    "source": "chow",
+    "ja": "チャウチャウ"
+  },
+  {
+    "source": "keeshond",
+    "ja": "キースホンド"
+  },
+  {
+    "source": "Brabancon_griffon",
+    "ja": "ブラバンコングリフォン"
+  },
+  {
+    "source": "Pembroke",
+    "ja": "ペンブロークコーギー"
+  },
+  {
+    "source": "Cardigan",
+    "ja": "カーディガンコーギー"
+  },
+  {
+    "source": "toy_poodle",
+    "ja": "トイプードル"
+  },
+  {
+    "source": "miniature_poodle",
+    "ja": "ミニチュアプードル"
+  },
+  {
+    "source": "standard_poodle",
+    "ja": "スタンダードプードル"
+  },
+  {
+    "source": "Mexican_hairless",
+    "ja": "メキシカンヘアレスドッグ"
+  },
+  {
+    "source": "timber_wolf",
+    "ja": "タイリクオオカミ"
+  },
+  {
+    "source": "white_wolf",
+    "ja": "ホッキョクオオカミ"
+  },
+  {
+    "source": "red_wolf",
+    "ja": "アカオオカミ"
+  },
+  {
+    "source": "coyote",
+    "ja": "コヨーテ"
+  },
+  {
+    "source": "dingo",
+    "ja": "ディンゴ"
+  },
+  {
+    "source": "dhole",
+    "ja": "ドール"
+  },
+  {
+    "source": "African_hunting_dog",
+    "ja": "リカオン"
+  },
+  {
+    "source": "hyena",
+    "ja": "ハイエナ"
+  },
+  {
+    "source": "red_fox",
+    "ja": "アカギツネ"
+  },
+  {
+    "source": "kit_fox",
+    "ja": "キットギツネ"
+  },
+  {
+    "source": "Arctic_fox",
+    "ja": "ホッキョクギツネ"
+  },
+  {
+    "source": "grey_fox",
+    "ja": "ハイイロギツネ"
+  },
+  {
+    "source": "tabby",
+    "ja": "縞猫"
+  },
+  {
+    "source": "tiger_cat",
+    "ja": "トラ猫"
+  },
+  {
+    "source": "Persian_cat",
+    "ja": "ペルシャ猫"
+  },
+  {
+    "source": "Siamese_cat",
+    "ja": "シャム猫"
+  },
+  {
+    "source": "Egyptian_cat",
+    "ja": "エジプシャンマウ"
+  },
+  {
+    "source": "cougar",
+    "ja": "ピューマ"
+  },
+  {
+    "source": "lynx",
+    "ja": "オオヤマネコ"
+  },
+  {
+    "source": "leopard",
+    "ja": "ヒョウ"
+  },
+  {
+    "source": "snow_leopard",
+    "ja": "ユキヒョウ"
+  },
+  {
+    "source": "jaguar",
+    "ja": "ジャガー"
+  },
+  {
+    "source": "lion",
+    "ja": "ライオン"
+  },
+  {
+    "source": "tiger",
+    "ja": "トラ"
+  },
+  {
+    "source": "cheetah",
+    "ja": "チーター"
+  },
+  {
+    "source": "brown_bear",
+    "ja": "ヒグマ"
+  },
+  {
+    "source": "American_black_bear",
+    "ja": "アメリカクロクマ"
+  },
+  {
+    "source": "ice_bear",
+    "ja": "ホッキョクグマ"
+  },
+  {
+    "source": "sloth_bear",
+    "ja": "ナマケグマ"
+  },
+  {
+    "source": "mongoose",
+    "ja": "マングース"
+  },
+  {
+    "source": "meerkat",
+    "ja": "ミーアキャット"
+  },
+  {
+    "source": "tiger_beetle",
+    "ja": "ハンミョウ"
+  },
+  {
+    "source": "ladybug",
+    "ja": "テントウムシ"
+  },
+  {
+    "source": "ground_beetle",
+    "ja": "オサムシ"
+  },
+  {
+    "source": "long-horned_beetle",
+    "ja": "カミキリムシ"
+  },
+  {
+    "source": "leaf_beetle",
+    "ja": "ハムシ"
+  },
+  {
+    "source": "dung_beetle",
+    "ja": "フンコロガシ"
+  },
+  {
+    "source": "rhinoceros_beetle",
+    "ja": "カブトムシ"
+  },
+  {
+    "source": "weevil",
+    "ja": "ゾウムシ"
+  },
+  {
+    "source": "fly",
+    "ja": "ハエ"
+  },
+  {
+    "source": "bee",
+    "ja": "ハチ"
+  },
+  {
+    "source": "ant",
+    "ja": "アリ"
+  },
+  {
+    "source": "grasshopper",
+    "ja": "バッタ"
+  },
+  {
+    "source": "cricket",
+    "ja": "コオロギ"
+  },
+  {
+    "source": "walking_stick",
+    "ja": "ナナフシ"
+  },
+  {
+    "source": "cockroach",
+    "ja": "ゴキブリ"
+  },
+  {
+    "source": "mantis",
+    "ja": "カマキリ"
+  },
+  {
+    "source": "cicada",
+    "ja": "セミ"
+  },
+  {
+    "source": "leafhopper",
+    "ja": "ヨコバイ"
+  },
+  {
+    "source": "lacewing",
+    "ja": "クサカゲロウ"
+  },
+  {
+    "source": "dragonfly",
+    "ja": "トンボ"
+  },
+  {
+    "source": "damselfly",
+    "ja": "イトトンボ"
+  },
+  {
+    "source": "admiral",
+    "ja": "アカタテハ"
+  },
+  {
+    "source": "ringlet",
+    "ja": "ジャノメチョウ"
+  },
+  {
+    "source": "monarch",
+    "ja": "オオカバマダラ"
+  },
+  {
+    "source": "cabbage_butterfly",
+    "ja": "モンシロチョウ"
+  },
+  {
+    "source": "sulphur_butterfly",
+    "ja": "モンキチョウ"
+  },
+  {
+    "source": "lycaenid",
+    "ja": "シジミチョウ"
+  },
+  {
+    "source": "starfish",
+    "ja": "ヒトデ"
+  },
+  {
+    "source": "sea_urchin",
+    "ja": "ウニ"
+  },
+  {
+    "source": "sea_cucumber",
+    "ja": "ナマコ"
+  },
+  {
+    "source": "wood_rabbit",
+    "ja": "ワタオウサギ"
+  },
+  {
+    "source": "hare",
+    "ja": "ノウサギ"
+  },
+  {
+    "source": "Angora",
+    "ja": "アンゴラウサギ"
+  },
+  {
+    "source": "hamster",
+    "ja": "ハムスター"
+  },
+  {
+    "source": "porcupine",
+    "ja": "ヤマアラシ"
+  },
+  {
+    "source": "fox_squirrel",
+    "ja": "キツネリス"
+  },
+  {
+    "source": "marmot",
+    "ja": "マーモット"
+  },
+  {
+    "source": "beaver",
+    "ja": "ビーバー"
+  },
+  {
+    "source": "guinea_pig",
+    "ja": "モルモット"
+  },
+  {
+    "source": "sorrel",
+    "ja": "栗毛の馬"
+  },
+  {
+    "source": "zebra",
+    "ja": "シマウマ"
+  },
+  {
+    "source": "hog",
+    "ja": "ブタ"
+  },
+  {
+    "source": "wild_boar",
+    "ja": "イノシシ"
+  },
+  {
+    "source": "warthog",
+    "ja": "イボイノシシ"
+  },
+  {
+    "source": "hippopotamus",
+    "ja": "カバ"
+  },
+  {
+    "source": "ox",
+    "ja": "雄牛"
+  },
+  {
+    "source": "water_buffalo",
+    "ja": "スイギュウ"
+  },
+  {
+    "source": "bison",
+    "ja": "バイソン"
+  },
+  {
+    "source": "ram",
+    "ja": "雄羊"
+  },
+  {
+    "source": "bighorn",
+    "ja": "ビッグホーン"
+  },
+  {
+    "source": "ibex",
+    "ja": "アイベックス"
+  },
+  {
+    "source": "hartebeest",
+    "ja": "ハーテビースト"
+  },
+  {
+    "source": "impala",
+    "ja": "インパラ"
+  },
+  {
+    "source": "gazelle",
+    "ja": "ガゼル"
+  },
+  {
+    "source": "Arabian_camel",
+    "ja": "ヒトコブラクダ"
+  },
+  {
+    "source": "llama",
+    "ja": "リャマ"
+  },
+  {
+    "source": "weasel",
+    "ja": "イタチ"
+  },
+  {
+    "source": "mink",
+    "ja": "ミンク"
+  },
+  {
+    "source": "polecat",
+    "ja": "ケナガイタチ"
+  },
+  {
+    "source": "black-footed_ferret",
+    "ja": "クロアシイタチ"
+  },
+  {
+    "source": "otter",
+    "ja": "カワウソ"
+  },
+  {
+    "source": "skunk",
+    "ja": "スカンク"
+  },
+  {
+    "source": "badger",
+    "ja": "アナグマ"
+  },
+  {
+    "source": "armadillo",
+    "ja": "アルマジロ"
+  },
+  {
+    "source": "three-toed_sloth",
+    "ja": "ミユビナマケモノ"
+  },
+  {
+    "source": "orangutan",
+    "ja": "オランウータン"
+  },
+  {
+    "source": "gorilla",
+    "ja": "ゴリラ"
+  },
+  {
+    "source": "chimpanzee",
+    "ja": "チンパンジー"
+  },
+  {
+    "source": "gibbon",
+    "ja": "テナガザル"
+  },
+  {
+    "source": "siamang",
+    "ja": "フクロテナガザル"
+  },
+  {
+    "source": "guenon",
+    "ja": "グエノン"
+  },
+  {
+    "source": "patas",
+    "ja": "パタスモンキー"
+  },
+  {
+    "source": "baboon",
+    "ja": "ヒヒ"
+  },
+  {
+    "source": "macaque",
+    "ja": "マカク"
+  },
+  {
+    "source": "langur",
+    "ja": "ラングール"
+  },
+  {
+    "source": "colobus",
+    "ja": "コロブス"
+  },
+  {
+    "source": "proboscis_monkey",
+    "ja": "テングザル"
+  },
+  {
+    "source": "marmoset",
+    "ja": "マーモセット"
+  },
+  {
+    "source": "capuchin",
+    "ja": "オマキザル"
+  },
+  {
+    "source": "howler_monkey",
+    "ja": "ホエザル"
+  },
+  {
+    "source": "titi",
+    "ja": "ティティモンキー"
+  },
+  {
+    "source": "spider_monkey",
+    "ja": "クモザル"
+  },
+  {
+    "source": "squirrel_monkey",
+    "ja": "リスザル"
+  },
+  {
+    "source": "Madagascar_cat",
+    "ja": "ワオキツネザル"
+  },
+  {
+    "source": "indri",
+    "ja": "インドリ"
+  },
+  {
+    "source": "Indian_elephant",
+    "ja": "アジアゾウ"
+  },
+  {
+    "source": "African_elephant",
+    "ja": "アフリカゾウ"
+  },
+  {
+    "source": "lesser_panda",
+    "ja": "レッサーパンダ"
+  },
+  {
+    "source": "giant_panda",
+    "ja": "ジャイアントパンダ"
+  },
+  {
+    "source": "barracouta",
+    "ja": "クロタチカマス"
+  },
+  {
+    "source": "eel",
+    "ja": "ウナギ"
+  },
+  {
+    "source": "coho",
+    "ja": "ギンザケ"
+  },
+  {
+    "source": "rock_beauty",
+    "ja": "ロックビューティー"
+  },
+  {
+    "source": "anemone_fish",
+    "ja": "クマノミ"
+  },
+  {
+    "source": "sturgeon",
+    "ja": "チョウザメ"
+  },
+  {
+    "source": "gar",
+    "ja": "ガー"
+  },
+  {
+    "source": "lionfish",
+    "ja": "ミノカサゴ"
+  },
+  {
+    "source": "puffer",
+    "ja": "フグ"
+  },
+  {
+    "source": "abacus",
+    "ja": "そろばん"
+  },
+  {
+    "source": "abaya",
+    "ja": "アバヤ"
+  },
+  {
+    "source": "academic_gown",
+    "ja": "学位服"
+  },
+  {
+    "source": "accordion",
+    "ja": "アコーディオン"
+  },
+  {
+    "source": "acoustic_guitar",
+    "ja": "アコースティックギター"
+  },
+  {
+    "source": "aircraft_carrier",
+    "ja": "航空母艦"
+  },
+  {
+    "source": "airliner",
+    "ja": "旅客機"
+  },
+  {
+    "source": "airship",
+    "ja": "飛行船"
+  },
+  {
+    "source": "altar",
+    "ja": "祭壇"
+  },
+  {
+    "source": "ambulance",
+    "ja": "救急車"
+  },
+  {
+    "source": "amphibian",
+    "ja": "水陸両用機"
+  },
+  {
+    "source": "analog_clock",
+    "ja": "アナログ時計"
+  },
+  {
+    "source": "apiary",
+    "ja": "養蜂場"
+  },
+  {
+    "source": "apron",
+    "ja": "エプロン"
+  },
+  {
+    "source": "ashcan",
+    "ja": "ごみ箱"
+  },
+  {
+    "source": "assault_rifle",
+    "ja": "アサルトライフル"
+  },
+  {
+    "source": "backpack",
+    "ja": "リュックサック"
+  },
+  {
+    "source": "bakery",
+    "ja": "パン屋"
+  },
+  {
+    "source": "balance_beam",
+    "ja": "平均台"
+  },
+  {
+    "source": "balloon",
+    "ja": "風船"
+  },
+  {
+    "source": "ballpoint",
+    "ja": "ボールペン"
+  },
+  {
+    "source": "Band_Aid",
+    "ja": "絆創膏"
+  },
+  {
+    "source": "banjo",
+    "ja": "バンジョー"
+  },
+  {
+    "source": "bannister",
+    "ja": "階段の手すり"
+  },
+  {
+    "source": "barbell",
+    "ja": "バーベル"
+  },
+  {
+    "source": "barber_chair",
+    "ja": "理容椅子"
+  },
+  {
+    "source": "barbershop",
+    "ja": "理髪店"
+  },
+  {
+    "source": "barn",
+    "ja": "納屋"
+  },
+  {
+    "source": "barometer",
+    "ja": "気圧計"
+  },
+  {
+    "source": "barrel",
+    "ja": "樽"
+  },
+  {
+    "source": "barrow",
+    "ja": "手押し車"
+  },
+  {
+    "source": "baseball",
+    "ja": "野球ボール"
+  },
+  {
+    "source": "basketball",
+    "ja": "バスケットボール"
+  },
+  {
+    "source": "bassinet",
+    "ja": "乳児用かご"
+  },
+  {
+    "source": "bassoon",
+    "ja": "ファゴット"
+  },
+  {
+    "source": "bathing_cap",
+    "ja": "水泳帽"
+  },
+  {
+    "source": "bath_towel",
+    "ja": "バスタオル"
+  },
+  {
+    "source": "bathtub",
+    "ja": "浴槽"
+  },
+  {
+    "source": "beach_wagon",
+    "ja": "ステーションワゴン"
+  },
+  {
+    "source": "beacon",
+    "ja": "標識灯"
+  },
+  {
+    "source": "beaker",
+    "ja": "ビーカー"
+  },
+  {
+    "source": "bearskin",
+    "ja": "熊皮の帽子"
+  },
+  {
+    "source": "beer_bottle",
+    "ja": "ビール瓶"
+  },
+  {
+    "source": "beer_glass",
+    "ja": "ビールグラス"
+  },
+  {
+    "source": "bell_cote",
+    "ja": "鐘楼"
+  },
+  {
+    "source": "bib",
+    "ja": "よだれかけ"
+  },
+  {
+    "source": "bicycle-built-for-two",
+    "ja": "二人乗り自転車"
+  },
+  {
+    "source": "bikini",
+    "ja": "ビキニ"
+  },
+  {
+    "source": "binder",
+    "ja": "バインダー"
+  },
+  {
+    "source": "binoculars",
+    "ja": "双眼鏡"
+  },
+  {
+    "source": "birdhouse",
+    "ja": "巣箱"
+  },
+  {
+    "source": "boathouse",
+    "ja": "ボート小屋"
+  },
+  {
+    "source": "bobsled",
+    "ja": "ボブスレー"
+  },
+  {
+    "source": "bolo_tie",
+    "ja": "ループタイ"
+  },
+  {
+    "source": "bonnet",
+    "ja": "ボンネット帽"
+  },
+  {
+    "source": "bookcase",
+    "ja": "本棚"
+  },
+  {
+    "source": "bookshop",
+    "ja": "書店"
+  },
+  {
+    "source": "bottlecap",
+    "ja": "瓶のふた"
+  },
+  {
+    "source": "bow",
+    "ja": "弓"
+  },
+  {
+    "source": "bow_tie",
+    "ja": "蝶ネクタイ"
+  },
+  {
+    "source": "brass",
+    "ja": "記念プレート"
+  },
+  {
+    "source": "brassiere",
+    "ja": "ブラジャー"
+  },
+  {
+    "source": "breakwater",
+    "ja": "防波堤"
+  },
+  {
+    "source": "breastplate",
+    "ja": "胸当て"
+  },
+  {
+    "source": "broom",
+    "ja": "ほうき"
+  },
+  {
+    "source": "bucket",
+    "ja": "バケツ"
+  },
+  {
+    "source": "buckle",
+    "ja": "バックル"
+  },
+  {
+    "source": "bulletproof_vest",
+    "ja": "防弾ベスト"
+  },
+  {
+    "source": "bullet_train",
+    "ja": "新幹線"
+  },
+  {
+    "source": "butcher_shop",
+    "ja": "精肉店"
+  },
+  {
+    "source": "cab",
+    "ja": "タクシー"
+  },
+  {
+    "source": "caldron",
+    "ja": "大釜"
+  },
+  {
+    "source": "candle",
+    "ja": "ろうそく"
+  },
+  {
+    "source": "cannon",
+    "ja": "大砲"
+  },
+  {
+    "source": "canoe",
+    "ja": "カヌー"
+  },
+  {
+    "source": "can_opener",
+    "ja": "缶切り"
+  },
+  {
+    "source": "cardigan",
+    "ja": "カーディガン"
+  },
+  {
+    "source": "car_mirror",
+    "ja": "車のミラー"
+  },
+  {
+    "source": "carousel",
+    "ja": "メリーゴーラウンド"
+  },
+  {
+    "source": "carpenter's_kit",
+    "ja": "大工道具"
+  },
+  {
+    "source": "carton",
+    "ja": "紙箱"
+  },
+  {
+    "source": "car_wheel",
+    "ja": "自動車の車輪"
+  },
+  {
+    "source": "cash_machine",
+    "ja": "現金自動預払機"
+  },
+  {
+    "source": "cassette",
+    "ja": "カセットテープ"
+  },
+  {
+    "source": "cassette_player",
+    "ja": "カセットプレーヤー"
+  },
+  {
+    "source": "castle",
+    "ja": "城"
+  },
+  {
+    "source": "catamaran",
+    "ja": "双胴船"
+  },
+  {
+    "source": "CD_player",
+    "ja": "CDプレーヤー"
+  },
+  {
+    "source": "cello",
+    "ja": "チェロ"
+  },
+  {
+    "source": "cellular_telephone",
+    "ja": "携帯電話"
+  },
+  {
+    "source": "chain",
+    "ja": "鎖"
+  },
+  {
+    "source": "chainlink_fence",
+    "ja": "金網フェンス"
+  },
+  {
+    "source": "chain_mail",
+    "ja": "鎖かたびら"
+  },
+  {
+    "source": "chain_saw",
+    "ja": "チェーンソー"
+  },
+  {
+    "source": "chest",
+    "ja": "収納箱"
+  },
+  {
+    "source": "chiffonier",
+    "ja": "整理だんす"
+  },
+  {
+    "source": "chime",
+    "ja": "チャイム"
+  },
+  {
+    "source": "china_cabinet",
+    "ja": "食器棚"
+  },
+  {
+    "source": "Christmas_stocking",
+    "ja": "クリスマスの靴下"
+  },
+  {
+    "source": "church",
+    "ja": "教会"
+  },
+  {
+    "source": "cinema",
+    "ja": "映画館"
+  },
+  {
+    "source": "cleaver",
+    "ja": "中華包丁"
+  },
+  {
+    "source": "cliff_dwelling",
+    "ja": "崖の住居"
+  },
+  {
+    "source": "cloak",
+    "ja": "マント"
+  },
+  {
+    "source": "clog",
+    "ja": "木靴"
+  },
+  {
+    "source": "cocktail_shaker",
+    "ja": "カクテルシェーカー"
+  },
+  {
+    "source": "coffee_mug",
+    "ja": "コーヒーマグ"
+  },
+  {
+    "source": "coffeepot",
+    "ja": "コーヒーポット"
+  },
+  {
+    "source": "coil",
+    "ja": "コイル"
+  },
+  {
+    "source": "combination_lock",
+    "ja": "ダイヤル錠"
+  },
+  {
+    "source": "computer_keyboard",
+    "ja": "コンピューターのキーボード"
+  },
+  {
+    "source": "confectionery",
+    "ja": "菓子"
+  },
+  {
+    "source": "container_ship",
+    "ja": "コンテナ船"
+  },
+  {
+    "source": "convertible",
+    "ja": "オープンカー"
+  },
+  {
+    "source": "corkscrew",
+    "ja": "コルク抜き"
+  },
+  {
+    "source": "cornet",
+    "ja": "コルネット"
+  },
+  {
+    "source": "cowboy_boot",
+    "ja": "カウボーイブーツ"
+  },
+  {
+    "source": "cowboy_hat",
+    "ja": "カウボーイハット"
+  },
+  {
+    "source": "cradle",
+    "ja": "ゆりかご"
+  },
+  {
+    "source": "crane",
+    "ja": "クレーン"
+  },
+  {
+    "source": "crash_helmet",
+    "ja": "ヘルメット"
+  },
+  {
+    "source": "crate",
+    "ja": "木箱"
+  },
+  {
+    "source": "crib",
+    "ja": "ベビーベッド"
+  },
+  {
+    "source": "Crock_Pot",
+    "ja": "スロークッカー"
+  },
+  {
+    "source": "croquet_ball",
+    "ja": "クロッケーのボール"
+  },
+  {
+    "source": "crutch",
+    "ja": "松葉杖"
+  },
+  {
+    "source": "cuirass",
+    "ja": "胴よろい"
+  },
+  {
+    "source": "dam",
+    "ja": "ダム"
+  },
+  {
+    "source": "desk",
+    "ja": "事務机"
+  },
+  {
+    "source": "desktop_computer",
+    "ja": "デスクトップコンピューター"
+  },
+  {
+    "source": "dial_telephone",
+    "ja": "ダイヤル式電話"
+  },
+  {
+    "source": "diaper",
+    "ja": "おむつ"
+  },
+  {
+    "source": "digital_clock",
+    "ja": "デジタル時計"
+  },
+  {
+    "source": "digital_watch",
+    "ja": "デジタル腕時計"
+  },
+  {
+    "source": "dining_table",
+    "ja": "食卓"
+  },
+  {
+    "source": "dishrag",
+    "ja": "台ふきん"
+  },
+  {
+    "source": "dishwasher",
+    "ja": "食器洗い機"
+  },
+  {
+    "source": "disk_brake",
+    "ja": "ディスクブレーキ"
+  },
+  {
+    "source": "dock",
+    "ja": "船着き場"
+  },
+  {
+    "source": "dogsled",
+    "ja": "犬ぞり"
+  },
+  {
+    "source": "dome",
+    "ja": "ドーム"
+  },
+  {
+    "source": "doormat",
+    "ja": "玄関マット"
+  },
+  {
+    "source": "drilling_platform",
+    "ja": "掘削プラットフォーム"
+  },
+  {
+    "source": "drum",
+    "ja": "ドラム"
+  },
+  {
+    "source": "drumstick",
+    "ja": "ドラムスティック"
+  },
+  {
+    "source": "dumbbell",
+    "ja": "ダンベル"
+  },
+  {
+    "source": "Dutch_oven",
+    "ja": "ダッチオーブン"
+  },
+  {
+    "source": "electric_fan",
+    "ja": "扇風機"
+  },
+  {
+    "source": "electric_guitar",
+    "ja": "エレキギター"
+  },
+  {
+    "source": "electric_locomotive",
+    "ja": "電気機関車"
+  },
+  {
+    "source": "entertainment_center",
+    "ja": "テレビ収納棚"
+  },
+  {
+    "source": "envelope",
+    "ja": "封筒"
+  },
+  {
+    "source": "espresso_maker",
+    "ja": "エスプレッソマシン"
+  },
+  {
+    "source": "face_powder",
+    "ja": "フェイスパウダー"
+  },
+  {
+    "source": "feather_boa",
+    "ja": "羽根のボア"
+  },
+  {
+    "source": "file",
+    "ja": "やすり"
+  },
+  {
+    "source": "fireboat",
+    "ja": "消防艇"
+  },
+  {
+    "source": "fire_engine",
+    "ja": "消防車"
+  },
+  {
+    "source": "fire_screen",
+    "ja": "暖炉の火よけ"
+  },
+  {
+    "source": "flagpole",
+    "ja": "旗ざお"
+  },
+  {
+    "source": "flute",
+    "ja": "フルート"
+  },
+  {
+    "source": "folding_chair",
+    "ja": "折りたたみ椅子"
+  },
+  {
+    "source": "football_helmet",
+    "ja": "アメリカンフットボールのヘルメット"
+  },
+  {
+    "source": "forklift",
+    "ja": "フォークリフト"
+  },
+  {
+    "source": "fountain",
+    "ja": "噴水"
+  },
+  {
+    "source": "fountain_pen",
+    "ja": "万年筆"
+  },
+  {
+    "source": "four-poster",
+    "ja": "天蓋付きベッド"
+  },
+  {
+    "source": "freight_car",
+    "ja": "貨車"
+  },
+  {
+    "source": "French_horn",
+    "ja": "フレンチホルン"
+  },
+  {
+    "source": "frying_pan",
+    "ja": "フライパン"
+  },
+  {
+    "source": "fur_coat",
+    "ja": "毛皮のコート"
+  },
+  {
+    "source": "garbage_truck",
+    "ja": "ごみ収集車"
+  },
+  {
+    "source": "gasmask",
+    "ja": "ガスマスク"
+  },
+  {
+    "source": "gas_pump",
+    "ja": "ガソリン給油機"
+  },
+  {
+    "source": "goblet",
+    "ja": "ゴブレット"
+  },
+  {
+    "source": "go-kart",
+    "ja": "ゴーカート"
+  },
+  {
+    "source": "golf_ball",
+    "ja": "ゴルフボール"
+  },
+  {
+    "source": "golfcart",
+    "ja": "ゴルフカート"
+  },
+  {
+    "source": "gondola",
+    "ja": "ゴンドラ"
+  },
+  {
+    "source": "gong",
+    "ja": "銅鑼"
+  },
+  {
+    "source": "gown",
+    "ja": "ガウン"
+  },
+  {
+    "source": "grand_piano",
+    "ja": "グランドピアノ"
+  },
+  {
+    "source": "greenhouse",
+    "ja": "温室"
+  },
+  {
+    "source": "grille",
+    "ja": "格子"
+  },
+  {
+    "source": "grocery_store",
+    "ja": "食料品店"
+  },
+  {
+    "source": "guillotine",
+    "ja": "ギロチン"
+  },
+  {
+    "source": "hair_slide",
+    "ja": "ヘアピン"
+  },
+  {
+    "source": "hair_spray",
+    "ja": "ヘアスプレー"
+  },
+  {
+    "source": "half_track",
+    "ja": "半装軌車"
+  },
+  {
+    "source": "hammer",
+    "ja": "金づち"
+  },
+  {
+    "source": "hamper",
+    "ja": "洗濯かご"
+  },
+  {
+    "source": "hand_blower",
+    "ja": "ハンドドライヤー"
+  },
+  {
+    "source": "hand-held_computer",
+    "ja": "携帯型コンピューター"
+  },
+  {
+    "source": "handkerchief",
+    "ja": "ハンカチ"
+  },
+  {
+    "source": "hard_disc",
+    "ja": "ハードディスク"
+  },
+  {
+    "source": "harmonica",
+    "ja": "ハーモニカ"
+  },
+  {
+    "source": "harp",
+    "ja": "ハープ"
+  },
+  {
+    "source": "harvester",
+    "ja": "収穫機"
+  },
+  {
+    "source": "hatchet",
+    "ja": "手おの"
+  },
+  {
+    "source": "holster",
+    "ja": "ホルスター"
+  },
+  {
+    "source": "home_theater",
+    "ja": "ホームシアター"
+  },
+  {
+    "source": "honeycomb",
+    "ja": "蜂の巣"
+  },
+  {
+    "source": "hook",
+    "ja": "フック"
+  },
+  {
+    "source": "hoopskirt",
+    "ja": "フープスカート"
+  },
+  {
+    "source": "horizontal_bar",
+    "ja": "鉄棒"
+  },
+  {
+    "source": "horse_cart",
+    "ja": "馬車"
+  },
+  {
+    "source": "hourglass",
+    "ja": "砂時計"
+  },
+  {
+    "source": "iPod",
+    "ja": "iPod"
+  },
+  {
+    "source": "iron",
+    "ja": "アイロン"
+  },
+  {
+    "source": "jack-o'-lantern",
+    "ja": "ジャックオーランタン"
+  },
+  {
+    "source": "jean",
+    "ja": "ジーンズ"
+  },
+  {
+    "source": "jeep",
+    "ja": "ジープ"
+  },
+  {
+    "source": "jersey",
+    "ja": "ジャージー"
+  },
+  {
+    "source": "jigsaw_puzzle",
+    "ja": "ジグソーパズル"
+  },
+  {
+    "source": "jinrikisha",
+    "ja": "人力車"
+  },
+  {
+    "source": "joystick",
+    "ja": "ジョイスティック"
+  },
+  {
+    "source": "kimono",
+    "ja": "着物"
+  },
+  {
+    "source": "knee_pad",
+    "ja": "膝当て"
+  },
+  {
+    "source": "knot",
+    "ja": "結び目"
+  },
+  {
+    "source": "lab_coat",
+    "ja": "白衣"
+  },
+  {
+    "source": "ladle",
+    "ja": "おたま"
+  },
+  {
+    "source": "lampshade",
+    "ja": "ランプシェード"
+  },
+  {
+    "source": "laptop",
+    "ja": "ノートパソコン"
+  },
+  {
+    "source": "lawn_mower",
+    "ja": "芝刈り機"
+  },
+  {
+    "source": "lens_cap",
+    "ja": "レンズキャップ"
+  },
+  {
+    "source": "letter_opener",
+    "ja": "ペーパーナイフ"
+  },
+  {
+    "source": "library",
+    "ja": "図書館"
+  },
+  {
+    "source": "lifeboat",
+    "ja": "救命ボート"
+  },
+  {
+    "source": "lighter",
+    "ja": "ライター"
+  },
+  {
+    "source": "limousine",
+    "ja": "リムジン"
+  },
+  {
+    "source": "liner",
+    "ja": "客船"
+  },
+  {
+    "source": "lipstick",
+    "ja": "口紅"
+  },
+  {
+    "source": "Loafer",
+    "ja": "ローファー"
+  },
+  {
+    "source": "lotion",
+    "ja": "ローション"
+  },
+  {
+    "source": "loudspeaker",
+    "ja": "スピーカー"
+  },
+  {
+    "source": "loupe",
+    "ja": "ルーペ"
+  },
+  {
+    "source": "lumbermill",
+    "ja": "製材所"
+  },
+  {
+    "source": "magnetic_compass",
+    "ja": "方位磁石"
+  },
+  {
+    "source": "mailbag",
+    "ja": "郵便袋"
+  },
+  {
+    "source": "mailbox",
+    "ja": "郵便ポスト"
+  },
+  {
+    "source": "maillot",
+    "ja": "舞台用タイツ"
+  },
+  {
+    "source": "maillot",
+    "ja": "ワンピース水着"
+  },
+  {
+    "source": "manhole_cover",
+    "ja": "マンホールのふた"
+  },
+  {
+    "source": "maraca",
+    "ja": "マラカス"
+  },
+  {
+    "source": "marimba",
+    "ja": "マリンバ"
+  },
+  {
+    "source": "mask",
+    "ja": "仮面"
+  },
+  {
+    "source": "matchstick",
+    "ja": "マッチ棒"
+  },
+  {
+    "source": "maypole",
+    "ja": "メイポール"
+  },
+  {
+    "source": "maze",
+    "ja": "迷路"
+  },
+  {
+    "source": "measuring_cup",
+    "ja": "計量カップ"
+  },
+  {
+    "source": "medicine_chest",
+    "ja": "薬箱"
+  },
+  {
+    "source": "megalith",
+    "ja": "巨石"
+  },
+  {
+    "source": "microphone",
+    "ja": "マイク"
+  },
+  {
+    "source": "microwave",
+    "ja": "電子レンジ"
+  },
+  {
+    "source": "military_uniform",
+    "ja": "軍服"
+  },
+  {
+    "source": "milk_can",
+    "ja": "ミルク缶"
+  },
+  {
+    "source": "minibus",
+    "ja": "マイクロバス"
+  },
+  {
+    "source": "miniskirt",
+    "ja": "ミニスカート"
+  },
+  {
+    "source": "minivan",
+    "ja": "ミニバン"
+  },
+  {
+    "source": "missile",
+    "ja": "ミサイル"
+  },
+  {
+    "source": "mitten",
+    "ja": "ミトン"
+  },
+  {
+    "source": "mixing_bowl",
+    "ja": "ボウル"
+  },
+  {
+    "source": "mobile_home",
+    "ja": "移動式住宅"
+  },
+  {
+    "source": "Model_T",
+    "ja": "フォードT型"
+  },
+  {
+    "source": "modem",
+    "ja": "モデム"
+  },
+  {
+    "source": "monastery",
+    "ja": "修道院"
+  },
+  {
+    "source": "monitor",
+    "ja": "モニター"
+  },
+  {
+    "source": "moped",
+    "ja": "モペッド"
+  },
+  {
+    "source": "mortar",
+    "ja": "迫撃砲"
+  },
+  {
+    "source": "mortarboard",
+    "ja": "角帽"
+  },
+  {
+    "source": "mosque",
+    "ja": "モスク"
+  },
+  {
+    "source": "mosquito_net",
+    "ja": "蚊帳"
+  },
+  {
+    "source": "motor_scooter",
+    "ja": "スクーター"
+  },
+  {
+    "source": "mountain_bike",
+    "ja": "マウンテンバイク"
+  },
+  {
+    "source": "mountain_tent",
+    "ja": "登山用テント"
+  },
+  {
+    "source": "mouse",
+    "ja": "マウス"
+  },
+  {
+    "source": "mousetrap",
+    "ja": "ネズミ捕り"
+  },
+  {
+    "source": "moving_van",
+    "ja": "引っ越しトラック"
+  },
+  {
+    "source": "muzzle",
+    "ja": "口輪"
+  },
+  {
+    "source": "nail",
+    "ja": "釘"
+  },
+  {
+    "source": "neck_brace",
+    "ja": "頸椎カラー"
+  },
+  {
+    "source": "necklace",
+    "ja": "ネックレス"
+  },
+  {
+    "source": "nipple",
+    "ja": "哺乳瓶の乳首"
+  },
+  {
+    "source": "notebook",
+    "ja": "ノート"
+  },
+  {
+    "source": "obelisk",
+    "ja": "オベリスク"
+  },
+  {
+    "source": "oboe",
+    "ja": "オーボエ"
+  },
+  {
+    "source": "ocarina",
+    "ja": "オカリナ"
+  },
+  {
+    "source": "odometer",
+    "ja": "走行距離計"
+  },
+  {
+    "source": "oil_filter",
+    "ja": "オイルフィルター"
+  },
+  {
+    "source": "organ",
+    "ja": "オルガン"
+  },
+  {
+    "source": "oscilloscope",
+    "ja": "オシロスコープ"
+  },
+  {
+    "source": "overskirt",
+    "ja": "オーバースカート"
+  },
+  {
+    "source": "oxcart",
+    "ja": "牛車"
+  },
+  {
+    "source": "oxygen_mask",
+    "ja": "酸素マスク"
+  },
+  {
+    "source": "packet",
+    "ja": "小包"
+  },
+  {
+    "source": "paddle",
+    "ja": "パドル"
+  },
+  {
+    "source": "paddlewheel",
+    "ja": "外輪"
+  },
+  {
+    "source": "padlock",
+    "ja": "南京錠"
+  },
+  {
+    "source": "paintbrush",
+    "ja": "絵筆"
+  },
+  {
+    "source": "pajama",
+    "ja": "パジャマ"
+  },
+  {
+    "source": "palace",
+    "ja": "宮殿"
+  },
+  {
+    "source": "panpipe",
+    "ja": "パンフルート"
+  },
+  {
+    "source": "paper_towel",
+    "ja": "ペーパータオル"
+  },
+  {
+    "source": "parachute",
+    "ja": "パラシュート"
+  },
+  {
+    "source": "parallel_bars",
+    "ja": "平行棒"
+  },
+  {
+    "source": "park_bench",
+    "ja": "公園のベンチ"
+  },
+  {
+    "source": "parking_meter",
+    "ja": "パーキングメーター"
+  },
+  {
+    "source": "passenger_car",
+    "ja": "客車"
+  },
+  {
+    "source": "patio",
+    "ja": "中庭"
+  },
+  {
+    "source": "pay-phone",
+    "ja": "公衆電話"
+  },
+  {
+    "source": "pedestal",
+    "ja": "台座"
+  },
+  {
+    "source": "pencil_box",
+    "ja": "筆箱"
+  },
+  {
+    "source": "pencil_sharpener",
+    "ja": "鉛筆削り"
+  },
+  {
+    "source": "perfume",
+    "ja": "香水"
+  },
+  {
+    "source": "Petri_dish",
+    "ja": "シャーレ"
+  },
+  {
+    "source": "photocopier",
+    "ja": "コピー機"
+  },
+  {
+    "source": "pick",
+    "ja": "つるはし"
+  },
+  {
+    "source": "pickelhaube",
+    "ja": "ピッケルハウベ"
+  },
+  {
+    "source": "picket_fence",
+    "ja": "杭の柵"
+  },
+  {
+    "source": "pickup",
+    "ja": "ピックアップトラック"
+  },
+  {
+    "source": "pier",
+    "ja": "桟橋"
+  },
+  {
+    "source": "piggy_bank",
+    "ja": "貯金箱"
+  },
+  {
+    "source": "pill_bottle",
+    "ja": "薬瓶"
+  },
+  {
+    "source": "pillow",
+    "ja": "枕"
+  },
+  {
+    "source": "ping-pong_ball",
+    "ja": "卓球のボール"
+  },
+  {
+    "source": "pinwheel",
+    "ja": "風車のおもちゃ"
+  },
+  {
+    "source": "pirate",
+    "ja": "海賊"
+  },
+  {
+    "source": "pitcher",
+    "ja": "水差し"
+  },
+  {
+    "source": "plane",
+    "ja": "かんな"
+  },
+  {
+    "source": "planetarium",
+    "ja": "プラネタリウム"
+  },
+  {
+    "source": "plastic_bag",
+    "ja": "ビニール袋"
+  },
+  {
+    "source": "plate_rack",
+    "ja": "皿立て"
+  },
+  {
+    "source": "plow",
+    "ja": "すき"
+  },
+  {
+    "source": "plunger",
+    "ja": "ラバーカップ"
+  },
+  {
+    "source": "Polaroid_camera",
+    "ja": "ポラロイドカメラ"
+  },
+  {
+    "source": "pole",
+    "ja": "ポール"
+  },
+  {
+    "source": "police_van",
+    "ja": "警察車両"
+  },
+  {
+    "source": "poncho",
+    "ja": "ポンチョ"
+  },
+  {
+    "source": "pool_table",
+    "ja": "ビリヤード台"
+  },
+  {
+    "source": "pop_bottle",
+    "ja": "炭酸飲料の瓶"
+  },
+  {
+    "source": "pot",
+    "ja": "鍋"
+  },
+  {
+    "source": "potter's_wheel",
+    "ja": "ろくろ"
+  },
+  {
+    "source": "power_drill",
+    "ja": "電動ドリル"
+  },
+  {
+    "source": "prayer_rug",
+    "ja": "礼拝用じゅうたん"
+  },
+  {
+    "source": "printer",
+    "ja": "プリンター"
+  },
+  {
+    "source": "prison",
+    "ja": "刑務所"
+  },
+  {
+    "source": "projectile",
+    "ja": "砲弾"
+  },
+  {
+    "source": "projector",
+    "ja": "プロジェクター"
+  },
+  {
+    "source": "puck",
+    "ja": "アイスホッケーのパック"
+  },
+  {
+    "source": "punching_bag",
+    "ja": "サンドバッグ"
+  },
+  {
+    "source": "purse",
+    "ja": "財布"
+  },
+  {
+    "source": "quill",
+    "ja": "羽根ペン"
+  },
+  {
+    "source": "quilt",
+    "ja": "キルト"
+  },
+  {
+    "source": "racer",
+    "ja": "レーシングカー"
+  },
+  {
+    "source": "racket",
+    "ja": "ラケット"
+  },
+  {
+    "source": "radiator",
+    "ja": "ラジエーター"
+  },
+  {
+    "source": "radio",
+    "ja": "ラジオ"
+  },
+  {
+    "source": "radio_telescope",
+    "ja": "電波望遠鏡"
+  },
+  {
+    "source": "rain_barrel",
+    "ja": "雨水タンク"
+  },
+  {
+    "source": "recreational_vehicle",
+    "ja": "キャンピングカー"
+  },
+  {
+    "source": "reel",
+    "ja": "リール"
+  },
+  {
+    "source": "reflex_camera",
+    "ja": "一眼レフカメラ"
+  },
+  {
+    "source": "refrigerator",
+    "ja": "冷蔵庫"
+  },
+  {
+    "source": "remote_control",
+    "ja": "リモコン"
+  },
+  {
+    "source": "restaurant",
+    "ja": "レストラン"
+  },
+  {
+    "source": "revolver",
+    "ja": "回転式拳銃"
+  },
+  {
+    "source": "rifle",
+    "ja": "ライフル"
+  },
+  {
+    "source": "rocking_chair",
+    "ja": "ロッキングチェア"
+  },
+  {
+    "source": "rotisserie",
+    "ja": "回転焼き器"
+  },
+  {
+    "source": "rubber_eraser",
+    "ja": "消しゴム"
+  },
+  {
+    "source": "rugby_ball",
+    "ja": "ラグビーボール"
+  },
+  {
+    "source": "rule",
+    "ja": "定規"
+  },
+  {
+    "source": "running_shoe",
+    "ja": "ランニングシューズ"
+  },
+  {
+    "source": "safe",
+    "ja": "金庫"
+  },
+  {
+    "source": "safety_pin",
+    "ja": "安全ピン"
+  },
+  {
+    "source": "saltshaker",
+    "ja": "塩入れ"
+  },
+  {
+    "source": "sandal",
+    "ja": "サンダル"
+  },
+  {
+    "source": "sarong",
+    "ja": "サロン"
+  },
+  {
+    "source": "sax",
+    "ja": "サクソフォン"
+  },
+  {
+    "source": "scabbard",
+    "ja": "剣の鞘"
+  },
+  {
+    "source": "scale",
+    "ja": "はかり"
+  },
+  {
+    "source": "school_bus",
+    "ja": "スクールバス"
+  },
+  {
+    "source": "schooner",
+    "ja": "スクーナー"
+  },
+  {
+    "source": "scoreboard",
+    "ja": "得点板"
+  },
+  {
+    "source": "screen",
+    "ja": "スクリーン"
+  },
+  {
+    "source": "screw",
+    "ja": "ねじ"
+  },
+  {
+    "source": "screwdriver",
+    "ja": "ドライバー"
+  },
+  {
+    "source": "seat_belt",
+    "ja": "シートベルト"
+  },
+  {
+    "source": "sewing_machine",
+    "ja": "ミシン"
+  },
+  {
+    "source": "shield",
+    "ja": "盾"
+  },
+  {
+    "source": "shoe_shop",
+    "ja": "靴屋"
+  },
+  {
+    "source": "shoji",
+    "ja": "障子"
+  },
+  {
+    "source": "shopping_basket",
+    "ja": "買い物かご"
+  },
+  {
+    "source": "shopping_cart",
+    "ja": "ショッピングカート"
+  },
+  {
+    "source": "shovel",
+    "ja": "ショベル"
+  },
+  {
+    "source": "shower_cap",
+    "ja": "シャワーキャップ"
+  },
+  {
+    "source": "shower_curtain",
+    "ja": "シャワーカーテン"
+  },
+  {
+    "source": "ski",
+    "ja": "スキー板"
+  },
+  {
+    "source": "ski_mask",
+    "ja": "目出し帽"
+  },
+  {
+    "source": "sleeping_bag",
+    "ja": "寝袋"
+  },
+  {
+    "source": "slide_rule",
+    "ja": "計算尺"
+  },
+  {
+    "source": "sliding_door",
+    "ja": "引き戸"
+  },
+  {
+    "source": "slot",
+    "ja": "スロットマシン"
+  },
+  {
+    "source": "snorkel",
+    "ja": "シュノーケル"
+  },
+  {
+    "source": "snowmobile",
+    "ja": "スノーモービル"
+  },
+  {
+    "source": "snowplow",
+    "ja": "除雪車"
+  },
+  {
+    "source": "soap_dispenser",
+    "ja": "石けんディスペンサー"
+  },
+  {
+    "source": "soccer_ball",
+    "ja": "サッカーボール"
+  },
+  {
+    "source": "sock",
+    "ja": "靴下"
+  },
+  {
+    "source": "solar_dish",
+    "ja": "太陽光集熱皿"
+  },
+  {
+    "source": "sombrero",
+    "ja": "ソンブレロ"
+  },
+  {
+    "source": "soup_bowl",
+    "ja": "スープボウル"
+  },
+  {
+    "source": "space_bar",
+    "ja": "スペースキー"
+  },
+  {
+    "source": "space_heater",
+    "ja": "室内暖房器具"
+  },
+  {
+    "source": "space_shuttle",
+    "ja": "スペースシャトル"
+  },
+  {
+    "source": "spatula",
+    "ja": "へら"
+  },
+  {
+    "source": "speedboat",
+    "ja": "スピードボート"
+  },
+  {
+    "source": "spider_web",
+    "ja": "クモの巣"
+  },
+  {
+    "source": "spindle",
+    "ja": "紡錘"
+  },
+  {
+    "source": "sports_car",
+    "ja": "スポーツカー"
+  },
+  {
+    "source": "spotlight",
+    "ja": "スポットライト"
+  },
+  {
+    "source": "stage",
+    "ja": "舞台"
+  },
+  {
+    "source": "steam_locomotive",
+    "ja": "蒸気機関車"
+  },
+  {
+    "source": "steel_arch_bridge",
+    "ja": "鋼製アーチ橋"
+  },
+  {
+    "source": "steel_drum",
+    "ja": "スチールドラム"
+  },
+  {
+    "source": "stethoscope",
+    "ja": "聴診器"
+  },
+  {
+    "source": "stole",
+    "ja": "ストール"
+  },
+  {
+    "source": "stone_wall",
+    "ja": "石垣"
+  },
+  {
+    "source": "stopwatch",
+    "ja": "ストップウォッチ"
+  },
+  {
+    "source": "stove",
+    "ja": "ストーブ"
+  },
+  {
+    "source": "strainer",
+    "ja": "ざる"
+  },
+  {
+    "source": "streetcar",
+    "ja": "路面電車"
+  },
+  {
+    "source": "stretcher",
+    "ja": "担架"
+  },
+  {
+    "source": "studio_couch",
+    "ja": "ソファベッド"
+  },
+  {
+    "source": "stupa",
+    "ja": "仏塔"
+  },
+  {
+    "source": "submarine",
+    "ja": "潜水艦"
+  },
+  {
+    "source": "suit",
+    "ja": "スーツ"
+  },
+  {
+    "source": "sundial",
+    "ja": "日時計"
+  },
+  {
+    "source": "sunglass",
+    "ja": "サングラスのレンズ"
+  },
+  {
+    "source": "sunglasses",
+    "ja": "サングラス"
+  },
+  {
+    "source": "sunscreen",
+    "ja": "日焼け止め"
+  },
+  {
+    "source": "suspension_bridge",
+    "ja": "つり橋"
+  },
+  {
+    "source": "swab",
+    "ja": "綿棒"
+  },
+  {
+    "source": "sweatshirt",
+    "ja": "スウェットシャツ"
+  },
+  {
+    "source": "swimming_trunks",
+    "ja": "水泳用パンツ"
+  },
+  {
+    "source": "swing",
+    "ja": "ブランコ"
+  },
+  {
+    "source": "switch",
+    "ja": "スイッチ"
+  },
+  {
+    "source": "syringe",
+    "ja": "注射器"
+  },
+  {
+    "source": "table_lamp",
+    "ja": "テーブルランプ"
+  },
+  {
+    "source": "tank",
+    "ja": "戦車"
+  },
+  {
+    "source": "tape_player",
+    "ja": "テーププレーヤー"
+  },
+  {
+    "source": "teapot",
+    "ja": "ティーポット"
+  },
+  {
+    "source": "teddy",
+    "ja": "テディベア"
+  },
+  {
+    "source": "television",
+    "ja": "テレビ"
+  },
+  {
+    "source": "tennis_ball",
+    "ja": "テニスボール"
+  },
+  {
+    "source": "thatch",
+    "ja": "わらぶき"
+  },
+  {
+    "source": "theater_curtain",
+    "ja": "劇場の幕"
+  },
+  {
+    "source": "thimble",
+    "ja": "指ぬき"
+  },
+  {
+    "source": "thresher",
+    "ja": "脱穀機"
+  },
+  {
+    "source": "throne",
+    "ja": "玉座"
+  },
+  {
+    "source": "tile_roof",
+    "ja": "瓦屋根"
+  },
+  {
+    "source": "toaster",
+    "ja": "トースター"
+  },
+  {
+    "source": "tobacco_shop",
+    "ja": "たばこ店"
+  },
+  {
+    "source": "toilet_seat",
+    "ja": "便座"
+  },
+  {
+    "source": "torch",
+    "ja": "たいまつ"
+  },
+  {
+    "source": "totem_pole",
+    "ja": "トーテムポール"
+  },
+  {
+    "source": "tow_truck",
+    "ja": "レッカー車"
+  },
+  {
+    "source": "toyshop",
+    "ja": "おもちゃ店"
+  },
+  {
+    "source": "tractor",
+    "ja": "トラクター"
+  },
+  {
+    "source": "trailer_truck",
+    "ja": "トレーラートラック"
+  },
+  {
+    "source": "tray",
+    "ja": "トレー"
+  },
+  {
+    "source": "trench_coat",
+    "ja": "トレンチコート"
+  },
+  {
+    "source": "tricycle",
+    "ja": "三輪車"
+  },
+  {
+    "source": "trimaran",
+    "ja": "三胴船"
+  },
+  {
+    "source": "tripod",
+    "ja": "三脚"
+  },
+  {
+    "source": "triumphal_arch",
+    "ja": "凱旋門"
+  },
+  {
+    "source": "trolleybus",
+    "ja": "トロリーバス"
+  },
+  {
+    "source": "trombone",
+    "ja": "トロンボーン"
+  },
+  {
+    "source": "tub",
+    "ja": "たらい"
+  },
+  {
+    "source": "turnstile",
+    "ja": "回転ゲート"
+  },
+  {
+    "source": "typewriter_keyboard",
+    "ja": "タイプライターの鍵盤"
+  },
+  {
+    "source": "umbrella",
+    "ja": "傘"
+  },
+  {
+    "source": "unicycle",
+    "ja": "一輪車"
+  },
+  {
+    "source": "upright",
+    "ja": "アップライトピアノ"
+  },
+  {
+    "source": "vacuum",
+    "ja": "掃除機"
+  },
+  {
+    "source": "vase",
+    "ja": "花瓶"
+  },
+  {
+    "source": "vault",
+    "ja": "金庫室"
+  },
+  {
+    "source": "velvet",
+    "ja": "ビロード"
+  },
+  {
+    "source": "vending_machine",
+    "ja": "自動販売機"
+  },
+  {
+    "source": "vestment",
+    "ja": "祭服"
+  },
+  {
+    "source": "viaduct",
+    "ja": "高架橋"
+  },
+  {
+    "source": "violin",
+    "ja": "バイオリン"
+  },
+  {
+    "source": "volleyball",
+    "ja": "バレーボール"
+  },
+  {
+    "source": "waffle_iron",
+    "ja": "ワッフルメーカー"
+  },
+  {
+    "source": "wall_clock",
+    "ja": "掛け時計"
+  },
+  {
+    "source": "wallet",
+    "ja": "二つ折り財布"
+  },
+  {
+    "source": "wardrobe",
+    "ja": "衣装だんす"
+  },
+  {
+    "source": "warplane",
+    "ja": "軍用機"
+  },
+  {
+    "source": "washbasin",
+    "ja": "洗面台"
+  },
+  {
+    "source": "washer",
+    "ja": "洗濯機"
+  },
+  {
+    "source": "water_bottle",
+    "ja": "水筒"
+  },
+  {
+    "source": "water_jug",
+    "ja": "水差し用の壺"
+  },
+  {
+    "source": "water_tower",
+    "ja": "給水塔"
+  },
+  {
+    "source": "whiskey_jug",
+    "ja": "ウイスキーの壺"
+  },
+  {
+    "source": "whistle",
+    "ja": "笛"
+  },
+  {
+    "source": "wig",
+    "ja": "かつら"
+  },
+  {
+    "source": "window_screen",
+    "ja": "網戸"
+  },
+  {
+    "source": "window_shade",
+    "ja": "窓用ブラインド"
+  },
+  {
+    "source": "Windsor_tie",
+    "ja": "ウィンザーノットのネクタイ"
+  },
+  {
+    "source": "wine_bottle",
+    "ja": "ワイン瓶"
+  },
+  {
+    "source": "wing",
+    "ja": "翼"
+  },
+  {
+    "source": "wok",
+    "ja": "中華鍋"
+  },
+  {
+    "source": "wooden_spoon",
+    "ja": "木製スプーン"
+  },
+  {
+    "source": "wool",
+    "ja": "羊毛"
+  },
+  {
+    "source": "worm_fence",
+    "ja": "ジグザグ柵"
+  },
+  {
+    "source": "wreck",
+    "ja": "難破船"
+  },
+  {
+    "source": "yawl",
+    "ja": "ヨール帆船"
+  },
+  {
+    "source": "yurt",
+    "ja": "遊牧民のテント"
+  },
+  {
+    "source": "web_site",
+    "ja": "ウェブサイト"
+  },
+  {
+    "source": "comic_book",
+    "ja": "漫画本"
+  },
+  {
+    "source": "crossword_puzzle",
+    "ja": "クロスワードパズル"
+  },
+  {
+    "source": "street_sign",
+    "ja": "道路標識"
+  },
+  {
+    "source": "traffic_light",
+    "ja": "信号機"
+  },
+  {
+    "source": "book_jacket",
+    "ja": "本のカバー"
+  },
+  {
+    "source": "menu",
+    "ja": "メニュー表"
+  },
+  {
+    "source": "plate",
+    "ja": "皿"
+  },
+  {
+    "source": "guacamole",
+    "ja": "ワカモレ"
+  },
+  {
+    "source": "consomme",
+    "ja": "コンソメ"
+  },
+  {
+    "source": "hot_pot",
+    "ja": "寄せ鍋"
+  },
+  {
+    "source": "trifle",
+    "ja": "トライフル"
+  },
+  {
+    "source": "ice_cream",
+    "ja": "アイスクリーム"
+  },
+  {
+    "source": "ice_lolly",
+    "ja": "アイスキャンディー"
+  },
+  {
+    "source": "French_loaf",
+    "ja": "フランスパン"
+  },
+  {
+    "source": "bagel",
+    "ja": "ベーグル"
+  },
+  {
+    "source": "pretzel",
+    "ja": "プレッツェル"
+  },
+  {
+    "source": "cheeseburger",
+    "ja": "チーズバーガー"
+  },
+  {
+    "source": "hotdog",
+    "ja": "ホットドッグ"
+  },
+  {
+    "source": "mashed_potato",
+    "ja": "マッシュポテト"
+  },
+  {
+    "source": "head_cabbage",
+    "ja": "キャベツ"
+  },
+  {
+    "source": "broccoli",
+    "ja": "ブロッコリー"
+  },
+  {
+    "source": "cauliflower",
+    "ja": "カリフラワー"
+  },
+  {
+    "source": "zucchini",
+    "ja": "ズッキーニ"
+  },
+  {
+    "source": "spaghetti_squash",
+    "ja": "そうめんかぼちゃ"
+  },
+  {
+    "source": "acorn_squash",
+    "ja": "どんぐりかぼちゃ"
+  },
+  {
+    "source": "butternut_squash",
+    "ja": "バターナッツかぼちゃ"
+  },
+  {
+    "source": "cucumber",
+    "ja": "キュウリ"
+  },
+  {
+    "source": "artichoke",
+    "ja": "アーティチョーク"
+  },
+  {
+    "source": "bell_pepper",
+    "ja": "ピーマン"
+  },
+  {
+    "source": "cardoon",
+    "ja": "カルドン"
+  },
+  {
+    "source": "mushroom",
+    "ja": "キノコ"
+  },
+  {
+    "source": "Granny_Smith",
+    "ja": "青リンゴ"
+  },
+  {
+    "source": "strawberry",
+    "ja": "イチゴ"
+  },
+  {
+    "source": "orange",
+    "ja": "オレンジ"
+  },
+  {
+    "source": "lemon",
+    "ja": "レモン"
+  },
+  {
+    "source": "fig",
+    "ja": "イチジク"
+  },
+  {
+    "source": "pineapple",
+    "ja": "パイナップル"
+  },
+  {
+    "source": "banana",
+    "ja": "バナナ"
+  },
+  {
+    "source": "jackfruit",
+    "ja": "ジャックフルーツ"
+  },
+  {
+    "source": "custard_apple",
+    "ja": "釈迦頭"
+  },
+  {
+    "source": "pomegranate",
+    "ja": "ザクロ"
+  },
+  {
+    "source": "hay",
+    "ja": "干し草"
+  },
+  {
+    "source": "carbonara",
+    "ja": "カルボナーラ"
+  },
+  {
+    "source": "chocolate_sauce",
+    "ja": "チョコレートソース"
+  },
+  {
+    "source": "dough",
+    "ja": "生地"
+  },
+  {
+    "source": "meat_loaf",
+    "ja": "ミートローフ"
+  },
+  {
+    "source": "pizza",
+    "ja": "ピザ"
+  },
+  {
+    "source": "potpie",
+    "ja": "ポットパイ"
+  },
+  {
+    "source": "burrito",
+    "ja": "ブリトー"
+  },
+  {
+    "source": "red_wine",
+    "ja": "赤ワイン"
+  },
+  {
+    "source": "espresso",
+    "ja": "エスプレッソ"
+  },
+  {
+    "source": "cup",
+    "ja": "カップ"
+  },
+  {
+    "source": "eggnog",
+    "ja": "エッグノッグ"
+  },
+  {
+    "source": "alp",
+    "ja": "高山"
+  },
+  {
+    "source": "bubble",
+    "ja": "泡"
+  },
+  {
+    "source": "cliff",
+    "ja": "崖"
+  },
+  {
+    "source": "coral_reef",
+    "ja": "サンゴ礁"
+  },
+  {
+    "source": "geyser",
+    "ja": "間欠泉"
+  },
+  {
+    "source": "lakeside",
+    "ja": "湖畔"
+  },
+  {
+    "source": "promontory",
+    "ja": "岬"
+  },
+  {
+    "source": "sandbar",
+    "ja": "砂州"
+  },
+  {
+    "source": "seashore",
+    "ja": "海岸"
+  },
+  {
+    "source": "valley",
+    "ja": "谷"
+  },
+  {
+    "source": "volcano",
+    "ja": "火山"
+  },
+  {
+    "source": "ballplayer",
+    "ja": "野球選手"
+  },
+  {
+    "source": "groom",
+    "ja": "花婿"
+  },
+  {
+    "source": "scuba_diver",
+    "ja": "スキューバダイバー"
+  },
+  {
+    "source": "rapeseed",
+    "ja": "菜の花"
+  },
+  {
+    "source": "daisy",
+    "ja": "ヒナギク"
+  },
+  {
+    "source": "yellow_lady's_slipper",
+    "ja": "キバナアツモリソウ"
+  },
+  {
+    "source": "corn",
+    "ja": "トウモロコシ"
+  },
+  {
+    "source": "acorn",
+    "ja": "ドングリ"
+  },
+  {
+    "source": "hip",
+    "ja": "ローズヒップ"
+  },
+  {
+    "source": "buckeye",
+    "ja": "セイヨウトチノキの実"
+  },
+  {
+    "source": "coral_fungus",
+    "ja": "ホウキタケ"
+  },
+  {
+    "source": "agaric",
+    "ja": "ハラタケ"
+  },
+  {
+    "source": "gyromitra",
+    "ja": "シャグマアミガサタケ"
+  },
+  {
+    "source": "stinkhorn",
+    "ja": "スッポンタケ"
+  },
+  {
+    "source": "earthstar",
+    "ja": "ツチグリ"
+  },
+  {
+    "source": "hen-of-the-woods",
+    "ja": "マイタケ"
+  },
+  {
+    "source": "bolete",
+    "ja": "イグチ"
+  },
+  {
+    "source": "ear",
+    "ja": "トウモロコシの穂"
+  },
+  {
+    "source": "toilet_tissue",
+    "ja": "トイレットペーパー"
+  }
+]

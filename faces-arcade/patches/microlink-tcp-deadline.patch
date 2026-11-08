@@ -1,0 +1,254 @@
+diff --git a/components/microlink/include/microlink.h b/components/microlink/include/microlink.h
+index 9126a53..8cb502e 100644
+--- a/components/microlink/include/microlink.h
++++ b/components/microlink/include/microlink.h
+@@ -315,0 +316,5 @@ typedef struct microlink_tcp_socket microlink_tcp_socket_t;
++typedef bool (*microlink_cancel_fn)(void *context);
++microlink_tcp_socket_t *microlink_tcp_connect_until(microlink_t *ml, uint32_t ip, uint16_t port,
++        int64_t deadline_us, microlink_cancel_fn cancelled, void *context);
++esp_err_t microlink_tcp_send_until(microlink_tcp_socket_t *sock, const void *data, size_t len,
++        int64_t deadline_us, microlink_cancel_fn cancelled, void *context);
+diff --git a/components/microlink/include/microlink_internal.h b/components/microlink/include/microlink_internal.h
+index add69c7..7e470fc 100644
+--- a/components/microlink/include/microlink_internal.h
++++ b/components/microlink/include/microlink_internal.h
+@@ -183,0 +184,6 @@ typedef struct {
++#define ML_EVT_NET_EXIT             BIT9
++#define ML_EVT_DERP_EXIT            BIT10
++#define ML_EVT_COORD_EXIT           BIT11
++#define ML_EVT_WG_EXIT              BIT12
++
++
+@@ -381,0 +388 @@ struct microlink_s {
++    bool coord_map_receiving;
+diff --git a/components/microlink/src/microlink.c b/components/microlink/src/microlink.c
+index 237f039..f063a8a 100644
+--- a/components/microlink/src/microlink.c
++++ b/components/microlink/src/microlink.c
+@@ -514,7 +514,11 @@ esp_err_t microlink_stop(microlink_t *ml) {
+-    /* Wait for tasks to exit (they check ML_EVT_SHUTDOWN_REQUEST).
+-     * Tasks call vTaskDelete(NULL) to self-delete, so we must NOT call
+-     * vTaskDelete() on them again — that causes a crash in uxListRemove
+-     * because the task's list node is already invalid. Just wait and
+-     * NULL the handles. */
+-    vTaskDelay(pdMS_TO_TICKS(3000));
+-
++    /* Wake a blocked coord recv; the coord task retains ownership of close(). */
++    if (ml->coord_sock >= 0) shutdown(ml->coord_sock, SHUT_RDWR);
++
++    TaskHandle_t tasks[] = { ml->net_io_task, ml->derp_tx_task, ml->coord_task, ml->wg_mgr_task };
++    EventBits_t bits[] = { ML_EVT_NET_EXIT, ML_EVT_DERP_EXIT, ML_EVT_COORD_EXIT, ML_EVT_WG_EXIT };
++    for (size_t i = 0; i < sizeof(tasks) / sizeof(tasks[0]); ++i) {
++        if (!tasks[i]) continue;
++        xEventGroupWaitBits(ml->events, bits[i], pdFALSE, pdTRUE, portMAX_DELAY);
++        while (eTaskGetState(tasks[i]) != eSuspended) vTaskDelay(1);
++        vTaskDelete(tasks[i]);
++    }
+diff --git a/components/microlink/src/ml_coord.c b/components/microlink/src/ml_coord.c
+index 8da8d4d..532dcad 100644
+--- a/components/microlink/src/ml_coord.c
++++ b/components/microlink/src/ml_coord.c
+@@ -108,0 +109 @@ static int coord_recv(microlink_t *ml, uint8_t *buf, size_t len) {
++    uint64_t map_deadline = ml_get_time_ms() + 60000;
+@@ -109,0 +111 @@ static int coord_recv(microlink_t *ml, uint8_t *buf, size_t len) {
++        if (xEventGroupGetBits(ml->events) & ML_EVT_SHUTDOWN_REQUEST) return -1;
+@@ -112,0 +115,5 @@ static int coord_recv(microlink_t *ml, uint8_t *buf, size_t len) {
++                if (ml->coord_map_receiving) {
++                    if (ml_get_time_ms() < map_deadline) continue;
++                    errno = ETIMEDOUT;
++                    return -1;
++                }
+@@ -131,0 +139 @@ static int coord_recv(microlink_t *ml, uint8_t *buf, size_t len) {
++        if (ml->coord_map_receiving) map_deadline = ml_get_time_ms() + 60000;
+@@ -193,0 +202 @@ static int noise_recv(microlink_t *ml, ml_noise_state_t *noise,
++        if (xEventGroupGetBits(ml->events) & ML_EVT_SHUTDOWN_REQUEST) { free(ciphertext); return -1; }
+@@ -1402 +1411,2 @@ static int do_fetch_peers(microlink_t *ml, ml_noise_state_t *noise) {
+-    struct timeval rcv_tv = { .tv_sec = 60, .tv_usec = 0 };
++    struct timeval rcv_tv = { .tv_sec = 0, .tv_usec = 250000 };
++    ml->coord_map_receiving = true;
+@@ -1485,0 +1496,2 @@ static int do_fetch_peers(microlink_t *ml, ml_noise_state_t *noise) {
++    ml->coord_map_receiving = false;
++    rcv_tv.tv_usec = 0;
+@@ -2153 +2165,2 @@ void ml_coord_task(void *arg) {
+-            vTaskDelete(NULL);
++            xEventGroupSetBits(ml->events, ML_EVT_COORD_EXIT);
++            vTaskSuspend(NULL);
+@@ -2288,2 +2301,3 @@ void ml_coord_task(void *arg) {
+-                xEventGroupWaitBits(ml->events, ML_EVT_DERP_CONNECTED,
+-                                    pdFALSE, pdTRUE, pdMS_TO_TICKS(15000));
++                xEventGroupWaitBits(ml->events, ML_EVT_DERP_CONNECTED | ML_EVT_SHUTDOWN_REQUEST,
++                                    pdFALSE, pdFALSE, pdMS_TO_TICKS(15000));
++                if (xEventGroupGetBits(ml->events) & ML_EVT_SHUTDOWN_REQUEST) break;
+@@ -2592 +2606,2 @@ void ml_coord_task(void *arg) {
+-    vTaskDelete(NULL);
++    xEventGroupSetBits(ml->events, ML_EVT_COORD_EXIT);
++            vTaskSuspend(NULL);
+diff --git a/components/microlink/src/ml_derp.c b/components/microlink/src/ml_derp.c
+index c57fd0f..e672078 100644
+--- a/components/microlink/src/ml_derp.c
++++ b/components/microlink/src/ml_derp.c
+@@ -634 +634,2 @@ void ml_derp_tx_task(void *arg) {
+-    vTaskDelete(NULL);
++    xEventGroupSetBits(ml->events, ML_EVT_DERP_EXIT);
++            vTaskSuspend(NULL);
+diff --git a/components/microlink/src/ml_net_io.c b/components/microlink/src/ml_net_io.c
+index f8b6799..916acfa 100644
+--- a/components/microlink/src/ml_net_io.c
++++ b/components/microlink/src/ml_net_io.c
+@@ -212 +212,2 @@ void ml_net_io_task(void *arg) {
+-    vTaskDelete(NULL);
++    xEventGroupSetBits(ml->events, ML_EVT_NET_EXIT);
++            vTaskSuspend(NULL);
+diff --git a/components/microlink/src/ml_tcp.c b/components/microlink/src/ml_tcp.c
+index e65d72d..4842a60 100644
+--- a/components/microlink/src/ml_tcp.c
++++ b/components/microlink/src/ml_tcp.c
+@@ -18,0 +19 @@
++#include <fcntl.h>
+@@ -38,3 +39,12 @@ struct microlink_tcp_socket {
+-microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-                                                uint16_t dest_port,
+-                                                uint32_t timeout_ms) {
++static bool stopped(int64_t deadline, microlink_cancel_fn cancelled, void *context) {
++    if (cancelled && cancelled(context)) { errno = ECANCELED; return true; }
++    if (esp_timer_get_time() >= deadline) { errno = ETIMEDOUT; return true; }
++    return false;
++}
++
++microlink_tcp_socket_t *microlink_tcp_connect_until(microlink_t *ml, uint32_t dest_ip,
++        uint16_t dest_port, int64_t deadline, microlink_cancel_fn cancelled, void *context) {
++    if (stopped(deadline, cancelled, context)) return NULL;
++    int64_t available = deadline - esp_timer_get_time();
++    if (available <= 0) { errno = ETIMEDOUT; return NULL; }
++    uint32_t timeout_ms = (uint32_t)((available + 999) / 1000);
+@@ -69,2 +79,4 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-        vTaskDelay(pdMS_TO_TICKS(500));
+-        wait_ms += 500;
++        if (stopped(deadline, cancelled, context)) return NULL;
++        uint32_t step_ms = max_wait - wait_ms < 250 ? max_wait - wait_ms : 250;
++        vTaskDelay(pdMS_TO_TICKS(step_ms));
++        wait_ms += step_ms;
+@@ -86,2 +98,8 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-        ESP_LOGW(TAG, "WG tunnel not up after %lums, attempting connect anyway",
+-                 (unsigned long)max_wait);
++        ESP_LOGW(TAG, "WG tunnel not up after %lums", (unsigned long)max_wait);
++        errno = ETIMEDOUT;
++        return NULL;
++    }
++    if (stopped(deadline, cancelled, context)) return NULL;
++    if (wait_ms >= max_wait) {
++        errno = ETIMEDOUT;
++        return NULL;
+@@ -116 +134 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-    uint32_t remaining = (timeout_ms > wait_ms) ? (timeout_ms - wait_ms) : 10000;
++    uint32_t remaining = max_wait - wait_ms;
+@@ -150,0 +169,2 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
++    int flags = fcntl(fd, F_GETFL, 0);
++    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) { close(fd); return NULL; }
+@@ -152,37 +172,15 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-        int err = errno;
+-        ESP_LOGE(TAG, "connect() to %s:%u failed: errno=%d", ip_str, dest_port, err);
+-
+-        /* If tunnel wasn't ready, retry once after triggering handshake again */
+-        if (err == EHOSTUNREACH || err == ENETUNREACH || err == ETIMEDOUT) {
+-            close(fd);
+-            ESP_LOGI(TAG, "Retrying after re-triggering WG handshake...");
+-            ml_wg_mgr_trigger_handshake(ml, dest_ip);
+-            ml_wg_mgr_send_cmm(ml, dest_ip);
+-            vTaskDelay(pdMS_TO_TICKS(3000));
+-
+-            fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+-            if (fd < 0) return NULL;
+-
+-            /* Bind to VPN IP for routing */
+-            if (ml->vpn_ip != 0) {
+-                struct sockaddr_in retry_src = {
+-                    .sin_family = AF_INET,
+-                    .sin_port = 0,
+-                    .sin_addr.s_addr = htonl(ml->vpn_ip),
+-                };
+-                bind(fd, (struct sockaddr *)&retry_src, sizeof(retry_src));
+-            }
+-
+-            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+-            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &rtv, sizeof(rtv));
+-            setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
+-            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+-
+-            if (connect(fd, (struct sockaddr *)&dest, sizeof(dest)) != 0) {
+-                ESP_LOGE(TAG, "Retry connect() failed: errno=%d", errno);
+-                close(fd);
+-                return NULL;
+-            }
+-        } else {
+-            close(fd);
+-            return NULL;
++        if (errno != EINPROGRESS) { int err = errno; close(fd); errno = err; return NULL; }
++        for (;;) {
++            if (stopped(deadline, cancelled, context)) { int err = errno; close(fd); errno = err; return NULL; }
++            int64_t left = deadline - esp_timer_get_time();
++            if (left <= 0) { close(fd); errno = ETIMEDOUT; return NULL; }
++            if (left > 250000) left = 250000;
++            struct timeval wait = { .tv_sec = left / 1000000, .tv_usec = left % 1000000 };
++            fd_set writes; FD_ZERO(&writes); FD_SET(fd, &writes);
++            int ready = select(fd + 1, NULL, &writes, NULL, &wait);
++            if (ready < 0) { int err = errno; close(fd); errno = err; return NULL; }
++            if (!ready) continue;
++            int err = 0; socklen_t len = sizeof(err);
++            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) != 0) err = errno;
++            if (err) { close(fd); errno = err; return NULL; }
++            break;
+@@ -190,0 +189,2 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
++    if (stopped(deadline, cancelled, context)) { int err = errno; close(fd); errno = err; return NULL; }
++    if (fcntl(fd, F_SETFL, flags) < 0) { int err = errno; close(fd); errno = err; return NULL; }
+@@ -211,3 +211,3 @@ microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t dest_ip,
+-esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, size_t len) {
+-    if (!sock || !sock->connected || sock->fd < 0) return ESP_ERR_INVALID_STATE;
+-    if (!data || len == 0) return ESP_ERR_INVALID_ARG;
++microlink_tcp_socket_t *microlink_tcp_connect(microlink_t *ml, uint32_t ip, uint16_t port, uint32_t timeout_ms) {
++    return microlink_tcp_connect_until(ml, ip, port, esp_timer_get_time() + (int64_t)(timeout_ms ? timeout_ms : 15000) * 1000, NULL, NULL);
++}
+@@ -214,0 +215,4 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
++esp_err_t microlink_tcp_send_until(microlink_tcp_socket_t *sock, const void *data, size_t len,
++        int64_t deadline, microlink_cancel_fn cancelled, void *context) {
++    if (!sock || !sock->connected || sock->fd < 0) return ESP_ERR_INVALID_STATE;
++    if (!data || !len) return ESP_ERR_INVALID_ARG;
+@@ -216,0 +221,6 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
++        if (stopped(deadline, cancelled, context)) return ESP_FAIL;
++        int64_t left = deadline - esp_timer_get_time();
++        if (left <= 0) { errno = ETIMEDOUT; return ESP_FAIL; }
++        if (left > 250000) left = 250000;
++        struct timeval wait = { .tv_sec = left / 1000000, .tv_usec = left % 1000000 };
++        if (setsockopt(sock->fd, SOL_SOCKET, SO_SNDTIMEO, &wait, sizeof(wait)) != 0) return ESP_FAIL;
+@@ -218,10 +228,2 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
+-        if (n <= 0) {
+-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+-                vTaskDelay(pdMS_TO_TICKS(10));
+-                continue;
+-            }
+-            ESP_LOGE(TAG, "TCP send failed: n=%d errno=%d (sent %d/%d)",
+-                     n, errno, (int)sent, (int)len);
+-            sock->connected = false;
+-            return ESP_FAIL;
+-        }
++        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) continue;
++        if (n <= 0) { sock->connected = false; return ESP_FAIL; }
+@@ -230 +231,0 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
+-
+@@ -233,0 +235,4 @@ esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, siz
++esp_err_t microlink_tcp_send(microlink_tcp_socket_t *sock, const void *data, size_t len) {
++    return microlink_tcp_send_until(sock, data, len, INT64_MAX, NULL, NULL);
++}
++
+diff --git a/components/microlink/src/ml_wg_mgr.c b/components/microlink/src/ml_wg_mgr.c
+index ed40942..5c9c234 100644
+--- a/components/microlink/src/ml_wg_mgr.c
++++ b/components/microlink/src/ml_wg_mgr.c
+@@ -1521 +1521,2 @@ void ml_wg_mgr_task(void *arg) {
+-        vTaskDelete(NULL);
++        xEventGroupSetBits(ml->events, ML_EVT_WG_EXIT);
++            vTaskSuspend(NULL);
+@@ -1655 +1656,2 @@ void ml_wg_mgr_task(void *arg) {
+-    vTaskDelete(NULL);
++    xEventGroupSetBits(ml->events, ML_EVT_WG_EXIT);
++            vTaskSuspend(NULL);
