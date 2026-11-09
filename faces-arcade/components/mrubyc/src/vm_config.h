@@ -147,7 +147,7 @@
 // Override actions when some fatal errors.
 // Default behavior for MRBC_OUT_OF_MEMORY is to print error and call mrbc_hal_abort().
 // Uncomment and customize if you need different behavior:
-// #define MRBC_OUT_OF_MEMORY() mrbc_alloc_print_memory_pool(); mrbc_hal_abort(0)
+#define MRBC_OUT_OF_MEMORY() mrbc_hal_abort(0)
 // #define MRBC_ABORT_BY_EXCEPTION(vm) mrbc_p( &vm->exception ); mrbc_hal_abort(0)
 
 #endif // MRBC_SRC_VM_CONFIG_H_

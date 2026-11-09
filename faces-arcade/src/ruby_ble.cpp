@@ -1,4 +1,5 @@
 #include "ruby_ble.h"
+#include "ruby_bytecode.h"
 #include <cstring>
 #include <cstdio>
 #include "esp_heap_caps.h"
@@ -77,9 +78,8 @@ int writeAccess(uint16_t, uint16_t, ble_gatt_access_ctxt* ctx, void*) {
         if (received != total || esp_rom_crc32_le(0, receiving, total) != expectedCrc) {
             clearReceive(); rubyBleNotify("error crc or size"); return 0;
         }
-        if (total < 20 || memcmp(receiving, "RITE0400", 8) ||
-            (uint32_t(receiving[8]) << 24 | uint32_t(receiving[9]) << 16 | uint32_t(receiving[10]) << 8 | uint32_t(receiving[11])) != total) {
-            clearReceive(); rubyBleNotify("error bytecode"); return 0;
+        if (!rubyValidBytecode(receiving, total)) {
+            clearReceive(); rubyBleNotify("error 不正なバイトコード"); return 0;
         }
         if (!rubySubmit(receiving, total)) { clearReceive(); rubyBleNotify("error busy"); return 0; }
         receiving = nullptr; total = received = expectedCrc = 0; return 0;

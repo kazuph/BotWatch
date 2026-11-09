@@ -1,5 +1,6 @@
 #include "common.h"
 #include "ruby_ble.h"
+#include "network_job.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -7,6 +8,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include <atomic>
+#include <csetjmp>
 #include <string>
 #include "mrubyc.h"
 
@@ -15,7 +17,9 @@ struct Program { uint8_t* bytes; size_t size; };
 struct Note { int midi; uint32_t duration; };
 QueueHandle_t programs, notes;
 SemaphoreHandle_t taskDone, submitLock;
-bool bleStarted = false;
+bool bleStarted = false, blePending = false;
+jmp_buf oomRecovery;
+TaskHandle_t oomOwner = nullptr;
 TaskHandle_t taskHandle;
 esp_timer_handle_t vmTimer;
 std::atomic<bool> exiting{false}, replacement{false};
@@ -129,48 +133,68 @@ void showError(const char* message) {
     uiFrame.pushSprite(0,0);
     std::string out = "error "; out += full; rubyBleNotify(out.c_str());
 }
+// This scope calls mruby/c without holding submitLock or vmLock. Native Ruby
+// bindings do not retain either lock across calls that can allocate in mruby/c.
+void runProgram(Program program, void* heap, size_t heapSize) {
+    oomOwner = xTaskGetCurrentTaskHandle();
+    if (setjmp(oomRecovery) != 0) {
+        oomOwner = nullptr;
+        portENTER_CRITICAL(&vmLock); activeVm = nullptr; portEXIT_CRITICAL(&vmLock);
+        // The allocator and all VM-owned objects are discarded together.
+        mrbc_cleanup();
+        showError("メモリ不足で止まりました");
+        return;
+    }
+    mrbc_init(heap,heapSize); bind();
+    mrbc_vm* vm = mrbc_vm_open(nullptr);
+    if (!vm || mrbc_load_mrb(vm,program.bytes)) {
+        if (vm) mrbc_vm_close(vm);
+        oomOwner = nullptr; mrbc_cleanup(); showError("バイトコードを読めません"); return;
+    }
+    mrbc_vm_begin(vm);
+    portENTER_CRITICAL(&vmLock); activeVm = vm; portEXIT_CRITICAL(&vmLock);
+    rubyBleNotify("running");
+    int result = 0;
+    while (!exiting.load() && !replacement.load() && result == 0) {
+        portENTER_CRITICAL(&vmLock);
+        bool stopping = exiting.load() || replacement.load();
+        if (!stopping) vm->flag_preemption = 0;
+        portEXIT_CRITICAL(&vmLock);
+        if (stopping) break;
+        result = mrbc_vm_run(vm);
+        if (result == 0) vTaskDelay(1);
+    }
+    portENTER_CRITICAL(&vmLock); activeVm = nullptr; portEXIT_CRITICAL(&vmLock);
+    if (result == 2 && mrbc_israised(vm)) {
+        auto exc = vm->exception.exception;
+        std::string message = mrbc_symid_to_str(exc->cls->sym_id);
+        message += ": ";
+        if (exc->message) {
+            const char* detail = reinterpret_cast<const char*>(exc->message);
+            message.append(detail, exc->message_size ? exc->message_size : strlen(detail));
+        }
+        showError(message.c_str());
+    }
+    mrbc_vm_end(vm); mrbc_vm_close(vm);
+    oomOwner = nullptr;
+    mrbc_cleanup();
+}
 void vmTask(void*) {
-    Program program{};
-    while (!exiting.load()) {
-        if (xQueueReceive(programs,&program,pdMS_TO_TICKS(20)) != pdTRUE) continue;
-        if (exiting.load()) { free(program.bytes); break; }
-        xSemaphoreTake(submitLock,portMAX_DELAY); replacement.store(false); xSemaphoreGive(submitLock);
+    for (;;) {
+        Program program{};
+        xSemaphoreTake(submitLock,portMAX_DELAY);
+        const bool stop = exiting.load();
+        const bool got = !stop && xQueueReceive(programs,&program,0) == pdTRUE;
+        if (got) replacement.store(uxQueueMessagesWaiting(programs) != 0);
+        xSemaphoreGive(submitLock);
+        if (stop) break;
+        if (!got) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
         const size_t vmHeapSize = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) / kConcurrentPsramUsers;
         void* heap = heap_caps_malloc(vmHeapSize,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (!heap) { free(program.bytes); showError("メモリ不足"); continue; }
-        mrbc_init(heap,vmHeapSize); bind();
-        mrbc_vm* vm = mrbc_vm_open(nullptr);
-        if (!vm || mrbc_load_mrb(vm,program.bytes)) {
-            if (vm) mrbc_vm_close(vm);
-            mrbc_cleanup(); free(heap); free(program.bytes); showError("バイトコードを読めません"); continue;
-        }
-        mrbc_vm_begin(vm);
-        portENTER_CRITICAL(&vmLock); activeVm = vm; portEXIT_CRITICAL(&vmLock);
-        rubyBleNotify("running");
-        int result = 0;
-        while (!exiting.load() && !replacement.load() && result == 0) {
-            portENTER_CRITICAL(&vmLock);
-            bool stopping = exiting.load() || replacement.load();
-            if (!stopping) vm->flag_preemption = 0;
-            portEXIT_CRITICAL(&vmLock);
-            if (stopping) break;
-            result = mrbc_vm_run(vm);
-            if (result == 0) vTaskDelay(1);
-        }
-        portENTER_CRITICAL(&vmLock); activeVm = nullptr; portEXIT_CRITICAL(&vmLock);
-        if (result == 2 && mrbc_israised(vm)) {
-            auto exc = vm->exception.exception;
-            std::string message = mrbc_symid_to_str(exc->cls->sym_id);
-            message += ": ";
-            if (exc->message) {
-                const char* detail = reinterpret_cast<const char*>(exc->message);
-                message.append(detail, exc->message_size ? exc->message_size : strlen(detail));
-            }
-            showError(message.c_str());
-        }
-        mrbc_vm_end(vm); mrbc_vm_close(vm); mrbc_cleanup(); free(heap); free(program.bytes);
+        if (!heap) { free(program.bytes); showError("メモリ不足で止まりました"); continue; }
+        runProgram(program,heap,vmHeapSize);
+        free(heap); free(program.bytes);
     }
-    while (xQueueReceive(programs,&program,0) == pdTRUE) free(program.bytes);
     xSemaphoreGive(taskDone); vTaskDelete(nullptr);
 }
 void enter() {
@@ -187,18 +211,37 @@ void enter() {
     if (!programs || !notes || !taskDone || !submitLock || xTaskCreate(vmTask,"ruby_vm",8192,nullptr,5,&taskHandle) != pdPASS) {
         taskHandle = nullptr; showError("タスクを開始できません"); return;
     }
-    bleStarted = rubyBleStart();
-    if (!bleStarted) showError("Bluetooth を開始できません");
+    blePending = true;
+    if (network_job::busy()) {
+        uiFrame.fillScreen(pal::kBg);
+        text(uiFrame,"通信の片付け中…",160,104,pal::kCyan,F24,top_center);
+        uiFrame.pushSprite(0,0);
+    }
 }
 void tick() {
+    if (blePending && !network_job::busy()) {
+        blePending = false;
+        bleStarted = rubyBleStart();
+        if (!bleStarted) showError("Bluetooth を開始できません");
+        else {
+            uiFrame.fillScreen(pal::kBg); text(uiFrame,"Ruby",160,52,pal::kText,F32,top_center);
+            text(uiFrame,"Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
+            text(uiFrame,"SELECT でもどる",160,164,pal::kDim,F24,top_center); uiFrame.pushSprite(0,0);
+        }
+    }
     held.store(pad_now); pressed.fetch_or(pad_just & uint8_t(~kSelect));
     wakeVm();
     Note note; while (notes && xQueueReceive(notes,&note,0) == pdTRUE) soundPlay(0,note.duration,note.midi);
 }
 void leave() {
-    exiting.store(true); wakeVm();
+    blePending = false;
+    if (submitLock) { xSemaphoreTake(submitLock,portMAX_DELAY); exiting.store(true); xSemaphoreGive(submitLock); }
+    else exiting.store(true);
+    wakeVm();
     if (taskHandle) { xSemaphoreTake(taskDone,portMAX_DELAY); taskHandle = nullptr; }
     if (bleStarted) { rubyBleStop(); bleStarted = false; }
+    Program pending{};
+    if (programs) while (xQueueReceive(programs,&pending,0) == pdTRUE) free(pending.bytes);
     if (vmTimer) { esp_timer_stop(vmTimer); esp_timer_delete(vmTimer); vmTimer = nullptr; }
     if (programs) vQueueDelete(programs);
     if (notes) vQueueDelete(notes);
@@ -210,10 +253,10 @@ void icon(int x, int y) { text(uiGlyph,"R",x,y,pal::kText,F32); }
 }
 
 bool rubySubmit(uint8_t* data, size_t size) {
-    if (!programs || exiting.load()) return false;
+    if (!submitLock) return false;
     Program program{data,size};
     xSemaphoreTake(submitLock,portMAX_DELAY);
-    bool sent = xQueueSend(programs,&program,0) == pdTRUE;
+    bool sent = !exiting.load() && programs && xQueueSend(programs,&program,0) == pdTRUE;
     if (sent) replacement.store(true);
     xSemaphoreGive(submitLock);
     if (sent) wakeVm();
@@ -223,5 +266,8 @@ extern "C" int mrbc_hal_write(int, const void* data, int n) {
     if (n > 0) rubyBleLog(data, static_cast<size_t>(n));
     return n;
 }
-extern "C" void mrbc_hal_abort(const char* message) { printf("mruby/c abort: %s\n",message ? message : ""); abort(); }
+extern "C" void mrbc_hal_abort(const char* message) {
+    if (oomOwner && xTaskGetCurrentTaskHandle() == oomOwner) longjmp(oomRecovery, 1);
+    printf("mruby/c abort: %s\n",message ? message : ""); abort();
+}
 const Game kRuby = {"Ruby",nullptr,enter,tick,icon,leave,GameCategory::play,GameFooter::sound};

@@ -7,7 +7,7 @@ if(IDF_TARGET STREQUAL "esp32s3")
         "../src/arcade_led.cpp" "../src/network_settings.cpp" "../src/network_serial.cpp"
         "../src/network_payload.cpp" "../src/network_result.cpp" "../src/network_wifi.cpp"
         "../src/network_http.cpp" "../src/http_response.cpp" "../src/network_job.cpp"
-        "../src/network_ui.cpp" "../src/text_viewer.cpp" "../src/ruby_ble.cpp" "../src/game_ruby.cpp")
+        "../src/network_ui.cpp" "../src/text_viewer.cpp" "../src/ruby_ble.cpp" "../src/ruby_bytecode.cpp" "../src/game_ruby.cpp")
     list(APPEND app_requires fatfs sdmmc esp_driver_sdspi esp_driver_gpio esp_wifi esp_netif
         esp_event json mbedtls http_parser microlink espressif__led_strip bt mrubyc)
 endif()
