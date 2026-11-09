@@ -78,7 +78,7 @@ async def run(path: Path, watch: bool):
         device = await BleakScanner.find_device_by_filter(
             lambda _device, adv: SERVICE.lower() in [s.lower() for s in adv.service_uuids], timeout=5)
         if not device:
-            print("本体をメニューか Ruby の画面にしてください", file=sys.stderr, flush=True)
+            print("本体が見つかりません。電源と距離を確かめてください", file=sys.stderr, flush=True)
             if not watch:
                 return 1
             await asyncio.sleep(3)
@@ -136,7 +136,7 @@ async def run(path: Path, watch: bool):
         if not watch:
             return 1
         bytecode = None
-        print("本体をメニューか Ruby の画面にしてください", file=sys.stderr, flush=True)
+        print("本体が見つかりません。電源と距離を確かめてください", file=sys.stderr, flush=True)
         await asyncio.sleep(3)
 
 

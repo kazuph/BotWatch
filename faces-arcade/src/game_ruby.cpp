@@ -1,7 +1,6 @@
 #include "common.h"
 #include "ruby_ble.h"
 #include "ruby_service.h"
-#include "network_job.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -17,8 +16,9 @@ namespace {
 struct Program { uint8_t* bytes; size_t size; };
 struct Note { int midi; uint32_t duration; };
 QueueHandle_t programs, notes;
-SemaphoreHandle_t taskDone, submitLock;
-bool bleStarted = false, blePending = false;
+SemaphoreHandle_t taskDone, submitLock, runStopped;
+bool vmBusy = false;
+bool bleStarted = false;
 jmp_buf oomRecovery;
 std::atomic<TaskHandle_t> oomOwner{nullptr};
 TaskHandle_t taskHandle;
@@ -186,38 +186,44 @@ void vmTask(void*) {
         xSemaphoreTake(submitLock,portMAX_DELAY);
         const bool stop = exiting.load();
         const bool got = !stop && gameActive.load() && xQueueReceive(programs,&program,0) == pdTRUE;
-        if (got) replacement.store(uxQueueMessagesWaiting(programs) != 0);
+        if (got) {
+            replacement.store(uxQueueMessagesWaiting(programs) != 0);
+            xSemaphoreTake(runStopped,0);
+            vmBusy = true;
+        }
         xSemaphoreGive(submitLock);
         if (stop) break;
-        if (!got) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
+        if (!got) { ulTaskNotifyTake(pdTRUE,portMAX_DELAY); continue; }
         const size_t vmHeapSize = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) / kConcurrentPsramUsers;
         void* heap = heap_caps_malloc(vmHeapSize,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (!heap) { free(program.bytes); showError("メモリ不足で止まりました"); continue; }
-        runProgram(program,heap,vmHeapSize);
-        free(heap); free(program.bytes);
+        if (!heap) showError("メモリ不足で止まりました");
+        else { runProgram(program,heap,vmHeapSize); free(heap); }
+        free(program.bytes);
+        xSemaphoreTake(submitLock,portMAX_DELAY);
+        vmBusy = false;
+        if (!gameActive.load()) xSemaphoreGive(runStopped);
+        xSemaphoreGive(submitLock);
     }
     xSemaphoreGive(taskDone); vTaskDelete(nullptr);
 }
 bool beginService() {
     if (submitLock) return taskHandle != nullptr;
     exiting.store(false); replacement.store(false); gameActive.store(false);
-    held.store(0); pressed.store(0); bleStarted = false; blePending = false;
+    held.store(0); pressed.store(0); bleStarted = false; vmBusy = false;
     programs = xQueueCreate(1,sizeof(Program)); notes = xQueueCreate(8,sizeof(Note));
-    taskDone = xSemaphoreCreateBinary(); submitLock = xSemaphoreCreateMutex();
-    if (!programs || !notes || !taskDone || !submitLock) return false;
+    taskDone = xSemaphoreCreateBinary(); submitLock = xSemaphoreCreateMutex(); runStopped = xSemaphoreCreateBinary();
+    if (!programs || !notes || !taskDone || !submitLock || !runStopped) return false;
     esp_timer_create_args_t timerArgs{}; timerArgs.callback = timerWake; timerArgs.name = "ruby_vm";
-    if (esp_timer_create(&timerArgs,&vmTimer) != ESP_OK ||
-        esp_timer_start_periodic(vmTimer,uint64_t(portTICK_PERIOD_MS)*1000) != ESP_OK) return false;
+    if (esp_timer_create(&timerArgs,&vmTimer) != ESP_OK) return false;
     if (xTaskCreate(vmTask,"ruby_vm",8192,nullptr,5,&taskHandle) != pdPASS) { taskHandle = nullptr; return false; }
-    blePending = true;
-    return true;
+    bleStarted = rubyBleStart();
+    return bleStarted;
 }
 void stopService() {
-    blePending = false;
     if (submitLock) { xSemaphoreTake(submitLock,portMAX_DELAY); exiting.store(true); xSemaphoreGive(submitLock); }
     else exiting.store(true);
     wakeVm();
-    if (taskHandle) { xSemaphoreTake(taskDone,portMAX_DELAY); taskHandle = nullptr; }
+    if (taskHandle) { xTaskNotifyGive(taskHandle); xSemaphoreTake(taskDone,portMAX_DELAY); taskHandle = nullptr; }
     if (bleStarted) { rubyBleStop(); bleStarted = false; }
     Program pending{};
     if (programs) while (xQueueReceive(programs,&pending,0) == pdTRUE) free(pending.bytes);
@@ -226,54 +232,58 @@ void stopService() {
     if (notes) vQueueDelete(notes);
     if (taskDone) vSemaphoreDelete(taskDone);
     if (submitLock) vSemaphoreDelete(submitLock);
-    programs = notes = nullptr; taskDone = submitLock = nullptr; gameActive.store(false);
+    if (runStopped) vSemaphoreDelete(runStopped);
+    programs = notes = nullptr; taskDone = submitLock = runStopped = nullptr; gameActive.store(false);
 }
 void drawWaiting() {
     uiFrame.fillScreen(pal::kBg); text(uiFrame,"Ruby",160,52,pal::kText,F32,top_center);
-    text(uiFrame,network_job::busy() ? "通信の片付け中…" : "Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
+    text(uiFrame,"Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
     text(uiFrame,"SELECT でもどる",160,164,pal::kDim,F24,top_center); uiFrame.pushSprite(0,0);
 }
 void enter() {
     if (!beginService()) { stopService(); showError("タスクを開始できません"); return; }
     soundBegin();
     drawWaiting();
+    if (esp_timer_start_periodic(vmTimer,uint64_t(portTICK_PERIOD_MS)*1000) != ESP_OK) {
+        showError("タイマーを開始できません"); return;
+    }
     xSemaphoreTake(submitLock,portMAX_DELAY);
     gameActive.store(true);
     xSemaphoreGive(submitLock);
+    xTaskNotifyGive(taskHandle);
 }
 void tick() {
-    if (blePending && !network_job::busy()) {
-        blePending = false; drawWaiting();
-        bleStarted = rubyBleStart();
-        if (!bleStarted) showError("Bluetooth を開始できません");
-    }
     held.store(pad_now); pressed.fetch_or(pad_just & uint8_t(~kSelect));
     wakeVm();
     Note note; while (notes && xQueueReceive(notes,&note,0) == pdTRUE) soundPlay(0,note.duration,note.midi);
 }
-void leave() { stopService(); soundEnd(); }
+void leave() {
+    if (submitLock) {
+        xSemaphoreTake(submitLock,portMAX_DELAY);
+        gameActive.store(false);
+        replacement.store(true);
+        const bool wait = vmBusy;
+        xSemaphoreGive(submitLock);
+        wakeVm();
+        if (wait) xSemaphoreTake(runStopped,portMAX_DELAY);
+    }
+    if (vmTimer) esp_timer_stop(vmTimer);
+    soundEnd();
+}
 void icon(int x, int y) { text(uiGlyph,"R",x,y,pal::kText,F32); }
 }
 
-bool rubyMenuBegin() {
+bool rubyServiceBegin() {
     if (beginService()) return true;
     stopService(); return false;
 }
-void rubyMenuTick(bool mayStart) {
-    if (mayStart && blePending && !network_job::busy()) {
-        blePending = false;
-        bleStarted = rubyBleStart();
-        if (!bleStarted) puts("Ruby Bluetooth の開始に失敗しました");
-    }
-}
-bool rubyMenuProgramReady() {
+bool rubyServiceProgramReady() {
     if (!submitLock) return false;
     xSemaphoreTake(submitLock,portMAX_DELAY);
     bool ready = !exiting.load() && programs && uxQueueMessagesWaiting(programs) != 0;
     xSemaphoreGive(submitLock);
     return ready;
 }
-void rubyMenuStop() { stopService(); }
 
 bool rubySubmit(uint8_t* data, size_t size) {
     if (!submitLock) return false;
@@ -287,7 +297,7 @@ bool rubySubmit(uint8_t* data, size_t size) {
         if (sent) replacement.store(true);
     }
     xSemaphoreGive(submitLock);
-    if (sent) wakeVm();
+    if (sent) { wakeVm(); if (taskHandle) xTaskNotifyGive(taskHandle); }
     return sent;
 }
 extern "C" int mrbc_hal_write(int, const void* data, int n) {

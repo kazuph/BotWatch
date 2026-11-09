@@ -274,16 +274,19 @@ void menuEnter() {
     dotFading = false;
     drawMenu();
     puts("GAMES menu");
+}
+
+void leaveCurrentGame() {
+    request_menu = false;
+    if (running && running->leave) running->leave();
 #if CONFIG_IDF_TARGET_ESP32S3
-    if (!rubyMenuBegin()) puts("Ruby の待受を準備できません");
+    arcade_led::clear();
 #endif
+    running = nullptr;
 }
 
 void openCursor() {
     running = kGames[cursor];
-#if CONFIG_IDF_TARGET_ESP32S3
-    if (running != &kRuby) rubyMenuStop();
-#endif
     const char* name = running->scoreKey ? running->scoreKey : "spectrum";
     if (running == &kTenSeconds) name = "ten_seconds";
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -319,7 +322,6 @@ void menuAction(MenuAction action) {
 
 void menuTick() {
 #if CONFIG_IDF_TARGET_ESP32S3
-    rubyMenuTick(!sliding);
     const bool currentLink = network_job::link_connected();
     if (currentLink != menuLink) {
         linkFrom = linkBlend(lgfx::millis());
@@ -347,7 +349,7 @@ void menuTick() {
         if (dx * dx + dy * dy <= 12 * 12) {
 #if CONFIG_IDF_TARGET_ESP32S3
             if (!sliding && kGames[cursor] == &kCamera && touch.x >= 68 && touch.x < 252 && touch.y >= 160 && touch.y < 200) {
-                rubyMenuStop(); running = &kPhotoViewer; running->enter(); return;
+                running = &kPhotoViewer; running->enter(); return;
             }
 #endif
             if (touch.x >= 40 && touch.x < 280 && touch.y >= 38 && touch.y < 204) action = OPEN;
@@ -356,7 +358,7 @@ void menuTick() {
     if (injectedTapThisRead && tap_x >= 40 && tap_x < 280 && tap_y >= 38 && tap_y < 204) {
 #if CONFIG_IDF_TARGET_ESP32S3
         if (!sliding && kGames[cursor] == &kCamera && tap_x >= 68 && tap_x < 252 && tap_y >= 160 && tap_y < 200) {
-            rubyMenuStop(); running = &kPhotoViewer; running->enter(); return;
+            running = &kPhotoViewer; running->enter(); return;
         }
 #endif
         action = OPEN;
@@ -386,12 +388,6 @@ void menuTick() {
         if (lgfx::millis() - linkAt >= 300) linkFading = false;
 #endif
     }
-#if CONFIG_IDF_TARGET_ESP32S3
-    if (!running && !sliding && rubyMenuProgramReady()) {
-        cursor = kGameCount - 1;
-        openCursor();
-    }
-#endif
 }
 
 // Self-test channel:
@@ -809,6 +805,9 @@ void setup() {
     // The Core2 IMU (0x68) and PDM mic share the small board in the stock bottom module.
     printf("GAMES imu_0x68=%d imu_enabled=%d board=%d\n", M5.In_I2C.scanID(0x68), M5.Imu.isEnabled(), int(M5.getBoard()));
     logMemory("startup");
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!rubyServiceBegin()) puts("Ruby の待受を準備できません");
+#endif
     menuEnter();
 }
 
@@ -838,15 +837,18 @@ void loop() {
     previousInput = input_time_us;
     soundTick();
     const int64_t soundEndAt = esp_timer_get_time();
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (running != &kRuby && rubyServiceProgramReady()) {
+        leaveCurrentGame();
+        sliding = false; pendingAction = NONE;
+        cursor = kGameCount - 1;
+        openCursor();
+    } else
+#endif
     if (!running) {
         menuTick();
     } else if (pad_exit || request_menu) {
-        request_menu = false;
-        if (running->leave) running->leave();
-#if CONFIG_IDF_TARGET_ESP32S3
-        arcade_led::clear();
-#endif
-        running = nullptr;
+        leaveCurrentGame();
         logMemory("returned_to_menu");
         menuEnter();
     } else {

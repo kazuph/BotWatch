@@ -1,7 +1,5 @@
 #pragma once
 
-// Called by the menu on the main task; it does not draw or execute Ruby.
-bool rubyMenuBegin();
-void rubyMenuTick(bool mayStart);
-bool rubyMenuProgramReady();
-void rubyMenuStop();
+// The main task starts the receiver once and checks for completed uploads.
+bool rubyServiceBegin();
+bool rubyServiceProgramReady();

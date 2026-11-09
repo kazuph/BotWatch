@@ -67,7 +67,7 @@ MicroLink は本家 `216da3300f0493b0860247d43f7af5ce29df63a5` に固定しま�
 
 ## Ruby のゲームを Bluetooth で送る（CoreS3）
 
-CoreS3 のメニューで「Ruby」を開きます。Mac に `uv` と mruby 4.0.0 の `mrbc` を用意し、`mrbc` に PATH を通します。mruby/c は release4.0.0 を使います。
+CoreS3 は起動中、どの画面でも Bluetooth で受信します。Mac から送ると、実行中の画面を終了して Ruby に切り替わります。Mac に `uv` と mruby 4.0.0 の `mrbc` を用意し、`mrbc` に PATH を通します。mruby/c は release4.0.0 を使います。
 `mrbc` のビルド例（Ruby と `rake`、C コンパイラが必要）:
 
 ```sh
