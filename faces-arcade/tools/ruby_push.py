@@ -16,6 +16,7 @@ import time
 import zlib
 
 from bleak import BleakClient, BleakScanner
+from bleak.exc import BleakError
 
 SERVICE = "47e40001-9b5d-48d0-b54a-627af022e548"
 WRITE = "47e40002-9b5d-48d0-b54a-627af022e548"
@@ -124,7 +125,7 @@ def main():
     args = parser.parse_args()
     try:
         return asyncio.run(run(args.game, args.watch))
-    except (OSError, RuntimeError, asyncio.TimeoutError) as exc:
+    except (OSError, RuntimeError, BleakError, asyncio.TimeoutError) as exc:
         print(f"エラー: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

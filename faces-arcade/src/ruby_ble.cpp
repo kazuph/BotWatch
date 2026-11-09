@@ -56,7 +56,7 @@ void onSync() {
 }
 int writeAccess(uint16_t, uint16_t, ble_gatt_access_ctxt* ctx, void*) {
     const size_t size = OS_MBUF_PKTLEN(ctx->om);
-    uint8_t packet[501];
+    static uint8_t packet[501];
     if (!size || size > sizeof(packet) || ble_hs_mbuf_to_flat(ctx->om, packet, size, nullptr)) return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
     if (packet[0] == 1 && size == 9) {
         clearReceive();
@@ -102,7 +102,7 @@ void sendNotification(uint8_t kind, const uint8_t* bytes, size_t length) {
     if (maxPayload > 512) maxPayload = 512;
     do {
         size_t n = length < maxPayload - 2 ? length : maxPayload - 2;
-        uint8_t packet[512];
+        static uint8_t packet[512];
         packet[0] = kind;
         packet[1] = n == length ? 1 : 0;
         memcpy(packet + 2, bytes, n);

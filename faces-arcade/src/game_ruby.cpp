@@ -7,6 +7,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include <atomic>
+#include <string>
 #include "mrubyc.h"
 
 namespace {
@@ -106,9 +107,27 @@ void bind() {
 void showError(const char* message) {
     uiFrame.fillScreen(pal::kBg);
     text(uiFrame,"Ruby エラー",8,8,pal::kRed,F24);
-    text(uiFrame,message,8,40,pal::kRed,F24);
+    std::string line;
+    int y = 40;
+    const std::string full(message);
+    for (size_t pos = 0; pos < full.size();) {
+        unsigned char c = full[pos];
+        if (c == '\n') {
+            if (y < 240) text(uiFrame,line.c_str(),8,y,pal::kRed,F24);
+            y += 24; line.clear(); ++pos; continue;
+        }
+        size_t count = c < 0x80 ? 1 : c < 0xe0 ? 2 : c < 0xf0 ? 3 : 4;
+        count = min(count,full.size() - pos);
+        std::string character = full.substr(pos,count);
+        if (!line.empty() && uiFrame.textWidth((line + character).c_str(),F24) > 304) {
+            if (y < 240) text(uiFrame,line.c_str(),8,y,pal::kRed,F24);
+            y += 24; line.clear();
+        }
+        line += character; pos += count;
+    }
+    if (!line.empty() && y < 240) text(uiFrame,line.c_str(),8,y,pal::kRed,F24);
     uiFrame.pushSprite(0,0);
-    char out[256]; snprintf(out,sizeof(out),"error %s",message); rubyBleNotify(out);
+    std::string out = "error "; out += full; rubyBleNotify(out.c_str());
 }
 void vmTask(void*) {
     Program program{};
@@ -140,10 +159,14 @@ void vmTask(void*) {
         }
         portENTER_CRITICAL(&vmLock); activeVm = nullptr; portEXIT_CRITICAL(&vmLock);
         if (result == 2 && mrbc_israised(vm)) {
-            char message[192];
             auto exc = vm->exception.exception;
-            snprintf(message,sizeof(message),"%s: %.*s",mrbc_symid_to_str(exc->cls->sym_id),int(exc->message_size),exc->message ? reinterpret_cast<const char*>(exc->message) : "");
-            showError(message);
+            std::string message = mrbc_symid_to_str(exc->cls->sym_id);
+            message += ": ";
+            if (exc->message) {
+                const char* detail = reinterpret_cast<const char*>(exc->message);
+                message.append(detail, exc->message_size ? exc->message_size : strlen(detail));
+            }
+            showError(message.c_str());
         }
         mrbc_vm_end(vm); mrbc_vm_close(vm); mrbc_cleanup(); free(heap); free(program.bytes);
     }
