@@ -18,6 +18,8 @@ int streak, selected, answer, choiceCount;
 int kanaMode;  // 0: hiragana, 1: katakana, 2: mixed
 bool absolutePitch;  // note quiz only: no reference "do" before the question
 uint32_t feedbackAt;
+bool replayPending;  // WRONG: replay the question once the buzzer has finished
+const uint32_t kReplayAfterMs = 700;
 bool colorsInitialized = false, colorsAnimating = false;
 bool renderedThisTick = false;
 uint32_t colorsAt;
@@ -208,6 +210,14 @@ void drawAskBar(uint32_t elapsed) {
     uiFrame.fillSmoothRoundRect(6, 6, badgeWidth, 32, 16, pal::kCyan);
     uiFrame.fillSmoothRoundRect(7, 7, badgeWidth - 2, 30, 15, rgb(7, 9, 18));
     text(uiFrame, title, 6 + badgeWidth / 2, 10, pal::kCyan, F24, top_center);
+    if (state == RIGHT) {
+        text(uiFrame, "せいかい！", 314, 8, rgb(91, 227, 138), F24, top_right);
+        return;
+    }
+    if (state == WRONG) {
+        text(uiFrame, "ざんねん", 314, 8, rgb(255, 157, 70), F24, top_right);
+        return;
+    }
     for (int i = 0; i < kGoal; ++i)
         uiFrame.fillSmoothCircle(176 + i * 14, 22, 5, blend565(dotsFrom[i], dotsTo[i], elapsed));
 }
@@ -241,7 +251,7 @@ void playQuestion() {
 void askQuestion() {
     int picks[4];
     memset(choiceSub, 0, sizeof(choiceSub));
-    selected    = 0;
+    selected    = -1;  // nothing is highlighted until the player moves the cursor
     choiceCount = 4;
     if (kind == NOTE) {
         const int target = arcadeRandom(7);
@@ -299,15 +309,19 @@ void drawDone() {
 void answerNow() {
     const bool ok = selected == answer;
     soundStop();
+    replayPending = false;
     if (ok) {
         ++streak;
         submitScore(scoreKey, streak);
         state = RIGHT;
+        soundPlay(0, 120, 84);    // "pin"
+        soundPlay(130, 320, 88);  // "pon"
     } else {
         streak = 0;
         state = WRONG;
+        soundPlay(0, 450, 52, 53);  // low buzzer
+        replayPending = true;       // then hear the right answer again
     }
-    if (!ok) playQuestion();  // Hear the right answer again.
     feedbackAt = lgfx::millis();
     transitionCells();
     printf("QUIZ picked=%d ok=%d streak=%d\n", selected, ok, streak);
@@ -326,6 +340,12 @@ void drawModeSelect() {
 }
 
 void moveCursor() {
+    if (selected < 0) {  // the first D-pad press only shows the cursor
+        if (!(pad_just & (kLeft | kRight | kUp | kDown))) return;
+        selected = 0;
+        transitionCells();
+        return;
+    }
     int next = selected;
     if (pad_just & kLeft) next = selected % 2 ? selected - 1 : selected + 1;
     if (pad_just & kRight) next = selected % 2 ? selected - 1 : selected + 1;
@@ -364,7 +384,7 @@ void tick() {
                     selected = hit;
                 }
             }
-            if (hit >= 0 || (pad_just & kA)) answerNow();
+            if (hit >= 0 || ((pad_just & kA) && selected >= 0)) answerNow();
             break;
         }
         case RIGHT:
@@ -374,6 +394,10 @@ void tick() {
             }
             break;
         case WRONG:
+            if (replayPending && lgfx::millis() - feedbackAt >= kReplayAfterMs) {
+                replayPending = false;
+                playQuestion();
+            }
             if (lgfx::millis() - feedbackAt >= kWrongShowMs ||
                 (((pad_just & kA) || tap_just) && lgfx::millis() - feedbackAt >= 250)) {
                 askQuestion();
