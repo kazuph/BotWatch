@@ -10,7 +10,8 @@ enum Kind { NOTE, CHORD, KANA };
 enum State { MODE_SELECT, ASK, RIGHT, WRONG, DONE };
 const int kGoal = 10;
 const int kBarH = 42;
-const uint32_t kWrongShowMs = 2200;  // long enough to hear the question again
+const uint32_t kWrongShowMs = 2600;  // long enough to hear the buzzer and then the question again
+const uint32_t kRightShowMs = 1000;  // long enough for the chime to ring out
 
 Kind kind;
 State state;
@@ -19,7 +20,7 @@ int kanaMode;  // 0: hiragana, 1: katakana, 2: mixed
 bool absolutePitch;  // note quiz only: no reference "do" before the question
 uint32_t feedbackAt;
 bool replayPending;  // WRONG: replay the question once the buzzer has finished
-const uint32_t kReplayAfterMs = 700;
+const uint32_t kReplayAfterMs = 900;
 bool colorsInitialized = false, colorsAnimating = false;
 bool renderedThisTick = false;
 uint32_t colorsAt;
@@ -314,12 +315,15 @@ void answerNow() {
         ++streak;
         submitScore(scoreKey, streak);
         state = RIGHT;
-        soundPlay(0, 120, 84);    // "pin"
-        soundPlay(130, 320, 88);  // "pon"
+        // "Pin-pon": a falling major third (E6 -> C6), heard as "OK" in UI-sound research, on an FM bell.
+        soundPlayTimbre(Timbre::bell, 0, 500, 88);
+        soundPlayTimbre(Timbre::bell, 160, 800, 84, 79);
     } else {
         streak = 0;
         state = WRONG;
-        soundPlay(0, 450, 52, 53);  // low buzzer
+        // "Bu-buu": a rising minor second, heard as "error", on a rough two-note buzzer.
+        soundPlayTimbre(Timbre::buzz, 0, 170, 61, 62);
+        soundPlayTimbre(Timbre::buzz, 250, 380, 62, 63);
         replayPending = true;       // then hear the right answer again
     }
     feedbackAt = lgfx::millis();
@@ -388,7 +392,7 @@ void tick() {
             break;
         }
         case RIGHT:
-            if (lgfx::millis() - feedbackAt >= 800) {
+            if (lgfx::millis() - feedbackAt >= kRightShowMs) {
                 if (streak >= kGoal) drawDone();
                 else askQuestion();
             }
