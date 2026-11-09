@@ -105,6 +105,7 @@ struct Game {
     GameCategory category;
     GameFooter footer;
 };
+extern const Game kAbsolutePitchQuiz;
 extern const Game kNoteQuiz;
 extern const Game kChordQuiz;
 extern const Game kKanaQuiz;

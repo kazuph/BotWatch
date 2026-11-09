@@ -1,4 +1,5 @@
-// Listening quizzes: note, chord and kana (spoken with TTS).
+// Listening quizzes: note (absolute or relative pitch), chord and kana (spoken with TTS).
+// Absolute pitch plays only the note to guess. Relative pitch plays "do" first as a reference.
 // Four choices in a 2x2 grid. Tap answers directly; the D-pad moves and A answers.
 // Ten correct answers in a row finish the quiz and return to the menu.
 #include "common.h"
@@ -15,6 +16,7 @@ Kind kind;
 State state;
 int streak, selected, answer, choiceCount;
 int kanaMode;  // 0: hiragana, 1: katakana, 2: mixed
+bool absolutePitch;  // note quiz only: no reference "do" before the question
 uint32_t feedbackAt;
 bool colorsInitialized = false, colorsAnimating = false;
 bool renderedThisTick = false;
@@ -201,8 +203,8 @@ void drawBar(uint16_t fill) {
 
 void drawAskBar(uint32_t elapsed) {
     drawBar(rgb(7, 9, 18));
-    const char* title = kind == NOTE ? "音あて" : kind == CHORD ? "和音あて" : "かな読み";
-    const int badgeWidth = kind == NOTE ? 96 : 120;
+    const char* title = kind == NOTE ? (absolutePitch ? "絶対音感" : "相対音感") : kind == CHORD ? "和音あて" : "かな読み";
+    const int badgeWidth = 120;
     uiFrame.fillSmoothRoundRect(6, 6, badgeWidth, 32, 16, pal::kCyan);
     uiFrame.fillSmoothRoundRect(7, 7, badgeWidth - 2, 30, 15, rgb(7, 9, 18));
     text(uiFrame, title, 6 + badgeWidth / 2, 10, pal::kCyan, F24, top_center);
@@ -225,8 +227,12 @@ void playQuestion() {
     }
     soundStop();
     if (kind == NOTE) {
-        soundPlay(0, 500, 72);          // reference "do"
-        soundPlay(700, 800, notes[0]);  // the note to guess
+        if (absolutePitch) {
+            soundPlay(0, 800, notes[0]);    // the note to guess, with nothing to compare against
+        } else {
+            soundPlay(0, 500, 72);          // reference "do"
+            soundPlay(700, 800, notes[0]);  // the note to guess
+        }
     } else {
         soundPlay(0, 1400, notes[0], notes[1], notes[2]);
     }
@@ -402,7 +408,9 @@ void enterKind(Kind k, const char* key) {
     }
 }
 
-void enterNote() { enterKind(NOTE, "note"); }
+// The relative quiz keeps the "note" key: records saved before the split were played with the reference "do".
+void enterNoteAbsolute() { absolutePitch = true; enterKind(NOTE, "note_abs"); }
+void enterNoteRelative() { absolutePitch = false; enterKind(NOTE, "note"); }
 void enterChord() { enterKind(CHORD, "chord"); }
 void enterKana() { enterKind(KANA, "kana"); }
 void leave() { soundEnd(); }
@@ -430,6 +438,7 @@ void iconKana(int x, int y) {
 }
 }  // namespace
 
-const Game kNoteQuiz  = {"音あて", "note", enterNote, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
+const Game kAbsolutePitchQuiz = {"絶対音感", "note_abs", enterNoteAbsolute, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
+const Game kNoteQuiz  = {"相対音感", "note", enterNoteRelative, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
 const Game kChordQuiz = {"和音あて", "chord", enterChord, tick, iconChord, leave, GameCategory::learn, GameFooter::score};
 const Game kKanaQuiz  = {"かな読み", "kana", enterKana, tick, iconKana, leave, GameCategory::learn, GameFooter::score};
