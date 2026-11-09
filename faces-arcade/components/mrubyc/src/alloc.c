@@ -443,6 +443,14 @@ static inline void merge_block(FREE_BLOCK *target, FREE_BLOCK *next)
 
 
 /***** Global functions *****************************************************/
+unsigned int mrbc_minimum_alloc_size(void)
+{
+  const unsigned int alignment = 4;
+  const unsigned int sentinel = (sizeof(USED_BLOCK) + alignment - 1) & ~(alignment - 1);
+  const unsigned int free_block = (MRBC_MIN_MEMORY_BLOCK_SIZE + alignment - 1) & ~(alignment - 1);
+  return sizeof(MEMORY_POOL) + sentinel + free_block;
+}
+
 //================================================================
 /*! initialize
 

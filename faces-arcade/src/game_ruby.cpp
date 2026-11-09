@@ -137,6 +137,10 @@ void showError(const char* message) {
 // This scope calls mruby/c without holding submitLock or vmLock. Native Ruby
 // bindings do not retain either lock across calls that can allocate in mruby/c.
 void runProgram(Program program, void* heap, size_t heapSize) {
+    if (heapSize < mrbc_minimum_alloc_size()) {
+        showError("メモリ不足で止まりました");
+        return;
+    }
     oomOwner = xTaskGetCurrentTaskHandle();
     if (setjmp(oomRecovery) != 0) {
         oomOwner = nullptr;

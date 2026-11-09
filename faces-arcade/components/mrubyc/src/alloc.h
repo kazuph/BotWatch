@@ -64,6 +64,7 @@ struct VM;
   Normally enabled
 */
 void mrbc_init_alloc(void *ptr, unsigned int size);
+unsigned int mrbc_minimum_alloc_size(void);
 void mrbc_cleanup_alloc(void);
 void *mrbc_raw_alloc(unsigned int size);
 void *mrbc_raw_alloc_no_free(unsigned int size);
