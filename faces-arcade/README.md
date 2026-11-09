@@ -64,3 +64,25 @@ uv run --with pyserial tools/provision.py clear --port /dev/cu.usbmodem11401
 文字認識は `100.80.152.112:8016`、写真の説明は既定で `100.80.152.112:8193` の `vision` を使います。説明先は ESP-IDF の設定で変更できます。画像は指定された 3090 のアドレスにのみ送ります。
 
 MicroLink は本家 `216da3300f0493b0860247d43f7af5ce29df63a5` に固定します。接続・送信の期限と中止、および各タスクの終了確認のため、`patches/microlink-tcp-deadline.patch` を構成時に適用します。取得元の版と適用後の差分が一致しないときはビルドを止めます。
+
+## Ruby のゲームを Bluetooth で送る（CoreS3）
+
+CoreS3 のメニューで「Ruby」を開きます。Mac に `uv` と mruby 4.0.0 の `mrbc` を用意し、`mrbc` に PATH を通します。mruby/c は release4.0.0 を使います。
+`mrbc` のビルド例（Ruby と `rake`、C コンパイラが必要）:
+
+```sh
+curl -fsSL https://github.com/mruby/mruby/archive/refs/tags/4.0.0.tar.gz | tar xz
+cd mruby-4.0.0
+rake
+export PATH="$PWD/bin:$PATH"
+cd -
+```
+
+```sh
+uv run --script tools/ruby_push.py ruby/catch.rb
+uv run --script tools/ruby_push.py --watch ruby/catch.rb
+```
+
+`--watch` は保存のたびに変換して送ります。Ruby の出力やエラーはターミナルに表示されます。SELECT でメニューに戻ります。`mrbc` の版が異なると送信前にエラーになります。
+
+`Screen` は `clear`, `rect`, `fill_rect`, `circle`, `line`, `text`, `show`, `rgb`、`Pad` は `down?`, `pressed?` を提供します。ボタン名は `:up`, `:down`, `:left`, `:right`, `:a`, `:b`, `:start` です。音は `Sound.play(midi, ms)`、時刻は `Sys.ms`、乱数は `rand(n)`、待機は `sleep_ms(n)` で使えます。

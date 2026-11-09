@@ -35,7 +35,7 @@ int injected_x = 0, injected_y = 0;
 
 const Game* const kGames[] = {&kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy, &kTenSeconds
 #if CONFIG_IDF_TARGET_ESP32S3
-    , &kCamera
+    , &kCamera, &kRuby
 #endif
 };
 const int kGameCount       = sizeof(kGames) / sizeof(kGames[0]);
