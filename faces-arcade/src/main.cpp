@@ -24,6 +24,7 @@
 #include "network_serial.h"
 #include "network_settings.h"
 #include "network_job.h"
+#include "ruby_service.h"
 #endif
 
 namespace {
@@ -273,10 +274,16 @@ void menuEnter() {
     dotFading = false;
     drawMenu();
     puts("GAMES menu");
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!rubyMenuBegin()) puts("Ruby の待受を準備できません");
+#endif
 }
 
 void openCursor() {
     running = kGames[cursor];
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (running != &kRuby) rubyMenuStop();
+#endif
     const char* name = running->scoreKey ? running->scoreKey : "spectrum";
     if (running == &kTenSeconds) name = "ten_seconds";
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -312,6 +319,7 @@ void menuAction(MenuAction action) {
 
 void menuTick() {
 #if CONFIG_IDF_TARGET_ESP32S3
+    rubyMenuTick(!sliding);
     const bool currentLink = network_job::link_connected();
     if (currentLink != menuLink) {
         linkFrom = linkBlend(lgfx::millis());
@@ -339,7 +347,7 @@ void menuTick() {
         if (dx * dx + dy * dy <= 12 * 12) {
 #if CONFIG_IDF_TARGET_ESP32S3
             if (!sliding && kGames[cursor] == &kCamera && touch.x >= 68 && touch.x < 252 && touch.y >= 160 && touch.y < 200) {
-                running = &kPhotoViewer; running->enter(); return;
+                rubyMenuStop(); running = &kPhotoViewer; running->enter(); return;
             }
 #endif
             if (touch.x >= 40 && touch.x < 280 && touch.y >= 38 && touch.y < 204) action = OPEN;
@@ -348,7 +356,7 @@ void menuTick() {
     if (injectedTapThisRead && tap_x >= 40 && tap_x < 280 && tap_y >= 38 && tap_y < 204) {
 #if CONFIG_IDF_TARGET_ESP32S3
         if (!sliding && kGames[cursor] == &kCamera && tap_x >= 68 && tap_x < 252 && tap_y >= 160 && tap_y < 200) {
-            running = &kPhotoViewer; running->enter(); return;
+            rubyMenuStop(); running = &kPhotoViewer; running->enter(); return;
         }
 #endif
         action = OPEN;
@@ -378,6 +386,12 @@ void menuTick() {
         if (lgfx::millis() - linkAt >= 300) linkFading = false;
 #endif
     }
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!running && !sliding && rubyMenuProgramReady()) {
+        cursor = kGameCount - 1;
+        openCursor();
+    }
+#endif
 }
 
 // Self-test channel:

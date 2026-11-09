@@ -2,10 +2,12 @@
 #include "ruby_bytecode.h"
 #include <cstring>
 #include <cstdio>
+#include <atomic>
 #include "esp_heap_caps.h"
 #include "esp_rom_crc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -23,7 +25,12 @@ uint16_t connection = BLE_HS_CONN_HANDLE_NONE, notifyHandle = 0;
 uint8_t addressType = 0;
 uint8_t* receiving = nullptr;
 uint32_t total = 0, received = 0, expectedCrc = 0;
-bool subscribed = false, stopping = false;
+bool subscribed = false;
+std::atomic<bool> stopping{false};
+struct Received { uint8_t* bytes; uint32_t size; uint32_t crc; };
+QueueHandle_t validationQueue = nullptr;
+SemaphoreHandle_t validationDone = nullptr;
+TaskHandle_t validationTask = nullptr;
 SemaphoreHandle_t notifyLock = nullptr;
 
 void clearReceive() { free(receiving); receiving = nullptr; total = received = expectedCrc = 0; }
@@ -75,13 +82,11 @@ int writeAccess(uint16_t, uint16_t, ble_gatt_access_ctxt* ctx, void*) {
         rubyBleNotify(message); return 0;
     }
     if (packet[0] == 3 && size == 1 && receiving) {
-        if (received != total || esp_rom_crc32_le(0, receiving, total) != expectedCrc) {
-            clearReceive(); rubyBleNotify("error crc or size"); return 0;
+        if (received != total) { clearReceive(); rubyBleNotify("error crc or size"); return 0; }
+        Received item{receiving,total,expectedCrc};
+        if (!validationQueue || xQueueSend(validationQueue,&item,0) != pdTRUE) {
+            clearReceive(); rubyBleNotify("error busy"); return 0;
         }
-        if (!rubyValidBytecode(receiving, total)) {
-            clearReceive(); rubyBleNotify("error 不正なバイトコード"); return 0;
-        }
-        if (!rubySubmit(receiving, total)) { clearReceive(); rubyBleNotify("error busy"); return 0; }
         receiving = nullptr; total = received = expectedCrc = 0; return 0;
     }
     clearReceive(); rubyBleNotify("error protocol"); return 0;
@@ -89,14 +94,30 @@ int writeAccess(uint16_t, uint16_t, ble_gatt_access_ctxt* ctx, void*) {
 int notifyAccess(uint16_t, uint16_t, ble_gatt_access_ctxt*, void*) { return BLE_ATT_ERR_UNLIKELY; }
 ble_gatt_chr_def characteristics[3]{};
 ble_gatt_svc_def services[2]{};
+void validateTask(void*) {
+    Received item{};
+    while (!stopping.load()) {
+        if (xQueueReceive(validationQueue,&item,pdMS_TO_TICKS(20)) != pdTRUE) continue;
+        if (stopping.load()) { free(item.bytes); break; }
+        if (esp_rom_crc32_le(0,item.bytes,item.size) != item.crc) {
+            free(item.bytes); rubyBleNotify("error crc or size"); continue;
+        }
+        if (!rubyValidBytecode(item.bytes,item.size)) {
+            free(item.bytes); rubyBleNotify("error 不正なバイトコード"); continue;
+        }
+        if (!rubySubmit(item.bytes,item.size)) { free(item.bytes); rubyBleNotify("error busy"); }
+    }
+    while (xQueueReceive(validationQueue,&item,0) == pdTRUE) free(item.bytes);
+    xSemaphoreGive(validationDone); vTaskDelete(nullptr);
+}
 void hostTask(void*) { nimble_port_run(); nimble_port_freertos_deinit(); }
 }
 
 namespace {
 void sendNotification(uint8_t kind, const uint8_t* bytes, size_t length) {
-    if (!notifyLock) return;
+    if (!notifyLock || stopping.load()) return;
     xSemaphoreTake(notifyLock, portMAX_DELAY);
-    if (!subscribed || connection == BLE_HS_CONN_HANDLE_NONE) { xSemaphoreGive(notifyLock); return; }
+    if (stopping.load() || !subscribed || connection == BLE_HS_CONN_HANDLE_NONE) { xSemaphoreGive(notifyLock); return; }
     size_t maxPayload = ble_att_mtu(connection) - 3;
     if (maxPayload <= 2) { xSemaphoreGive(notifyLock); return; }
     if (maxPayload > 512) maxPayload = 512;
@@ -124,7 +145,19 @@ bool rubyBleStart() {
     stopping = false; connection = BLE_HS_CONN_HANDLE_NONE; subscribed = false;
     notifyLock = xSemaphoreCreateMutex();
     if (!notifyLock) return false;
-    if (nimble_port_init() != ESP_OK) { vSemaphoreDelete(notifyLock); notifyLock = nullptr; return false; }
+    validationQueue = xQueueCreate(1,sizeof(Received));
+    validationDone = xSemaphoreCreateBinary();
+    if (!validationQueue || !validationDone || xTaskCreate(validateTask,"ruby_validate",8192,nullptr,1,&validationTask) != pdPASS) {
+        if (validationQueue) vQueueDelete(validationQueue);
+        if (validationDone) vSemaphoreDelete(validationDone);
+        validationQueue = nullptr; validationDone = nullptr; validationTask = nullptr;
+        vSemaphoreDelete(notifyLock); notifyLock = nullptr; return false;
+    }
+    if (nimble_port_init() != ESP_OK) {
+        stopping.store(true); xSemaphoreTake(validationDone,portMAX_DELAY);
+        vQueueDelete(validationQueue); vSemaphoreDelete(validationDone); vSemaphoreDelete(notifyLock);
+        validationQueue = nullptr; validationDone = nullptr; validationTask = nullptr; notifyLock = nullptr; return false;
+    }
     ble_svc_gap_init(); ble_svc_gatt_init();
     characteristics[0].uuid = &writeUuid.u; characteristics[0].access_cb = writeAccess;
     characteristics[0].flags = BLE_GATT_CHR_F_WRITE;
@@ -133,14 +166,23 @@ bool rubyBleStart() {
     characteristics[1].flags = BLE_GATT_CHR_F_NOTIFY;
     services[0].type = BLE_GATT_SVC_TYPE_PRIMARY; services[0].uuid = &serviceUuid.u;
     services[0].characteristics = characteristics;
-    if (ble_gatts_count_cfg(services) || ble_gatts_add_svcs(services)) { nimble_port_deinit(); vSemaphoreDelete(notifyLock); notifyLock = nullptr; return false; }
+    if (ble_gatts_count_cfg(services) || ble_gatts_add_svcs(services)) {
+        nimble_port_deinit(); stopping.store(true); xSemaphoreTake(validationDone,portMAX_DELAY);
+        vQueueDelete(validationQueue); vSemaphoreDelete(validationDone); vSemaphoreDelete(notifyLock);
+        validationQueue = nullptr; validationDone = nullptr; validationTask = nullptr; notifyLock = nullptr; return false;
+    }
     ble_svc_gap_device_name_set("FACES Ruby");
     ble_hs_cfg.sync_cb = onSync;
     nimble_port_freertos_init(hostTask); return true;
 }
 void rubyBleStop() {
     stopping = true;
-    nimble_port_stop(); nimble_port_deinit();
+    nimble_port_stop();
+    if (validationTask) xSemaphoreTake(validationDone,portMAX_DELAY);
+    nimble_port_deinit();
+    if (validationQueue) vQueueDelete(validationQueue);
+    if (validationDone) vSemaphoreDelete(validationDone);
+    validationQueue = nullptr; validationDone = nullptr; validationTask = nullptr;
     clearReceive(); connection = BLE_HS_CONN_HANDLE_NONE; subscribed = false;
     if (notifyLock) { vSemaphoreDelete(notifyLock); notifyLock = nullptr; }
 }

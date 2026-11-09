@@ -65,57 +65,79 @@ async def send(client: BleakClient, queue: asyncio.Queue, bytecode: bytes):
 
 async def run(path: Path, watch: bool):
     started = time.monotonic()
-    # Compile before connecting: a syntax error must never send data.
     try:
         bytecode = compile_game(path)
     except RuntimeError as exc:
-        print(exc, file=sys.stderr)
+        print(exc, file=sys.stderr, flush=True)
         if not watch:
             return 1
         bytecode = None
     timestamp = path.stat().st_mtime_ns
-    print("Ruby の Bluetooth を探しています…", flush=True)
-    device = await BleakScanner.find_device_by_filter(
-        lambda _device, adv: SERVICE.lower() in [s.lower() for s in adv.service_uuids], timeout=20)
-    if not device:
-        raise RuntimeError("Ruby の待受が見つかりません")
-    queue = asyncio.Queue()
-    async with BleakClient(device) as client:
-        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        status_parts = bytearray()
-        def notification(_sender, data):
-            if len(data) < 2:
-                return
-            kind, last = data[:2]
-            if kind == 2:
-                print(decoder.decode(bytes(data[2:])), end="", flush=True)
-            elif kind == 1:
-                status_parts.extend(data[2:])
-                if last:
-                    message = status_parts.decode("utf-8", errors="replace")
-                    status_parts.clear()
-                    print(message, flush=True)
-                    queue.put_nowait(message)
-        await client.start_notify(NOTIFY, notification)
-        if bytecode is not None:
-            await send(client, queue, bytecode)
-            print(f"変換開始から running まで {time.monotonic() - started:.3f} 秒", flush=True)
+    while True:
+        print("Ruby の Bluetooth を探しています…", flush=True)
+        device = await BleakScanner.find_device_by_filter(
+            lambda _device, adv: SERVICE.lower() in [s.lower() for s in adv.service_uuids], timeout=5)
+        if not device:
+            print("本体をメニューか Ruby の画面にしてください", file=sys.stderr, flush=True)
+            if not watch:
+                return 1
+            await asyncio.sleep(3)
+            continue
+        queue = asyncio.Queue()
+        try:
+            async with BleakClient(device) as client:
+                decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+                status_parts = bytearray()
+                def notification(_sender, data):
+                    if len(data) < 2:
+                        return
+                    kind, last = data[:2]
+                    if kind == 2:
+                        print(decoder.decode(bytes(data[2:])), end="", flush=True)
+                    elif kind == 1:
+                        status_parts.extend(data[2:])
+                        if last:
+                            message = status_parts.decode("utf-8", errors="replace")
+                            status_parts.clear()
+                            print(message, flush=True)
+                            queue.put_nowait(message)
+                await client.start_notify(NOTIFY, notification)
+                current = path.stat().st_mtime_ns
+                if current != timestamp or bytecode is None:
+                    timestamp = current
+                    try:
+                        bytecode = compile_game(path)
+                    except RuntimeError as exc:
+                        print(exc, file=sys.stderr, flush=True)
+                        bytecode = None
+                if bytecode is not None:
+                    await send(client, queue, bytecode)
+                    print(f"変換開始から running まで {time.monotonic() - started:.3f} 秒", flush=True)
+                if not watch:
+                    return 0
+                while client.is_connected:
+                    await asyncio.sleep(0.1)
+                    current = path.stat().st_mtime_ns
+                    if current == timestamp:
+                        continue
+                    timestamp = current
+                    saved_at = current / 1_000_000_000
+                    try:
+                        bytecode = compile_game(path)
+                        await send(client, queue, bytecode)
+                        print(f"保存から running まで {time.time() - saved_at:.3f} 秒", flush=True)
+                    except (RuntimeError, asyncio.TimeoutError) as exc:
+                        bytecode = None
+                        print(f"送信できません: {exc}", file=sys.stderr, flush=True)
+        except (BleakError, asyncio.TimeoutError) as exc:
+            if not watch:
+                raise
+            print(f"接続が切れました: {exc}", file=sys.stderr, flush=True)
         if not watch:
-            return 0
-        while client.is_connected:
-            await asyncio.sleep(0.1)
-            current = path.stat().st_mtime_ns
-            if current == timestamp:
-                continue
-            timestamp = current
-            started = current / 1_000_000_000
-            try:
-                bytecode = compile_game(path)
-                await send(client, queue, bytecode)
-                print(f"保存から running まで {time.time() - started:.3f} 秒", flush=True)
-            except (RuntimeError, asyncio.TimeoutError) as exc:
-                print(f"送信できません: {exc}", file=sys.stderr, flush=True)
-    return 1
+            return 1
+        bytecode = None
+        print("本体をメニューか Ruby の画面にしてください", file=sys.stderr, flush=True)
+        await asyncio.sleep(3)
 
 
 def main():

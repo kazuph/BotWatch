@@ -25,5 +25,23 @@ int main(int argc,char** argv) {
         if (n>=12) u32(v,8,n);
         assert(!rubyValidBytecode(v.data(),v.size()));
     }
+    auto nested = [](size_t count) {
+        std::vector<uint8_t> bytes(20 + 12 + count * 20 + 8, 0);
+        const char* header = "RITE0400";
+        for (int i=0;i<8;++i) bytes[i]=header[i];
+        u32(bytes,8,bytes.size());
+        bytes[20]='I'; bytes[21]='R'; bytes[22]='E'; bytes[23]='P';
+        u32(bytes,24,12 + count * 20);
+        for (size_t i=0;i<count;++i) {
+            size_t at=32+i*20; u32(bytes,at,20);
+            bytes[at+7]=1; // one register
+            bytes[at+9]=i+1<count ? 1 : 0; // one child except at the leaf
+        }
+        size_t end=32+count*20; bytes[end]='E'; bytes[end+1]='N'; bytes[end+2]='D';
+        u32(bytes,end+4,8);
+        return bytes;
+    };
+    auto maxDepth=nested(64); assert(rubyValidBytecode(maxDepth.data(),maxDepth.size()));
+    test(nested(65),"nested IREP depth");
     puts("valid catch and all truncated prefixes checked");
 }

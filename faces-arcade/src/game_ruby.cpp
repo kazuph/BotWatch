@@ -1,5 +1,6 @@
 #include "common.h"
 #include "ruby_ble.h"
+#include "ruby_service.h"
 #include "network_job.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
@@ -19,10 +20,10 @@ QueueHandle_t programs, notes;
 SemaphoreHandle_t taskDone, submitLock;
 bool bleStarted = false, blePending = false;
 jmp_buf oomRecovery;
-TaskHandle_t oomOwner = nullptr;
+std::atomic<TaskHandle_t> oomOwner{nullptr};
 TaskHandle_t taskHandle;
 esp_timer_handle_t vmTimer;
-std::atomic<bool> exiting{false}, replacement{false};
+std::atomic<bool> exiting{false}, replacement{false}, gameActive{false};
 std::atomic<uint8_t> held{0}, pressed{0};
 portMUX_TYPE vmLock = portMUX_INITIALIZER_UNLOCKED;
 mrbc_vm* activeVm = nullptr;
@@ -184,7 +185,7 @@ void vmTask(void*) {
         Program program{};
         xSemaphoreTake(submitLock,portMAX_DELAY);
         const bool stop = exiting.load();
-        const bool got = !stop && xQueueReceive(programs,&program,0) == pdTRUE;
+        const bool got = !stop && gameActive.load() && xQueueReceive(programs,&program,0) == pdTRUE;
         if (got) replacement.store(uxQueueMessagesWaiting(programs) != 0);
         xSemaphoreGive(submitLock);
         if (stop) break;
@@ -197,43 +198,21 @@ void vmTask(void*) {
     }
     xSemaphoreGive(taskDone); vTaskDelete(nullptr);
 }
-void enter() {
-    exiting.store(false); replacement.store(false); held.store(0); pressed.store(0);
-    programs = xQueueCreate(1,sizeof(Program)); notes = xQueueCreate(8,sizeof(Note)); taskDone = xSemaphoreCreateBinary(); submitLock = xSemaphoreCreateMutex();
-    uiFrame.fillScreen(pal::kBg); text(uiFrame,"Ruby",160,52,pal::kText,F32,top_center);
-    text(uiFrame,"Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
-    text(uiFrame,"SELECT でもどる",160,164,pal::kDim,F24,top_center); uiFrame.pushSprite(0,0);
-    soundBegin();
+bool beginService() {
+    if (submitLock) return taskHandle != nullptr;
+    exiting.store(false); replacement.store(false); gameActive.store(false);
+    held.store(0); pressed.store(0); bleStarted = false; blePending = false;
+    programs = xQueueCreate(1,sizeof(Program)); notes = xQueueCreate(8,sizeof(Note));
+    taskDone = xSemaphoreCreateBinary(); submitLock = xSemaphoreCreateMutex();
+    if (!programs || !notes || !taskDone || !submitLock) return false;
     esp_timer_create_args_t timerArgs{}; timerArgs.callback = timerWake; timerArgs.name = "ruby_vm";
-    if (esp_timer_create(&timerArgs, &vmTimer) != ESP_OK || esp_timer_start_periodic(vmTimer, uint64_t(portTICK_PERIOD_MS) * 1000) != ESP_OK) {
-        showError("タイマーを開始できません"); return;
-    }
-    if (!programs || !notes || !taskDone || !submitLock || xTaskCreate(vmTask,"ruby_vm",8192,nullptr,5,&taskHandle) != pdPASS) {
-        taskHandle = nullptr; showError("タスクを開始できません"); return;
-    }
+    if (esp_timer_create(&timerArgs,&vmTimer) != ESP_OK ||
+        esp_timer_start_periodic(vmTimer,uint64_t(portTICK_PERIOD_MS)*1000) != ESP_OK) return false;
+    if (xTaskCreate(vmTask,"ruby_vm",8192,nullptr,5,&taskHandle) != pdPASS) { taskHandle = nullptr; return false; }
     blePending = true;
-    if (network_job::busy()) {
-        uiFrame.fillScreen(pal::kBg);
-        text(uiFrame,"通信の片付け中…",160,104,pal::kCyan,F24,top_center);
-        uiFrame.pushSprite(0,0);
-    }
+    return true;
 }
-void tick() {
-    if (blePending && !network_job::busy()) {
-        blePending = false;
-        bleStarted = rubyBleStart();
-        if (!bleStarted) showError("Bluetooth を開始できません");
-        else {
-            uiFrame.fillScreen(pal::kBg); text(uiFrame,"Ruby",160,52,pal::kText,F32,top_center);
-            text(uiFrame,"Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
-            text(uiFrame,"SELECT でもどる",160,164,pal::kDim,F24,top_center); uiFrame.pushSprite(0,0);
-        }
-    }
-    held.store(pad_now); pressed.fetch_or(pad_just & uint8_t(~kSelect));
-    wakeVm();
-    Note note; while (notes && xQueueReceive(notes,&note,0) == pdTRUE) soundPlay(0,note.duration,note.midi);
-}
-void leave() {
+void stopService() {
     blePending = false;
     if (submitLock) { xSemaphoreTake(submitLock,portMAX_DELAY); exiting.store(true); xSemaphoreGive(submitLock); }
     else exiting.store(true);
@@ -247,17 +226,66 @@ void leave() {
     if (notes) vQueueDelete(notes);
     if (taskDone) vSemaphoreDelete(taskDone);
     if (submitLock) vSemaphoreDelete(submitLock);
-    programs = notes = nullptr; taskDone = submitLock = nullptr; soundEnd();
+    programs = notes = nullptr; taskDone = submitLock = nullptr; gameActive.store(false);
 }
+void drawWaiting() {
+    uiFrame.fillScreen(pal::kBg); text(uiFrame,"Ruby",160,52,pal::kText,F32,top_center);
+    text(uiFrame,network_job::busy() ? "通信の片付け中…" : "Bluetooth で待機中",160,104,pal::kCyan,F24,top_center);
+    text(uiFrame,"SELECT でもどる",160,164,pal::kDim,F24,top_center); uiFrame.pushSprite(0,0);
+}
+void enter() {
+    if (!beginService()) { stopService(); showError("タスクを開始できません"); return; }
+    soundBegin();
+    drawWaiting();
+    xSemaphoreTake(submitLock,portMAX_DELAY);
+    gameActive.store(true);
+    xSemaphoreGive(submitLock);
+}
+void tick() {
+    if (blePending && !network_job::busy()) {
+        blePending = false; drawWaiting();
+        bleStarted = rubyBleStart();
+        if (!bleStarted) showError("Bluetooth を開始できません");
+    }
+    held.store(pad_now); pressed.fetch_or(pad_just & uint8_t(~kSelect));
+    wakeVm();
+    Note note; while (notes && xQueueReceive(notes,&note,0) == pdTRUE) soundPlay(0,note.duration,note.midi);
+}
+void leave() { stopService(); soundEnd(); }
 void icon(int x, int y) { text(uiGlyph,"R",x,y,pal::kText,F32); }
 }
+
+bool rubyMenuBegin() {
+    if (beginService()) return true;
+    stopService(); return false;
+}
+void rubyMenuTick(bool mayStart) {
+    if (mayStart && blePending && !network_job::busy()) {
+        blePending = false;
+        bleStarted = rubyBleStart();
+        if (!bleStarted) puts("Ruby Bluetooth の開始に失敗しました");
+    }
+}
+bool rubyMenuProgramReady() {
+    if (!submitLock) return false;
+    xSemaphoreTake(submitLock,portMAX_DELAY);
+    bool ready = !exiting.load() && programs && uxQueueMessagesWaiting(programs) != 0;
+    xSemaphoreGive(submitLock);
+    return ready;
+}
+void rubyMenuStop() { stopService(); }
 
 bool rubySubmit(uint8_t* data, size_t size) {
     if (!submitLock) return false;
     Program program{data,size};
     xSemaphoreTake(submitLock,portMAX_DELAY);
-    bool sent = !exiting.load() && programs && xQueueSend(programs,&program,0) == pdTRUE;
-    if (sent) replacement.store(true);
+    bool sent = false;
+    if (!exiting.load() && programs) {
+        Program superseded{};
+        if (xQueueReceive(programs,&superseded,0) == pdTRUE) free(superseded.bytes);
+        sent = xQueueSend(programs,&program,0) == pdTRUE;
+        if (sent) replacement.store(true);
+    }
     xSemaphoreGive(submitLock);
     if (sent) wakeVm();
     return sent;
@@ -267,7 +295,7 @@ extern "C" int mrbc_hal_write(int, const void* data, int n) {
     return n;
 }
 extern "C" void mrbc_hal_abort(const char* message) {
-    if (oomOwner && xTaskGetCurrentTaskHandle() == oomOwner) longjmp(oomRecovery, 1);
+    if (oomOwner.load() && xTaskGetCurrentTaskHandle() == oomOwner.load()) longjmp(oomRecovery, 1);
     printf("mruby/c abort: %s\n",message ? message : ""); abort();
 }
 const Game kRuby = {"Ruby",nullptr,enter,tick,icon,leave,GameCategory::play,GameFooter::sound};
