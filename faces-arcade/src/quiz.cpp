@@ -1,4 +1,5 @@
-// Listening quizzes: note, chord and kana (spoken with TTS).
+// Listening quizzes: note (absolute or relative pitch), chord and kana (spoken with TTS).
+// Absolute pitch plays only the note to guess. Relative pitch plays "do" first as a reference.
 // Four choices in a 2x2 grid. Tap answers directly; the D-pad moves and A answers.
 // Ten correct answers in a row finish the quiz and return to the menu.
 #include "common.h"
@@ -9,13 +10,17 @@ enum Kind { NOTE, CHORD, KANA };
 enum State { MODE_SELECT, ASK, RIGHT, WRONG, DONE };
 const int kGoal = 10;
 const int kBarH = 42;
-const uint32_t kWrongShowMs = 2200;  // long enough to hear the question again
+const uint32_t kWrongShowMs = 2600;  // long enough to hear the buzzer and then the question again
+const uint32_t kRightShowMs = 1000;  // long enough for the chime to ring out
 
 Kind kind;
 State state;
 int streak, selected, answer, choiceCount;
 int kanaMode;  // 0: hiragana, 1: katakana, 2: mixed
+bool absolutePitch;  // note quiz only: no reference "do" before the question
 uint32_t feedbackAt;
+bool replayPending;  // WRONG: replay the question once the buzzer has finished
+const uint32_t kReplayAfterMs = 900;
 bool colorsInitialized = false, colorsAnimating = false;
 bool renderedThisTick = false;
 uint32_t colorsAt;
@@ -201,11 +206,19 @@ void drawBar(uint16_t fill) {
 
 void drawAskBar(uint32_t elapsed) {
     drawBar(rgb(7, 9, 18));
-    const char* title = kind == NOTE ? "音あて" : kind == CHORD ? "和音あて" : "かな読み";
-    const int badgeWidth = kind == NOTE ? 96 : 120;
+    const char* title = kind == NOTE ? (absolutePitch ? "絶対音感" : "相対音感") : kind == CHORD ? "和音あて" : "かな読み";
+    const int badgeWidth = 120;
     uiFrame.fillSmoothRoundRect(6, 6, badgeWidth, 32, 16, pal::kCyan);
     uiFrame.fillSmoothRoundRect(7, 7, badgeWidth - 2, 30, 15, rgb(7, 9, 18));
     text(uiFrame, title, 6 + badgeWidth / 2, 10, pal::kCyan, F24, top_center);
+    if (state == RIGHT) {
+        text(uiFrame, "せいかい！", 314, 8, rgb(91, 227, 138), F24, top_right);
+        return;
+    }
+    if (state == WRONG) {
+        text(uiFrame, "ざんねん", 314, 8, rgb(255, 157, 70), F24, top_right);
+        return;
+    }
     for (int i = 0; i < kGoal; ++i)
         uiFrame.fillSmoothCircle(176 + i * 14, 22, 5, blend565(dotsFrom[i], dotsTo[i], elapsed));
 }
@@ -225,8 +238,12 @@ void playQuestion() {
     }
     soundStop();
     if (kind == NOTE) {
-        soundPlay(0, 500, 72);          // reference "do"
-        soundPlay(700, 800, notes[0]);  // the note to guess
+        if (absolutePitch) {
+            soundPlay(0, 800, notes[0]);    // the note to guess, with nothing to compare against
+        } else {
+            soundPlay(0, 500, 72);          // reference "do"
+            soundPlay(700, 800, notes[0]);  // the note to guess
+        }
     } else {
         soundPlay(0, 1400, notes[0], notes[1], notes[2]);
     }
@@ -235,7 +252,7 @@ void playQuestion() {
 void askQuestion() {
     int picks[4];
     memset(choiceSub, 0, sizeof(choiceSub));
-    selected    = 0;
+    selected    = -1;  // nothing is highlighted until the player moves the cursor
     choiceCount = 4;
     if (kind == NOTE) {
         const int target = arcadeRandom(7);
@@ -293,15 +310,22 @@ void drawDone() {
 void answerNow() {
     const bool ok = selected == answer;
     soundStop();
+    replayPending = false;
     if (ok) {
         ++streak;
         submitScore(scoreKey, streak);
         state = RIGHT;
+        // "Pin-pon": a falling major third (E6 -> C6), heard as "OK" in UI-sound research, on an FM bell.
+        soundPlayTimbre(Timbre::bell, 0, 500, 88);
+        soundPlayTimbre(Timbre::bell, 160, 800, 84, 79);
     } else {
         streak = 0;
         state = WRONG;
+        // "Bu-buu": a rising minor second, heard as "error", on a rough two-note buzzer.
+        soundPlayTimbre(Timbre::buzz, 0, 170, 61, 62);
+        soundPlayTimbre(Timbre::buzz, 250, 380, 62, 63);
+        replayPending = true;       // then hear the right answer again
     }
-    if (!ok) playQuestion();  // Hear the right answer again.
     feedbackAt = lgfx::millis();
     transitionCells();
     printf("QUIZ picked=%d ok=%d streak=%d\n", selected, ok, streak);
@@ -320,6 +344,12 @@ void drawModeSelect() {
 }
 
 void moveCursor() {
+    if (selected < 0) {  // the first D-pad press only shows the cursor
+        if (!(pad_just & (kLeft | kRight | kUp | kDown))) return;
+        selected = 0;
+        transitionCells();
+        return;
+    }
     int next = selected;
     if (pad_just & kLeft) next = selected % 2 ? selected - 1 : selected + 1;
     if (pad_just & kRight) next = selected % 2 ? selected - 1 : selected + 1;
@@ -358,16 +388,20 @@ void tick() {
                     selected = hit;
                 }
             }
-            if (hit >= 0 || (pad_just & kA)) answerNow();
+            if (hit >= 0 || ((pad_just & kA) && selected >= 0)) answerNow();
             break;
         }
         case RIGHT:
-            if (lgfx::millis() - feedbackAt >= 800) {
+            if (lgfx::millis() - feedbackAt >= kRightShowMs) {
                 if (streak >= kGoal) drawDone();
                 else askQuestion();
             }
             break;
         case WRONG:
+            if (replayPending && lgfx::millis() - feedbackAt >= kReplayAfterMs) {
+                replayPending = false;
+                playQuestion();
+            }
             if (lgfx::millis() - feedbackAt >= kWrongShowMs ||
                 (((pad_just & kA) || tap_just) && lgfx::millis() - feedbackAt >= 250)) {
                 askQuestion();
@@ -402,7 +436,9 @@ void enterKind(Kind k, const char* key) {
     }
 }
 
-void enterNote() { enterKind(NOTE, "note"); }
+// The relative quiz keeps the "note" key: records saved before the split were played with the reference "do".
+void enterNoteAbsolute() { absolutePitch = true; enterKind(NOTE, "note_abs"); }
+void enterNoteRelative() { absolutePitch = false; enterKind(NOTE, "note"); }
 void enterChord() { enterKind(CHORD, "chord"); }
 void enterKana() { enterKind(KANA, "kana"); }
 void leave() { soundEnd(); }
@@ -430,6 +466,7 @@ void iconKana(int x, int y) {
 }
 }  // namespace
 
-const Game kNoteQuiz  = {"音あて", "note", enterNote, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
+const Game kAbsolutePitchQuiz = {"絶対音感", "note_abs", enterNoteAbsolute, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
+const Game kNoteQuiz  = {"相対音感", "note", enterNoteRelative, tick, iconNote, leave, GameCategory::learn, GameFooter::score};
 const Game kChordQuiz = {"和音あて", "chord", enterChord, tick, iconChord, leave, GameCategory::learn, GameFooter::score};
 const Game kKanaQuiz  = {"かな読み", "kana", enterKana, tick, iconKana, leave, GameCategory::learn, GameFooter::score};

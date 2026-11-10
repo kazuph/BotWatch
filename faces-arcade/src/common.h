@@ -85,6 +85,9 @@ void soundEnd();
 void soundStop();
 // Schedules up to 3 simultaneous MIDI notes `delayMs` from now. Call soundTick() every loop.
 void soundPlay(uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);
+// Same, with a tone colour: piano (default), bell (FM chime for "correct"), buzz (rough square buzzer for "wrong").
+enum class Timbre { piano, bell, buzz };
+void soundPlayTimbre(Timbre timbre, uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);
 void soundTick();
 
 // sanoTTS-jp: speaks hiragana. ttsSay blocks while a clip is synthesized the first time.
@@ -105,6 +108,7 @@ struct Game {
     GameCategory category;
     GameFooter footer;
 };
+extern const Game kAbsolutePitchQuiz;
 extern const Game kNoteQuiz;
 extern const Game kChordQuiz;
 extern const Game kKanaQuiz;
@@ -113,6 +117,7 @@ extern const Game kBlockDrop;
 extern const Game kSnake;
 extern const Game kFlappy;
 extern const Game kTenSeconds;
+extern const Game kSpace3D;
 #if CONFIG_IDF_TARGET_ESP32S3
 extern const Game kRuby;
 extern const Game kCamera;
