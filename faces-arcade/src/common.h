@@ -85,6 +85,8 @@ void soundEnd();
 void soundStop();
 // Schedules up to 3 simultaneous MIDI notes `delayMs` from now. Call soundTick() every loop.
 void soundPlay(uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);
+// Same as soundPlay, with the sample amplitude scaled by volume (0..1).
+void soundPlayVolume(float volume, uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);
 // Same, with a tone colour: piano (default), bell (FM chime for "correct"), buzz (rough square buzzer for "wrong").
 enum class Timbre { piano, bell, buzz };
 void soundPlayTimbre(Timbre timbre, uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);

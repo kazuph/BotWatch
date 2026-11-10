@@ -164,7 +164,7 @@ void render(bool showSight = true, bool push = true) {
 
 void fire() {
     laserFrames = 3;
-    soundPlay(0, 60, 96);
+    soundPlayVolume(0.5f, 0, 60, 96);  // the shot plays often; half amplitude keeps it from being loud
     int best = -1;
     float bestZ = 1e9f;
     for (int i = 0; i < kEnemies; ++i) {
