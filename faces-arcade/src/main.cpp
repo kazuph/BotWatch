@@ -218,6 +218,35 @@ void drawMenuCard(int index, int x) {
     d.clearClipRect();
 }
 
+// Speaker with up to three bars, or a red cross when silent. SELECT on the menu steps through the levels.
+void drawVolume(lgfx::LovyanGFX& d) {
+    const int x = 200, cy = 17;
+    const uint16_t c = sound_level ? pal::kText : pal::kDim;
+    d.fillRect(x, cy - 4, 5, 9, c);
+    d.fillTriangle(x + 4, cy, x + 11, cy - 8, x + 11, cy + 8, c);
+    if (sound_level == 0) {
+        d.drawWideLine(x + 16, cy - 5, x + 26, cy + 5, 2, pal::kRed);
+        d.drawWideLine(x + 16, cy + 5, x + 26, cy - 5, 2, pal::kRed);
+        return;
+    }
+    for (int i = 0; i < 3; ++i) {
+        const int h = 6 + i * 4;
+        d.fillRoundRect(x + 15 + i * 6, cy + 8 - h, 4, h, 1, i < sound_level ? pal::kCyan : rgb(58, 65, 128));
+    }
+}
+
+bool menuSpeakerOn = false;
+
+void stepVolume() {
+    sound_level = sound_level == 0 ? 3 : sound_level - 1;  // large -> medium -> small -> silent -> large
+    if (prefs && (nvs_set_i32(prefs, "volume", sound_level) != ESP_OK || nvs_commit(prefs) != ESP_OK)) puts("GAMES volume save failed");
+    printf("GAMES volume=%d\n", sound_level);
+    if (!menuSpeakerOn) { soundBegin(); menuSpeakerOn = true; }
+    M5.Speaker.setVolume(soundSpeakerVolume());
+    soundStop();
+    if (sound_level) soundPlay(0, 70, 84);  // a short beep at the new volume
+}
+
 void drawMenu() {
     auto& d = uiFrame;
     uiRadialBackground(rgb(26, 31, 74), rgb(7, 9, 18));
@@ -229,6 +258,7 @@ void drawMenu() {
     ui_icon::link(d, 258, 17, false);
 #endif
     if (menuBattery >= 0) ui_icon::battery(d, 274, 9, menuBattery);
+    drawVolume(d);
     const int elapsed = sliding ? min<uint32_t>(lgfx::millis() - slideAt, 150) : 0;
     const int offset = sliding ? 280 * elapsed / 150 : 0;
     if (sliding) {
@@ -293,6 +323,7 @@ void openCursor() {
     if (running == &kCamera) name = "camera";
 #endif
     printf("GAMES play=%s\n", name);
+    if (menuSpeakerOn) { soundEnd(); menuSpeakerOn = false; }  // each game opens the speaker or microphone itself
     running->enter();
 }
 
@@ -336,6 +367,7 @@ void menuTick() {
     else if (pad_just & kLeft) action = PREVIOUS;
     else if (pad_just & kRight) action = NEXT;
     else if (pad_just & (kA | kStart)) action = OPEN;
+    if (pad_just & kSelect) { stepVolume(); if (!sliding) drawMenu(); }
     const auto touch = M5.Touch.getDetail();
     if (touch.wasPressed()) {
         menuTouchActive = true;
@@ -491,7 +523,7 @@ void handleSerial() {
         if (line[0] == 't' && sscanf(line + 1, "%d,%d", &injected_x, &injected_y) == 2) tap_injected = true;
         if (line[0] == 'm') {
             test_mute = line[1] == '1';
-            M5.Speaker.setVolume(test_mute ? 0 : 200);
+            M5.Speaker.setVolume(soundSpeakerVolume());
         }
 #if CONFIG_IDF_TARGET_ESP32S3
         network_settings::wipe(line, sizeof(line));
@@ -517,6 +549,7 @@ TenDetail ten_detail = {};
 int64_t ten_draw_us = 0, ten_transfer_us = 0;
 int test_tone_hz = 0;
 bool test_mute   = false;
+int sound_level  = 3;
 bool test_mic_left = false;
 
 int bestScore(const char* key) {
@@ -793,6 +826,9 @@ void setup() {
     esp_err_t nvs = nvs_flash_init();
     if (nvs == ESP_OK) nvs = nvs_open("arcade", NVS_READWRITE, &prefs);
     if (nvs != ESP_OK) printf("GAMES nvs=%s\n", esp_err_to_name(nvs));
+    int32_t savedLevel = 3;
+    if (prefs && nvs_get_i32(prefs, "volume", &savedLevel) == ESP_OK && savedLevel >= 0 && savedLevel <= 3) sound_level = savedLevel;
+    printf("GAMES volume=%d\n", sound_level);
     if (gamepad.begin(&M5.In_I2C, 0x08, 100000) != M5FACES_OK) {
         uiFrame.fillScreen(pal::kBg);
         text(uiFrame, "ゲームパッドなし", 160, 100, pal::kRed, F32, top_center);

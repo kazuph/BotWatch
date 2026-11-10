@@ -59,6 +59,8 @@ extern int64_t ten_draw_us, ten_transfer_us;
 bool tenTimingActive();
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
+extern int sound_level;    // 0 = silent, 1..3 = small, medium, large (saved as "volume")
+uint8_t soundSpeakerVolume();  // speaker volume for sound_level, 0 while test_mute
 extern bool test_mic_left; // self test: PDM channel used by the microphone
 extern M5Canvas uiFrame;  // Shared 320 x 240 UI frame allocated once in PSRAM.
 extern M5Canvas uiGlyph;  // Small sprite for antialiased enlarged text.

@@ -154,8 +154,13 @@ void soundBegin() {
     }
     M5.Mic.end();
     M5.Speaker.begin();
-    M5.Speaker.setVolume(test_mute ? 0 : 200);
+    M5.Speaker.setVolume(soundSpeakerVolume());
     eventCount = 0;
+}
+
+uint8_t soundSpeakerVolume() {
+    static const uint8_t kLevels[4] = {0, 60, 120, 200};  // 200 was the only volume before
+    return test_mute ? 0 : kLevels[sound_level < 0 ? 0 : sound_level > 3 ? 3 : sound_level];
 }
 
 void soundEnd() {
