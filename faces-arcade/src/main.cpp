@@ -24,6 +24,7 @@
 #include "network_serial.h"
 #include "network_settings.h"
 #include "network_job.h"
+#include "ruby_service.h"
 #endif
 
 namespace {
@@ -35,7 +36,7 @@ int injected_x = 0, injected_y = 0;
 
 const Game* const kGames[] = {&kAbsolutePitchQuiz, &kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy, &kSpace3D, &kTenSeconds
 #if CONFIG_IDF_TARGET_ESP32S3
-    , &kCamera
+    , &kCamera, &kRuby
 #endif
 };
 const int kGameCount       = sizeof(kGames) / sizeof(kGames[0]);
@@ -273,6 +274,15 @@ void menuEnter() {
     dotFading = false;
     drawMenu();
     puts("GAMES menu");
+}
+
+void leaveCurrentGame() {
+    request_menu = false;
+    if (running && running->leave) running->leave();
+#if CONFIG_IDF_TARGET_ESP32S3
+    arcade_led::clear();
+#endif
+    running = nullptr;
 }
 
 void openCursor() {
@@ -795,6 +805,9 @@ void setup() {
     // The Core2 IMU (0x68) and PDM mic share the small board in the stock bottom module.
     printf("GAMES imu_0x68=%d imu_enabled=%d board=%d\n", M5.In_I2C.scanID(0x68), M5.Imu.isEnabled(), int(M5.getBoard()));
     logMemory("startup");
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (!rubyServiceBegin()) puts("Ruby の待受を準備できません");
+#endif
     menuEnter();
 }
 
@@ -824,15 +837,18 @@ void loop() {
     previousInput = input_time_us;
     soundTick();
     const int64_t soundEndAt = esp_timer_get_time();
+#if CONFIG_IDF_TARGET_ESP32S3
+    if (running != &kRuby && rubyServiceProgramReady()) {
+        leaveCurrentGame();
+        sliding = false; pendingAction = NONE;
+        cursor = kGameCount - 1;
+        openCursor();
+    } else
+#endif
     if (!running) {
         menuTick();
     } else if (pad_exit || request_menu) {
-        request_menu = false;
-        if (running->leave) running->leave();
-#if CONFIG_IDF_TARGET_ESP32S3
-        arcade_led::clear();
-#endif
-        running = nullptr;
+        leaveCurrentGame();
         logMemory("returned_to_menu");
         menuEnter();
     } else {

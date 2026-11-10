@@ -1,0 +1,7 @@
+if(IDF_TARGET STREQUAL "esp32s3")
+    file(GLOB mrubyc_sources "src/*.c")
+    idf_component_register(SRCS ${mrubyc_sources} INCLUDE_DIRS "src" ".")
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC MRBC_NO_TIMER=1)
+else()
+    idf_component_register()
+endif()

@@ -119,6 +119,7 @@ extern const Game kFlappy;
 extern const Game kTenSeconds;
 extern const Game kSpace3D;
 #if CONFIG_IDF_TARGET_ESP32S3
+extern const Game kRuby;
 extern const Game kCamera;
 extern const Game kPhotoViewer;
 #endif
