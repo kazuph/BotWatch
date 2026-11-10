@@ -1,6 +1,6 @@
 set(app_sources "../src/main.cpp" "../src/sound.cpp" "../src/tts_kana.cpp" "../src/ui_icons.cpp"
     "../src/quiz.cpp" "../src/spectrum.cpp" "../src/game_blockdrop.cpp"
-    "../src/game_snake.cpp" "../src/game_flappy.cpp" "../src/game_space3d.cpp" "../src/game_space3d_fable.cpp" "../src/game_ten_seconds.cpp")
+    "../src/game_snake.cpp" "../src/game_flappy.cpp" "../src/game_space3d.cpp" "../src/game_ten_seconds.cpp")
 set(app_requires nvs_flash esp_timer esp_driver_usb_serial_jtag esp_driver_uart)
 if(IDF_TARGET STREQUAL "esp32s3")
     list(APPEND app_sources "../src/camera.cpp" "../src/photo_storage.cpp" "../src/vision.cpp"
