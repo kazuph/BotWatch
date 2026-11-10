@@ -22,8 +22,8 @@ struct V3 { float x, y, z; };
 struct Star { float x, y, z; };
 struct Enemy { bool alive; Kind kind; int hp, locked, fireIn; float x, y, z, vx, vy, ax, ay, sa, sb; };
 struct Bit { bool alive; float x, y, vx, vy; int life; uint16_t color; };
-struct Shot { bool alive; float x, y, z, vx, vy, vz; };
-struct Missile { bool alive; int target, age, chain; float x, y, cx, cy; };
+struct Shot { bool alive; int locked; float x, y, z, vx, vy, vz; };
+struct Missile { bool alive; bool shot; int target, age, chain; float x, y, cx, cy; };  // shot: target is shots[target]
 struct Ring { bool alive; float x, y, r; int life; uint16_t color; };
 struct Pop { int life; float x, y; char text[12]; uint16_t color; };
 Star stars[kStars];
@@ -155,7 +155,7 @@ void resetRound() {
     for (auto& s : stars) resetStar(s, true);
     for (auto& e : enemies) e.alive = false;
     for (auto& b : bits) b.alive = false;
-    for (auto& s : shots) s.alive = false;
+    for (auto& s : shots) s.alive = false, s.locked = 0;
     for (auto& m : missiles) m.alive = false;
     for (auto& r : rings) r.alive = false;
     for (auto& p : pops) p.life = 0;
@@ -380,6 +380,10 @@ void render(bool showSight = true, bool push = true) {
         if (e.locked) drawLockMark(sx, sy, e.locked, z);
         else if (e.kind != CAPSULE && e.kind != POD && z < 130) d.drawCircle(sx, sy, int(kSizes[e.kind] * kFocal / z) + 6, rgb(255, 70, 60));
     }
+    for (const auto& sh : shots) {
+        int sx, sy;
+        if (sh.alive && sh.locked && project(sh.x, sh.y, sh.z, sx, sy)) drawLockMark(sx, sy, sh.locked, sh.z);
+    }
     // Missiles: bright heads with short trails on a curved path.
     for (const auto& m : missiles) {
         if (!m.alive) continue;
@@ -507,7 +511,7 @@ void fire() {
         int sx, sy;
         auto& s = shots[bestShot];
         project(s.x, s.y, s.z, sx, sy);
-        s.alive = false;
+        dropShot(s);
         burst(sx, sy, rgb(255, 140, 60), 8);
         score += 5;
         soundPlayVolume(0.5f, 0, 70, 79);
@@ -535,8 +539,23 @@ void fire() {
     }
 }
 
+// A locked shot that disappears gives its lock back while B is still held, like an enemy does in kill().
+void dropShot(Shot& s) {
+    if (s.locked && lockCount > 0 && (pad_now & kB)) --lockCount;
+    s.locked = 0;
+    s.alive = false;
+}
+
 void updateLocks() {
     if (!(pad_now & kB) || lockCount >= kMaxLocks) return;
+    // During the boss fight, its shots can be locked too and shot down by the homing missiles.
+    if (bossAlive)
+        for (auto& sh : shots) {
+            if (!sh.alive || sh.locked || !underSight(sh.x, sh.y, sh.z, 8, 14)) continue;
+            sh.locked = ++lockCount;
+            soundPlayVolume(0.45f, 0, 70, 76 + lockCount * 2);
+            if (lockCount >= kMaxLocks) return;
+        }
     for (auto& e : enemies) {
         if (!e.alive || e.locked || e.kind == CAPSULE) continue;
         float x, y, z;
@@ -554,7 +573,13 @@ void releaseLocks() {
     for (int i = 0; i < kEnemies && n < kMissiles; ++i) {
         if (!enemies[i].alive || !enemies[i].locked) continue;
         auto& m = missiles[n];
-        m = {true, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
+        m = {true, false, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
+        ++n;
+    }
+    for (int i = 0; i < kShots && n < kMissiles; ++i) {
+        if (!shots[i].alive || !shots[i].locked) continue;
+        auto& m = missiles[n];
+        m = {true, true, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
         ++n;
     }
     for (auto& m : missiles) if (m.alive) m.chain = n;
@@ -563,12 +588,38 @@ void releaseLocks() {
     lockCount = 0;
 }
 
+void stepShotMissile(Missile& m) {
+    auto& sh = shots[m.target];
+    int sx, sy;
+    if (!sh.alive || !project(sh.x, sh.y, sh.z, sx, sy)) { m.alive = false; sh.locked = 0; return; }
+    m.cx = m.x;
+    m.cy = m.y;
+    const float t = min(1.0f, m.age / 9.0f);
+    const float side = (m.x < kCx ? -1 : 1) * 30.0f * (1 - t);
+    m.x += (sx - m.x) * (0.18f + 0.5f * t) + side * 0.3f;
+    m.y += (sy - m.y) * (0.18f + 0.5f * t) - 6 * (1 - t);
+    if (m.age >= 10 || (fabsf(m.x - sx) < 6 && fabsf(m.y - sy) < 6)) {
+        m.alive = false;
+        sh.locked = 0;
+        sh.alive = false;
+        burst(sx, sy, rgb(255, 140, 60), 8);
+        const int pts = 5 * (m.chain > 1 ? 1 << min(m.chain - 1, 5) : 1);
+        score += pts;
+        char b[12];
+        snprintf(b, sizeof(b), "%d", pts);
+        pop(sx, sy - 10, b, rgb(255, 160, 90));
+        soundPlayVolume(0.5f, 0, 70, 79);
+        printf("SPACE shot down by missile score=%d\n", score);
+    }
+}
+
 void stepMissiles() {
     int hits = 0;
     for (auto& m : missiles) {
         if (!m.alive) continue;
         ++m.age;
         if (m.age < 0) continue;
+        if (m.shot) { stepShotMissile(m); continue; }
         auto& e = enemies[m.target];
         if (!e.alive) { m.alive = false; continue; }
         float x, y, z;
@@ -606,6 +657,7 @@ void enemyFire(float x, float y, float z, float spread) {
     for (auto& s : shots) {
         if (s.alive) continue;
         s.alive = true;
+        s.locked = 0;
         s.x = x; s.y = y; s.z = z;
         // Aim at where the ship is now; moving away dodges it.
         const float steps = (z - kNear) / 7.0f;
@@ -711,7 +763,7 @@ void step() {
         s.y += s.vy;
         s.z += s.vz;
         if (s.z < kNear) {
-            s.alive = false;
+            dropShot(s);
             // A shot whose center has already left the screen flew past: it never hurts.
             int sx, sy;
             const bool onScreen = project(s.x, s.y, kNear, sx, sy) && sx >= 0 && sx < kW && sy >= 0 && sy < kH;
