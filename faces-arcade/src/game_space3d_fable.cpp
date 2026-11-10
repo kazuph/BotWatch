@@ -597,15 +597,23 @@ void drawObj(const Obj& o) {
 // A ringed gas giant far away. Its colours change with the wave.
 void drawPlanetRing(int px, int py, int R, bool front, uint16_t color) {
     auto& d = uiFrame;
-    const float ct = cosf(-0.35f), st = sinf(-0.35f);
+    static float ringCos[33], ringSin[33];  // computed once: the ring shape never changes
+    static bool ringReady = false;
+    if (!ringReady) {
+        for (int i = 0; i <= 32; ++i) {
+            ringCos[i] = cosf(i * (2 * PI / 32));
+            ringSin[i] = sinf(i * (2 * PI / 32));
+        }
+        ringReady = true;
+    }
+    const float ct = 0.9394f, st = -0.3429f;  // cos and sin of the ring tilt (-0.35 rad)
     for (int pass = 0; pass < 2; ++pass) {
         const float a = R * (pass ? 1.65f : 1.95f), b = R * (pass ? 0.38f : 0.46f);
         int lx = 0, ly = 0;
         for (int i = 0; i <= 32; ++i) {
-            const float t = i * (2 * PI / 32);
-            const float ex = cosf(t) * a, ey = sinf(t) * b;
+            const float ex = ringCos[i] * a, ey = ringSin[i] * b;
             const int x = px + int(ex * ct - ey * st), y = py + int(ex * st + ey * ct);
-            const bool isFront = sinf(t - PI / 32) > 0;
+            const bool isFront = i >= 1 && i <= 16;  // the segment ending at point i lies in the lower (near) half
             if (i > 0 && isFront == front) d.drawLine(lx, ly, x, y, color);
             lx = x;
             ly = y;
@@ -696,7 +704,7 @@ void drawHud() {
     }
     const int cells = max(kStartShields, shields);
     for (int i = 0; i < cells; ++i)
-        d.fillSmoothRoundRect(316 - (cells - i) * 22, 10, 17, 12, 4, i < shields ? pal::kCyan : rgb(38, 57, 90));
+        d.fillRoundRect(316 - (cells - i) * 22, 10, 17, 12, 4, i < shields ? pal::kCyan : rgb(38, 57, 90));
     for (const auto& o : objs)
         if (o.alive && o.kind == BOSS) {
             d.fillRect(110, 30, 100, 8, rgb(40, 20, 30));
@@ -880,12 +888,13 @@ void tick() {
         gameOver();
         return;
     }
-    const uint32_t t0 = lgfx::millis();
-    render(true, true, true);
-    drawMs += int(lgfx::millis() - t0);
+    const uint32_t t0 = lgfx::micros();
+    render(true, true, false);
+    drawMs += int(lgfx::micros() - t0);
+    uiFrame.pushSprite(0, 0);  // the only push of this frame
     if (++drawCount >= 100) {
         const uint32_t t1 = lgfx::millis();
-        printf("SPACE fps=%d frame=%dms wave=%d\n", int(100000 / max<uint32_t>(1, t1 - statAt)), drawMs / 100, wave);
+        printf("SPACE fps=%d draw_us=%d wave=%d\n", int(100000 / max<uint32_t>(1, t1 - statAt)), drawMs / 100, wave);
         statAt = t1;
         drawMs = drawCount = 0;
     }
