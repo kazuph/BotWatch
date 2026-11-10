@@ -490,9 +490,8 @@ bool underSight(float x, float y, float z, float r, float margin) {
     return dx * dx + dy * dy <= rr * rr;
 }
 
-// A locked shot that disappears gives its lock back while B is still held, like an enemy does in kill().
+// Removes an enemy shot (its intercept missile, if any, stops on the next step).
 void dropShot(Shot& s) {
-    if (s.locked && lockCount > 0 && (pad_now & kB)) --lockCount;
     s.locked = 0;
     s.alive = false;
 }
@@ -549,13 +548,20 @@ void fire(bool rapid = false) {
 
 void updateLocks() {
     if (!(pad_now & kB) || lockCount >= kMaxLocks) return;
-    // During the boss fight, its shots can be locked too and shot down by the homing missiles.
+    // During the boss fight, sweeping B over its shots intercepts them: a missile leaves at once
+    // (waiting for the release would let the shot arrive first). These do not use up the enemy locks.
     if (bossAlive)
-        for (auto& sh : shots) {
+        for (int i = 0; i < kShots; ++i) {
+            auto& sh = shots[i];
             if (!sh.alive || sh.locked || !underSight(sh.x, sh.y, sh.z, 8, 14)) continue;
-            sh.locked = ++lockCount;
-            soundPlayVolume(0.45f, 0, 70, 76 + lockCount * 2);
-            if (lockCount >= kMaxLocks) return;
+            Missile* m = nullptr;
+            for (auto& c : missiles) if (!c.alive) { m = &c; break; }
+            if (!m) break;
+            sh.locked = 1;
+            const float fromX = (i % 2) ? kW - 40 : 40;
+            *m = {true, true, i, 0, 1, fromX, float(kH - 20), fromX, float(kH - 20)};
+            soundPlayVolume(0.45f, 0, 70, 88);
+            printf("SPACE intercept shot=%d\n", i);
         }
     for (auto& e : enemies) {
         if (!e.alive || e.locked || e.kind == CAPSULE) continue;
@@ -570,20 +576,18 @@ void updateLocks() {
 
 void releaseLocks() {
     if (lockCount == 0) return;
-    int n = 0;
-    for (int i = 0; i < kEnemies && n < kMissiles; ++i) {
+    // Free missile slots only, so intercept missiles already in flight keep going.
+    Missile* launched[kMissiles];
+    int n = 0, slot = 0;
+    for (int i = 0; i < kEnemies; ++i) {
         if (!enemies[i].alive || !enemies[i].locked) continue;
-        auto& m = missiles[n];
+        while (slot < kMissiles && missiles[slot].alive) ++slot;
+        if (slot >= kMissiles) { enemies[i].locked = 0; continue; }
+        auto& m = missiles[slot];
         m = {true, false, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
-        ++n;
+        launched[n++] = &m;
     }
-    for (int i = 0; i < kShots && n < kMissiles; ++i) {
-        if (!shots[i].alive || !shots[i].locked) continue;
-        auto& m = missiles[n];
-        m = {true, true, i, 0, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
-        ++n;
-    }
-    for (auto& m : missiles) if (m.alive) m.chain = n;
+    for (int i = 0; i < n; ++i) launched[i]->chain = n;
     printf("SPACE missiles=%d\n", n);
     for (int i = 0; i < min(n, 3); ++i) soundPlayVolume(0.5f, i * 70, 90, 84 + i * 3);
     lockCount = 0;
