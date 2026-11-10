@@ -33,7 +33,7 @@ uint8_t pad_injected   = 0;  // set over serial for self tests
 bool tap_injected      = false;
 int injected_x = 0, injected_y = 0;
 
-const Game* const kGames[] = {&kAbsolutePitchQuiz, &kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy, &kTenSeconds
+const Game* const kGames[] = {&kAbsolutePitchQuiz, &kNoteQuiz, &kChordQuiz, &kKanaQuiz, &kSpectrum, &kBlockDrop, &kSnake, &kFlappy, &kSpace3D, &kTenSeconds
 #if CONFIG_IDF_TARGET_ESP32S3
     , &kCamera
 #endif
