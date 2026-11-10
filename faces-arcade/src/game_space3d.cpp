@@ -650,7 +650,7 @@ void step() {
     }
     gridPhase += speed * 1.5f;
     if (gridPhase >= 50) gridPhase -= 50;
-    const float move = 5.5f;
+    const float move = 5.5f * 1.15f;  // 1.15x after play testing
     if (pad_now & kLeft) sightX -= move;
     if (pad_now & kRight) sightX += move;
     if (pad_now & kUp) sightY -= move;
@@ -712,7 +712,10 @@ void step() {
         s.z += s.vz;
         if (s.z < kNear) {
             s.alive = false;
-            if (fabsf(s.x - camX) < 26 && fabsf(s.y - camY) < 22) hurt();
+            // A shot whose center has already left the screen flew past: it never hurts.
+            int sx, sy;
+            const bool onScreen = project(s.x, s.y, kNear, sx, sy) && sx >= 0 && sx < kW && sy >= 0 && sy < kH;
+            if (onScreen && fabsf(s.x - camX) < 26 && fabsf(s.y - camY) < 22) hurt();
             else soundPlayVolume(0.25f, 0, 80, 70, 74);  // a near miss whooshes past
         }
     }

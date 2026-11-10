@@ -12,6 +12,10 @@
 #include <string>
 #include "mrubyc.h"
 
+// The last program received over Bluetooth is kept, so opening Ruby (also after a restart) runs it again.
+constexpr const char* kLastProgramKey = "ruby_last";
+bool queueProgram(uint8_t* data, size_t size);
+
 namespace {
 struct Program { uint8_t* bytes; size_t size; };
 struct Note { int midi; uint32_t duration; };
@@ -253,8 +257,15 @@ void enter() {
     }
     xSemaphoreTake(submitLock,portMAX_DELAY);
     gameActive.store(true);
+    const bool waiting = programs && uxQueueMessagesWaiting(programs) == 0;
     xSemaphoreGive(submitLock);
     xTaskNotifyGive(taskHandle);
+    size_t size = 0;
+    uint8_t* last = waiting ? loadBlob(kLastProgramKey, &size) : nullptr;
+    if (last) {
+        printf("RUBY restored bytes=%u\n", unsigned(size));
+        if (!queueProgram(last, size)) free(last);
+    }
 }
 void tick() {
     held.store(pad_now); pressed.fetch_or(pad_just & uint8_t(~kSelect));
@@ -290,6 +301,11 @@ bool rubyServiceProgramReady() {
 }
 
 bool rubySubmit(uint8_t* data, size_t size) {
+    if (saveBlob(kLastProgramKey, data, size)) printf("RUBY saved bytes=%u\n", unsigned(size));
+    else printf("RUBY save failed bytes=%u\n", unsigned(size));
+    return queueProgram(data, size);
+}
+bool queueProgram(uint8_t* data, size_t size) {
     if (!submitLock) return false;
     Program program{data,size};
     xSemaphoreTake(submitLock,portMAX_DELAY);

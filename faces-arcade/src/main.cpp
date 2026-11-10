@@ -218,7 +218,7 @@ void drawMenuCard(int index, int x) {
     d.clearClipRect();
 }
 
-// Speaker with up to three bars, or a red cross when silent. SELECT on the menu steps through the levels.
+// Speaker with up to three bars, or a red cross when silent. Up and down on the menu change the level.
 void drawVolume(lgfx::LovyanGFX& d) {
     const int x = 200, cy = 17;
     const uint16_t c = sound_level ? pal::kText : pal::kDim;
@@ -237,8 +237,32 @@ void drawVolume(lgfx::LovyanGFX& d) {
 
 bool menuSpeakerOn = false;
 
-void stepVolume() {
-    sound_level = sound_level == 0 ? 3 : sound_level - 1;  // large -> medium -> small -> silent -> large
+const char* const kPlayerNames[kPlayerCount] = {"かず", "ちひろ", "こはる", "ゆういち"};
+const uint16_t kPlayerColors[kPlayerCount] = {rgb(70, 220, 240), rgb(255, 120, 170), rgb(255, 208, 70), rgb(120, 230, 130)};
+
+void drawPlayer(lgfx::LovyanGFX& d) {
+    const int w = d.textWidth(kPlayerNames[player], F24) + 24;
+    d.fillSmoothRoundRect(4, 4, w, 28, 14, kPlayerColors[player]);
+    text(d, kPlayerNames[player], 4 + w / 2, 6, pal::kBg, F24, top_center);
+}
+
+void loadMenuBest() {
+    for (int i = 0; i < kGameCount; ++i)
+        if (kGames[i]->footer == GameFooter::tenBest) { int32_t value; menuBest[i] = tenBest("t10_hide3", &value) ? value : -1; }
+        else menuBest[i] = kGames[i]->scoreKey ? bestScore(kGames[i]->scoreKey) : 0;
+}
+
+void stepPlayer() {
+    player = (player + 1) % kPlayerCount;
+    if (prefs && (nvs_set_i32(prefs, "player", player) != ESP_OK || nvs_commit(prefs) != ESP_OK)) puts("GAMES player save failed");
+    printf("GAMES player=%d\n", player);
+    loadMenuBest();
+}
+
+void stepVolume(int delta) {
+    const int next = sound_level + delta;  // silent, small, medium, large; stops at both ends
+    if (next < 0 || next > 3) return;
+    sound_level = next;
     if (prefs && (nvs_set_i32(prefs, "volume", sound_level) != ESP_OK || nvs_commit(prefs) != ESP_OK)) puts("GAMES volume save failed");
     printf("GAMES volume=%d\n", sound_level);
     if (!menuSpeakerOn) { soundBegin(); menuSpeakerOn = true; }
@@ -250,8 +274,7 @@ void stepVolume() {
 void drawMenu() {
     auto& d = uiFrame;
     uiRadialBackground(rgb(26, 31, 74), rgb(7, 9, 18));
-    text(d, "FACES", 8, 3, pal::kText, F24);
-    text(d, "ARCADE", 104, 3, rgb(255, 92, 138), F24);
+    drawPlayer(d);
 #if CONFIG_IDF_TARGET_ESP32S3
     drawLink();
 #else
@@ -289,9 +312,7 @@ void menuEnter() {
     pendingAction = NONE;
     menuTouchActive = false;
     menuBattery = M5.Power.getBatteryLevel();
-    for (int i = 0; i < kGameCount; ++i)
-        if (kGames[i]->footer == GameFooter::tenBest) { int32_t value; menuBest[i] = tenBest("t10_hide3", &value) ? value : -1; }
-        else menuBest[i] = kGames[i]->scoreKey ? bestScore(kGames[i]->scoreKey) : 0;
+    loadMenuBest();
 #if CONFIG_IDF_TARGET_ESP32S3
     char error[80];
     menuPhotoReady = photo_storage::count_photos(&menuPhotoCount, error, sizeof(error));
@@ -362,12 +383,11 @@ void menuTick() {
     }
 #endif
     MenuAction action = NONE;
-    if (pad_just & kUp) action = WRAP_PREVIOUS;
-    else if (pad_just & kDown) action = WRAP_NEXT;
-    else if (pad_just & kLeft) action = PREVIOUS;
+    if (pad_just & kLeft) action = PREVIOUS;
     else if (pad_just & kRight) action = NEXT;
     else if (pad_just & (kA | kStart)) action = OPEN;
-    if (pad_just & kSelect) { stepVolume(); if (!sliding) drawMenu(); }
+    if (pad_just & (kUp | kDown)) { stepVolume(pad_just & kUp ? 1 : -1); if (!sliding) drawMenu(); }
+    if (pad_just & kSelect) { stepPlayer(); if (!sliding) drawMenu(); }
     const auto touch = M5.Touch.getDetail();
     if (touch.wasPressed()) {
         menuTouchActive = true;
@@ -550,25 +570,49 @@ int64_t ten_draw_us = 0, ten_transfer_us = 0;
 int test_tone_hz = 0;
 bool test_mute   = false;
 int sound_level  = 3;
+int player       = 0;
+
+// Each player keeps their own records. The first player uses the original keys, so records from before the split stay theirs.
+const char* playerKey(const char* key) {
+    static char buf[16];
+    if (player == 0) return key;
+    snprintf(buf, sizeof(buf), "p%d_%s", player, key);
+    return buf;
+}
 bool test_mic_left = false;
 
 int bestScore(const char* key) {
     int32_t score = 0;
-    if (prefs) nvs_get_i32(prefs, key, &score);
+    if (prefs) nvs_get_i32(prefs, playerKey(key), &score);
     return score;
 }
 
 bool submitScore(const char* key, int score) {
     if (score <= bestScore(key)) return false;
-    return prefs && nvs_set_i32(prefs, key, score) == ESP_OK && nvs_commit(prefs) == ESP_OK;
+    return prefs && nvs_set_i32(prefs, playerKey(key), score) == ESP_OK && nvs_commit(prefs) == ESP_OK;
+}
+
+bool saveBlob(const char* key, const void* data, size_t size) {
+    return prefs && nvs_set_blob(prefs, key, data, size) == ESP_OK && nvs_commit(prefs) == ESP_OK;
+}
+
+uint8_t* loadBlob(const char* key, size_t* size) {
+    *size = 0;
+    if (!prefs || nvs_get_blob(prefs, key, nullptr, size) != ESP_OK || *size == 0) return nullptr;
+    auto* data = static_cast<uint8_t*>(heap_caps_malloc(*size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (data && nvs_get_blob(prefs, key, data, size) == ESP_OK) return data;
+    free(data);
+    *size = 0;
+    return nullptr;
 }
 
 bool tenBest(const char* key, int32_t* value) {
-    return prefs && nvs_get_i32(prefs, key, value) == ESP_OK;
+    return prefs && nvs_get_i32(prefs, playerKey(key), value) == ESP_OK;
 }
 
 bool submitTenBest(const char* key, int32_t value) {
     int32_t old;
+    key = playerKey(key);
     const esp_err_t read = prefs ? nvs_get_i32(prefs, key, &old) : ESP_FAIL;
     if (read == ESP_OK && value >= old) return false;
     if (read != ESP_OK && read != ESP_ERR_NVS_NOT_FOUND) { puts("TEN score read failed"); return false; }
@@ -828,7 +872,9 @@ void setup() {
     if (nvs != ESP_OK) printf("GAMES nvs=%s\n", esp_err_to_name(nvs));
     int32_t savedLevel = 3;
     if (prefs && nvs_get_i32(prefs, "volume", &savedLevel) == ESP_OK && savedLevel >= 0 && savedLevel <= 3) sound_level = savedLevel;
-    printf("GAMES volume=%d\n", sound_level);
+    int32_t savedPlayer = 0;
+    if (prefs && nvs_get_i32(prefs, "player", &savedPlayer) == ESP_OK && savedPlayer >= 0 && savedPlayer < kPlayerCount) player = savedPlayer;
+    printf("GAMES volume=%d player=%d\n", sound_level, player);
     if (gamepad.begin(&M5.In_I2C, 0x08, 100000) != M5FACES_OK) {
         uiFrame.fillScreen(pal::kBg);
         text(uiFrame, "ゲームパッドなし", 160, 100, pal::kRed, F32, top_center);

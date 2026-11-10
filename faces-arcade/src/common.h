@@ -60,7 +60,9 @@ bool tenTimingActive();
 extern int test_tone_hz;   // self test: replaces microphone input with a sine wave when non-zero
 extern bool test_mute;     // self test: keeps the speaker silent
 extern int sound_level;    // 0 = silent, 1..3 = small, medium, large (saved as "volume")
-uint8_t soundSpeakerVolume();  // speaker volume for sound_level, 0 while test_mute
+uint8_t soundSpeakerVolume();
+constexpr int kPlayerCount = 4;
+extern int player;         // who is playing: 0..3, records are kept per player (saved as "player")  // speaker volume for sound_level, 0 while test_mute
 extern bool test_mic_left; // self test: PDM channel used by the microphone
 extern M5Canvas uiFrame;  // Shared 320 x 240 UI frame allocated once in PSRAM.
 extern M5Canvas uiGlyph;  // Small sprite for antialiased enlarged text.
@@ -73,6 +75,9 @@ int bestScore(const char* key);
 bool submitScore(const char* key, int score);  // true when it is a new best
 bool tenBest(const char* key, int32_t* value);
 bool submitTenBest(const char* key, int32_t value);
+// Small binary values kept in the settings storage. loadBlob returns a heap_caps_malloc'd PSRAM copy, or nullptr.
+bool saveBlob(const char* key, const void* data, size_t size);
+uint8_t* loadBlob(const char* key, size_t* size);
 
 void text(lgfx::LovyanGFX& d, const char* s, int x, int y, uint16_t color,
           const lgfx::IFont* font = F24, textdatum_t datum = top_left, float scale = 1.0f);
