@@ -235,12 +235,12 @@ void drawMenu() {
         drawMenuCard(slideFrom, 40 - slideDirection * offset);
         drawMenuCard(slideTo, 40 + slideDirection * (280 - offset));
     } else {
-        drawMenuCard(cursor - 1, -210);
-        drawMenuCard(cursor + 1, 290);
+        drawMenuCard((cursor + kGameCount - 1) % kGameCount, -210);  // the carousel loops, so both neighbors always exist
+        drawMenuCard((cursor + 1) % kGameCount, 290);
         drawMenuCard(cursor, 40);
     }
-    if (cursor > 0) text(d, "◀", 6, 111, pal::kText, F24);
-    if (cursor + 1 < kGameCount) text(d, "▶", 314, 111, pal::kText, F24, top_right);
+    text(d, "◀", 6, 111, pal::kText, F24);
+    text(d, "▶", 314, 111, pal::kText, F24, top_right);
     const int start = 160 - ((kGameCount - 1) * 14) / 2;
     for (int i = 0; i < kGameCount; ++i)
         d.fillSmoothCircle(start + i * 14, 222, 5, rgb(58, 65, 128));
@@ -305,8 +305,7 @@ void menuAction(MenuAction action) {
     if (action == OPEN) { openCursor(); return; }
     const int direction = (action == PREVIOUS || action == WRAP_PREVIOUS) ? -1 : 1;
     int next = cursor + direction;
-    if (action == WRAP_PREVIOUS || action == WRAP_NEXT) next = (next + kGameCount) % kGameCount;
-    if (next < 0 || next >= kGameCount) return;
+    next = (next + kGameCount) % kGameCount;  // every direction loops around the carousel
     slideFrom = cursor;
     slideTo = next;
     slideDirection = direction;

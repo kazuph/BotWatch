@@ -12,6 +12,7 @@ struct Event {
     uint32_t duration;
     int notes[3];
     Timbre timbre;
+    float volume;
 };
 const int kMaxEvents = 8;
 Event events[kMaxEvents];
@@ -170,12 +171,17 @@ void soundStop() {
 
 void soundPlay(uint32_t delayMs, uint32_t durationMs, int note1, int note2, int note3) {
     if (eventCount >= kMaxEvents) return;
-    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}, Timbre::piano};
+    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}, Timbre::piano, 1.0f};
+}
+
+void soundPlayVolume(float volume, uint32_t delayMs, uint32_t durationMs, int note1, int note2, int note3) {
+    if (eventCount >= kMaxEvents) return;
+    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}, Timbre::piano, volume};
 }
 
 void soundPlayTimbre(Timbre timbre, uint32_t delayMs, uint32_t durationMs, int note1, int note2, int note3) {
     if (eventCount >= kMaxEvents) return;
-    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}, timbre};
+    events[eventCount++] = {lgfx::millis() + delayMs, durationMs, {note1, note2, note3}, timbre, 1.0f};
 }
 
 void soundTick() {
@@ -194,6 +200,8 @@ void soundTick() {
             if (e.timbre == Timbre::bell) renderBell(slotBuf[slot], n, e.notes);
             else if (e.timbre == Timbre::buzz) renderBuzz(slotBuf[slot], n, e.notes);
             else render(slotBuf[slot], n, e.notes);
+            if (e.volume < 1.0f)
+                for (size_t k = 0; k < n; ++k) slotBuf[slot][k] = int16_t(slotBuf[slot][k] * e.volume);
             slotStarted[slot] = now;
             M5.Speaker.playRaw(slotBuf[slot], n, kRate, false, 1, slot + 1, true);
         } else {
