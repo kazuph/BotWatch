@@ -580,7 +580,7 @@ void releaseLocks() {
     for (int i = 0; i < kShots && n < kMissiles; ++i) {
         if (!shots[i].alive || !shots[i].locked) continue;
         auto& m = missiles[n];
-        m = {true, true, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
+        m = {true, true, i, 0, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
         ++n;
     }
     for (auto& m : missiles) if (m.alive) m.chain = n;
@@ -595,11 +595,11 @@ void stepShotMissile(Missile& m) {
     if (!sh.alive || !project(sh.x, sh.y, sh.z, sx, sy)) { m.alive = false; sh.locked = 0; return; }
     m.cx = m.x;
     m.cy = m.y;
-    const float t = min(1.0f, m.age / 9.0f);
-    const float side = (m.x < kCx ? -1 : 1) * 30.0f * (1 - t);
-    m.x += (sx - m.x) * (0.18f + 0.5f * t) + side * 0.3f;
-    m.y += (sy - m.y) * (0.18f + 0.5f * t) - 6 * (1 - t);
-    if (m.age >= 10 || (fabsf(m.x - sx) < 6 && fabsf(m.y - sy) < 6)) {
+    // A shot is already on its way in, so this missile is quicker than one sent at an enemy: it lands within 4 steps.
+    const float t = min(1.0f, m.age / 3.0f);
+    m.x += (sx - m.x) * (0.4f + 0.6f * t);
+    m.y += (sy - m.y) * (0.4f + 0.6f * t);
+    if (m.age >= 4 || (fabsf(m.x - sx) < 6 && fabsf(m.y - sy) < 6)) {
         m.alive = false;
         sh.locked = 0;
         sh.alive = false;
