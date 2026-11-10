@@ -490,9 +490,17 @@ bool underSight(float x, float y, float z, float r, float margin) {
     return dx * dx + dy * dy <= rr * rr;
 }
 
-void fire() {
-    laserFrames = 3;
-    soundPlayVolume(0.4f, 0, 50, 96);  // the shot plays often; low amplitude keeps it from being loud
+// A locked shot that disappears gives its lock back while B is still held, like an enemy does in kill().
+void dropShot(Shot& s) {
+    if (s.locked && lockCount > 0 && (pad_now & kB)) --lockCount;
+    s.locked = 0;
+    s.alive = false;
+}
+
+// rapid: a repeat while A is held, which keeps the beam lit and plays a quieter tick.
+void fire(bool rapid = false) {
+    laserFrames = rapid ? 4 : 3;
+    soundPlayVolume(rapid ? 0.2f : 0.4f, 0, 50, 96);  // the shot plays often; low amplitude keeps it from being loud
     // Nearest thing under the sight: enemy shot, enemy, pod or boss.
     int best = -1, bestShot = -1;
     float bestZ = 1e9f;
@@ -537,13 +545,6 @@ void fire() {
         if (podsLeft) { soundPlayVolume(0.4f, 0, 40, 100); burst(sx, sy, rgb(160, 170, 210), 3); }  // shielded: a dull "ting"
         else damageBoss(1, sx, sy);
     }
-}
-
-// A locked shot that disappears gives its lock back while B is still held, like an enemy does in kill().
-void dropShot(Shot& s) {
-    if (s.locked && lockCount > 0 && (pad_now & kB)) --lockCount;
-    s.locked = 0;
-    s.alive = false;
 }
 
 void updateLocks() {
@@ -857,7 +858,10 @@ void tick() {
         return;
     }
     if (paused) return;
-    if (pad_just & kA) fire();
+    // Holding A keeps the laser firing: one shot on the press, then one every 100 ms after a short hold.
+    static uint32_t aDownAt = 0, lastRapid = 0;
+    if (pad_just & kA) { fire(); aDownAt = lastRapid = now; }
+    else if ((pad_now & kA) && now - aDownAt >= 250 && now - lastRapid >= 100) { lastRapid = now; fire(true); }
     if (tap_just) {  // tapping aims and fires at once
         sightX = tap_x;
         sightY = tap_y;
