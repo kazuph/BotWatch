@@ -10,6 +10,7 @@
 namespace {
 const int kW = 320, kH = 240, kCx = kW / 2, kCy = kH / 2 + 4;
 const float kFocal = 220.0f, kNear = 22.0f, kFar = 460.0f;
+const int kHitRadius = 48;  // dots: an enemy shot hurts when it arrives this close to the middle of the screen
 const uint32_t kStepMs = 33;  // about 30 steps per second; drawing is about 25 fps
 const char* const kKey = "space3d";
 const int kStars = 64, kEnemies = 9, kBits = 64, kShots = 10, kMissiles = 6, kRings = 6, kPops = 3;
@@ -769,10 +770,12 @@ void step() {
         s.z += s.vz;
         if (s.z < kNear) {
             dropShot(s);
-            // A shot whose center has already left the screen flew past: it never hurts.
+            // It hurts only when its center reaches a 48-dot circle around the middle of the screen
+            // (the orb is drawn about 60 dots wide there, so it visibly covers the middle).
             int sx, sy;
-            const bool onScreen = project(s.x, s.y, kNear, sx, sy) && sx >= 0 && sx < kW && sy >= 0 && sy < kH;
-            if (onScreen && fabsf(s.x - camX) < 26 && fabsf(s.y - camY) < 22) hurt();
+            const bool project_ok = project(s.x, s.y, kNear, sx, sy);
+            const int dx = sx - (kCx + ox), dy = sy - (kCy + oy);
+            if (project_ok && dx * dx + dy * dy <= kHitRadius * kHitRadius) hurt();
             else soundPlayVolume(0.25f, 0, 80, 70, 74);  // a near miss whooshes past
         }
     }
