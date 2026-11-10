@@ -36,7 +36,7 @@ Pop pops[kPops];
 
 float sightX, sightY, camX, camY, roll, rollC = 1, rollS = 0, gridPhase, warp;
 int score, shields, laserFrames, hurtFrames, shake, wave, toSpawn, bannerFrames, combo, comboFrames;
-int lockCount, lockOrder[kMaxLocks], titleFrames;
+int lockCount, titleFrames;
 bool bossWave, bossAlive, paused;
 float bossX, bossY, bossZ, bossA, bossT;
 int bossHp, bossMaxHp, bossFireIn, bossHitFrames;
@@ -299,7 +299,7 @@ void drawHud() {
     text(d, b, 8, 2, pal::kText, F24, top_left);
     for (int i = 0; i < kMaxShields; ++i) {
         if (i >= max(shields, kStartShields)) break;
-        d.fillSmoothRoundRect(314 - (i + 1) * 22, 8, 18, 12, 4, i < shields ? pal::kCyan : rgb(38, 57, 90));
+        d.fillRoundRect(314 - (i + 1) * 22, 8, 18, 12, 4, i < shields ? pal::kCyan : rgb(38, 57, 90));
     }
     if (combo >= 2) {
         snprintf(b, sizeof(b), "x%d", 1 + min(combo / 4, 4));
@@ -313,7 +313,7 @@ void drawHud() {
     }
     // Radar on the dashboard: enemies as dots by x and depth.
     const int rx = kCx, ry = kH - 14;
-    d.fillSmoothRoundRect(rx - 34, ry - 18, 68, 30, 6, rgb(10, 24, 30));
+    d.fillRoundRect(rx - 34, ry - 18, 68, 30, 6, rgb(10, 24, 30));
     d.drawRoundRect(rx - 34, ry - 18, 68, 30, 6, rgb(40, 120, 120));
     for (const auto& e : enemies) {
         if (!e.alive) continue;
@@ -370,13 +370,15 @@ void render(bool showSight = true, bool push = true) {
         if (r.alive) d.drawCircle(int(r.x), int(r.y), int(r.r), r.color);
     for (const auto& b : bits)
         if (b.alive) d.fillRect(int(b.x), int(b.y), b.life > 8 ? 3 : 2, b.life > 8 ? 3 : 2, b.color);
-    // Lock marks.
+    // Lock marks, and a steady red ring on enemies about to reach the cockpit.
     for (const auto& e : enemies) {
-        if (!e.alive || !e.locked) continue;
+        if (!e.alive) continue;
         float x, y, z;
         int sx, sy;
         enemyScreen(e, x, y, z);
-        if (project(x, y, z, sx, sy)) drawLockMark(sx, sy, e.locked, z);
+        if (!project(x, y, z, sx, sy)) continue;
+        if (e.locked) drawLockMark(sx, sy, e.locked, z);
+        else if (e.kind != CAPSULE && e.kind != POD && z < 130) d.drawCircle(sx, sy, int(kSizes[e.kind] * kFocal / z) + 6, rgb(255, 70, 60));
     }
     // Missiles: bright heads with short trails on a curved path.
     for (const auto& m : missiles) {
@@ -641,7 +643,7 @@ void gameOver() {
 void step() {
     ++frames;
     warp = max(0.0f, warp - 0.025f);
-    const float speed = 3.0f + wave * 0.35f + warp * 14.0f;
+    const float speed = 2.6f + wave * 0.35f + warp * 14.0f;
     for (auto& s : stars) {
         s.z -= speed * 2.0f;
         if (s.z < 4) resetStar(s, false);
@@ -819,8 +821,14 @@ void tick() {
         return;
     }
     const int64_t t0 = esp_timer_get_time();
-    render();
-    if (frames % 90 == 0) printf("SPACE frame_us=%d wave=%d enemies_score=%d\n", int(esp_timer_get_time() - t0), wave, score);
+    render(true, false);
+    const int64_t t1 = esp_timer_get_time();
+    uiFrame.pushSprite(0, 0);
+    static uint32_t lastLog = 0;
+    if (now - lastLog > 3000) {
+        lastLog = now;
+        printf("SPACE draw_us=%d push_us=%d wave=%d score=%d\n", int(t1 - t0), int(esp_timer_get_time() - t1), wave, score);
+    }
 }
 
 void leave() { soundEnd(); }
