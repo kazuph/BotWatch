@@ -91,6 +91,10 @@ void soundPlayVolume(float volume, uint32_t delayMs, uint32_t durationMs, int no
 enum class Timbre { piano, bell, buzz };
 void soundPlayTimbre(Timbre timbre, uint32_t delayMs, uint32_t durationMs, int note1, int note2 = -1, int note3 = -1);
 void soundTick();
+// Quiz answer effects: a reverberant vibraphone "pin-poon" and a two-hit "bu-buu" buzzer,
+// rendered once by the first soundBegin(). They start at once and stop with soundStop().
+void soundCorrect();
+void soundWrong();
 
 // sanoTTS-jp: speaks hiragana. ttsSay blocks while a clip is synthesized the first time.
 bool ttsBegin();
@@ -114,6 +118,7 @@ extern const Game kAbsolutePitchQuiz;
 extern const Game kNoteQuiz;
 extern const Game kChordQuiz;
 extern const Game kKanaQuiz;
+extern const Game kMath;
 extern const Game kSpectrum;
 extern const Game kBlockDrop;
 extern const Game kSnake;
