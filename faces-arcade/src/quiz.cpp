@@ -315,15 +315,11 @@ void answerNow() {
         ++streak;
         submitScore(scoreKey, streak);
         state = RIGHT;
-        // "Pin-pon": a falling major third (E6 -> C6), heard as "OK" in UI-sound research, on an FM bell.
-        soundPlayTimbre(Timbre::bell, 0, 500, 88);
-        soundPlayTimbre(Timbre::bell, 160, 800, 84, 79);
+        soundCorrect();  // "pin-poon" chime shared by every quiz
     } else {
         streak = 0;
         state = WRONG;
-        // "Bu-buu": a rising minor second, heard as "error", on a rough two-note buzzer.
-        soundPlayTimbre(Timbre::buzz, 0, 170, 61, 62);
-        soundPlayTimbre(Timbre::buzz, 250, 380, 62, 63);
+        soundWrong();    // "bu-buu" buzzer shared by every quiz
         replayPending = true;       // then hear the right answer again
     }
     feedbackAt = lgfx::millis();
