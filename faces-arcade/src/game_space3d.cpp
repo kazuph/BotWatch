@@ -10,6 +10,7 @@
 namespace {
 const int kW = 320, kH = 240, kCx = kW / 2, kCy = kH / 2 + 4;
 const float kFocal = 220.0f, kNear = 22.0f, kFar = 460.0f;
+const int kHitRadius = 48;  // dots: an enemy shot hurts when it arrives this close to the middle of the screen
 const uint32_t kStepMs = 33;  // about 30 steps per second; drawing is about 25 fps
 const char* const kKey = "space3d";
 const int kStars = 64, kEnemies = 9, kBits = 64, kShots = 10, kMissiles = 6, kRings = 6, kPops = 3;
@@ -22,8 +23,8 @@ struct V3 { float x, y, z; };
 struct Star { float x, y, z; };
 struct Enemy { bool alive; Kind kind; int hp, locked, fireIn; float x, y, z, vx, vy, ax, ay, sa, sb; };
 struct Bit { bool alive; float x, y, vx, vy; int life; uint16_t color; };
-struct Shot { bool alive; float x, y, z, vx, vy, vz; };
-struct Missile { bool alive; int target, age, chain; float x, y, cx, cy; };
+struct Shot { bool alive; int locked; float x, y, z, vx, vy, vz; };
+struct Missile { bool alive; bool shot; int target, age, chain; float x, y, cx, cy; };  // shot: target is shots[target]
 struct Ring { bool alive; float x, y, r; int life; uint16_t color; };
 struct Pop { int life; float x, y; char text[12]; uint16_t color; };
 Star stars[kStars];
@@ -155,7 +156,7 @@ void resetRound() {
     for (auto& s : stars) resetStar(s, true);
     for (auto& e : enemies) e.alive = false;
     for (auto& b : bits) b.alive = false;
-    for (auto& s : shots) s.alive = false;
+    for (auto& s : shots) s.alive = false, s.locked = 0;
     for (auto& m : missiles) m.alive = false;
     for (auto& r : rings) r.alive = false;
     for (auto& p : pops) p.life = 0;
@@ -380,6 +381,10 @@ void render(bool showSight = true, bool push = true) {
         if (e.locked) drawLockMark(sx, sy, e.locked, z);
         else if (e.kind != CAPSULE && e.kind != POD && z < 130) d.drawCircle(sx, sy, int(kSizes[e.kind] * kFocal / z) + 6, rgb(255, 70, 60));
     }
+    for (const auto& sh : shots) {
+        int sx, sy;
+        if (sh.alive && sh.locked && project(sh.x, sh.y, sh.z, sx, sy)) drawLockMark(sx, sy, sh.locked, sh.z);
+    }
     // Missiles: bright heads with short trails on a curved path.
     for (const auto& m : missiles) {
         if (!m.alive) continue;
@@ -486,9 +491,16 @@ bool underSight(float x, float y, float z, float r, float margin) {
     return dx * dx + dy * dy <= rr * rr;
 }
 
-void fire() {
-    laserFrames = 3;
-    soundPlayVolume(0.4f, 0, 50, 96);  // the shot plays often; low amplitude keeps it from being loud
+// Removes an enemy shot (its intercept missile, if any, stops on the next step).
+void dropShot(Shot& s) {
+    s.locked = 0;
+    s.alive = false;
+}
+
+// rapid: a repeat while A is held, which keeps the beam lit and plays a quieter tick.
+void fire(bool rapid = false) {
+    laserFrames = rapid ? 4 : 3;
+    soundPlayVolume(rapid ? 0.2f : 0.4f, 0, 50, 96);  // the shot plays often; low amplitude keeps it from being loud
     // Nearest thing under the sight: enemy shot, enemy, pod or boss.
     int best = -1, bestShot = -1;
     float bestZ = 1e9f;
@@ -507,7 +519,7 @@ void fire() {
         int sx, sy;
         auto& s = shots[bestShot];
         project(s.x, s.y, s.z, sx, sy);
-        s.alive = false;
+        dropShot(s);
         burst(sx, sy, rgb(255, 140, 60), 8);
         score += 5;
         soundPlayVolume(0.5f, 0, 70, 79);
@@ -537,6 +549,21 @@ void fire() {
 
 void updateLocks() {
     if (!(pad_now & kB) || lockCount >= kMaxLocks) return;
+    // During the boss fight, sweeping B over its shots intercepts them: a missile leaves at once
+    // (waiting for the release would let the shot arrive first). These do not use up the enemy locks.
+    if (bossAlive)
+        for (int i = 0; i < kShots; ++i) {
+            auto& sh = shots[i];
+            if (!sh.alive || sh.locked || !underSight(sh.x, sh.y, sh.z, 8, 14)) continue;
+            Missile* m = nullptr;
+            for (auto& c : missiles) if (!c.alive) { m = &c; break; }
+            if (!m) break;
+            sh.locked = 1;
+            const float fromX = (i % 2) ? kW - 40 : 40;
+            *m = {true, true, i, 0, 1, fromX, float(kH - 20), fromX, float(kH - 20)};
+            soundPlayVolume(0.45f, 0, 70, 88);
+            printf("SPACE intercept shot=%d\n", i);
+        }
     for (auto& e : enemies) {
         if (!e.alive || e.locked || e.kind == CAPSULE) continue;
         float x, y, z;
@@ -550,17 +577,46 @@ void updateLocks() {
 
 void releaseLocks() {
     if (lockCount == 0) return;
-    int n = 0;
-    for (int i = 0; i < kEnemies && n < kMissiles; ++i) {
+    // Free missile slots only, so intercept missiles already in flight keep going.
+    Missile* launched[kMissiles];
+    int n = 0, slot = 0;
+    for (int i = 0; i < kEnemies; ++i) {
         if (!enemies[i].alive || !enemies[i].locked) continue;
-        auto& m = missiles[n];
-        m = {true, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
-        ++n;
+        while (slot < kMissiles && missiles[slot].alive) ++slot;
+        if (slot >= kMissiles) { enemies[i].locked = 0; continue; }
+        auto& m = missiles[slot];
+        m = {true, false, i, n * -2, 1, float(n % 2 ? kW - 40 : 40), float(kH - 20), float(n % 2 ? kW - 40 : 40), float(kH - 20)};
+        launched[n++] = &m;
     }
-    for (auto& m : missiles) if (m.alive) m.chain = n;
+    for (int i = 0; i < n; ++i) launched[i]->chain = n;
     printf("SPACE missiles=%d\n", n);
     for (int i = 0; i < min(n, 3); ++i) soundPlayVolume(0.5f, i * 70, 90, 84 + i * 3);
     lockCount = 0;
+}
+
+void stepShotMissile(Missile& m) {
+    auto& sh = shots[m.target];
+    int sx, sy;
+    if (!sh.alive || !project(sh.x, sh.y, sh.z, sx, sy)) { m.alive = false; sh.locked = 0; return; }
+    m.cx = m.x;
+    m.cy = m.y;
+    // A shot is already on its way in, so this missile is quicker than one sent at an enemy: it lands within 4 steps.
+    const float t = min(1.0f, m.age / 3.0f);
+    m.x += (sx - m.x) * (0.4f + 0.6f * t);
+    m.y += (sy - m.y) * (0.4f + 0.6f * t);
+    if (m.age >= 4 || (fabsf(m.x - sx) < 6 && fabsf(m.y - sy) < 6)) {
+        m.alive = false;
+        sh.locked = 0;
+        sh.alive = false;
+        burst(sx, sy, rgb(255, 140, 60), 8);
+        const int pts = 5 * (m.chain > 1 ? 1 << min(m.chain - 1, 5) : 1);
+        score += pts;
+        char b[12];
+        snprintf(b, sizeof(b), "%d", pts);
+        pop(sx, sy - 10, b, rgb(255, 160, 90));
+        soundPlayVolume(0.5f, 0, 70, 79);
+        printf("SPACE shot down by missile score=%d\n", score);
+    }
 }
 
 void stepMissiles() {
@@ -569,6 +625,7 @@ void stepMissiles() {
         if (!m.alive) continue;
         ++m.age;
         if (m.age < 0) continue;
+        if (m.shot) { stepShotMissile(m); continue; }
         auto& e = enemies[m.target];
         if (!e.alive) { m.alive = false; continue; }
         float x, y, z;
@@ -606,6 +663,7 @@ void enemyFire(float x, float y, float z, float spread) {
     for (auto& s : shots) {
         if (s.alive) continue;
         s.alive = true;
+        s.locked = 0;
         s.x = x; s.y = y; s.z = z;
         // Aim at where the ship is now; moving away dodges it.
         const float steps = (z - kNear) / 7.0f;
@@ -650,7 +708,7 @@ void step() {
     }
     gridPhase += speed * 1.5f;
     if (gridPhase >= 50) gridPhase -= 50;
-    const float move = 5.5f;
+    const float move = 5.5f * 1.15f;  // 1.15x after play testing
     if (pad_now & kLeft) sightX -= move;
     if (pad_now & kRight) sightX += move;
     if (pad_now & kUp) sightY -= move;
@@ -711,8 +769,13 @@ void step() {
         s.y += s.vy;
         s.z += s.vz;
         if (s.z < kNear) {
-            s.alive = false;
-            if (fabsf(s.x - camX) < 26 && fabsf(s.y - camY) < 22) hurt();
+            dropShot(s);
+            // It hurts only when its center reaches a 48-dot circle around the middle of the screen
+            // (the orb is drawn about 60 dots wide there, so it visibly covers the middle).
+            int sx, sy;
+            const bool project_ok = project(s.x, s.y, kNear, sx, sy);
+            const int dx = sx - (kCx + ox), dy = sy - (kCy + oy);
+            if (project_ok && dx * dx + dy * dy <= kHitRadius * kHitRadius) hurt();
             else soundPlayVolume(0.25f, 0, 80, 70, 74);  // a near miss whooshes past
         }
     }
@@ -802,7 +865,10 @@ void tick() {
         return;
     }
     if (paused) return;
-    if (pad_just & kA) fire();
+    // Holding A keeps the laser firing: one shot on the press, then one every 100 ms after a short hold.
+    static uint32_t aDownAt = 0, lastRapid = 0;
+    if (pad_just & kA) { fire(); aDownAt = lastRapid = now; }
+    else if ((pad_now & kA) && now - aDownAt >= 250 && now - lastRapid >= 100) { lastRapid = now; fire(true); }
     if (tap_just) {  // tapping aims and fires at once
         sightX = tap_x;
         sightY = tap_y;
